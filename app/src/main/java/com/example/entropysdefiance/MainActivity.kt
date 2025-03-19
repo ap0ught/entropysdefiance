@@ -1,6 +1,5 @@
 package com.example.entropysdefiance
 
-
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -28,8 +27,11 @@ import com.example.entropysdefiance.ui.components.TaskList
 import com.example.entropysdefiance.ui.components.AddTaskScreen
 import com.example.entropysdefiance.ui.components.AppDrawer
 import com.example.entropysdefiance.ui.components.CalendarAgendaWidget
+import com.example.entropysdefiance.ui.components.CalendarSelectionDialog
+import com.example.entropysdefiance.ui.components.SettingsDialog
 import com.example.entropysdefiance.viewmodel.TaskViewModel
 import com.example.entropysdefiance.viewmodel.LauncherViewModel
+import com.example.entropysdefiance.viewmodel.SettingsViewModel
 import com.example.entropysdefiance.data.CalendarEventProvider
 import com.example.entropysdefiance.model.CalendarEvent
 import androidx.compose.ui.input.pointer.pointerInteropFilter
@@ -52,6 +54,10 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.background
+import android.util.Log
+import com.example.entropysdefiance.viewmodel.CalendarViewModel
+import androidx.compose.runtime.collectAsState
+import kotlinx.coroutines.flow.collect
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalComposeUiApi::class)
 class MainActivity : ComponentActivity() {
@@ -67,13 +73,27 @@ class MainActivity : ComponentActivity() {
             isAppearanceLightNavigationBars = false
         }
         
+        val viewModelFactory = ViewModelProvider.AndroidViewModelFactory.getInstance(application)
+        
         setContent {
             EntropysDefianceTheme {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
-                    color = Color.Transparent
+                    color = MaterialTheme.colorScheme.background
                 ) {
-                    TaskApp()
+                    // Create all required ViewModels
+                    val taskViewModel: TaskViewModel = viewModel(factory = viewModelFactory)
+                    val launcherViewModel: LauncherViewModel = viewModel(factory = viewModelFactory)
+                    val calendarViewModel: CalendarViewModel = viewModel(factory = viewModelFactory)
+                    val settingsViewModel: SettingsViewModel = viewModel(factory = viewModelFactory)
+                    
+                    // Use the TaskApp composable with Calendar integration
+                    TaskApp(
+                        taskViewModel = taskViewModel,
+                        launcherViewModel = launcherViewModel,
+                        calendarViewModel = calendarViewModel,
+                        settingsViewModel = settingsViewModel
+                    )
                 }
             }
         }
@@ -83,29 +103,46 @@ class MainActivity : ComponentActivity() {
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalComposeUiApi::class)
 @Composable
 fun TaskApp(
-    viewModel: TaskViewModel = viewModel(
-        factory = ViewModelProvider.AndroidViewModelFactory.getInstance(
-            LocalContext.current.applicationContext as Application
-        )
-    ),
-    launcherViewModel: LauncherViewModel = viewModel(
-        factory = ViewModelProvider.AndroidViewModelFactory.getInstance(
-            LocalContext.current.applicationContext as Application
-        )
-    )
+    taskViewModel: TaskViewModel,
+    launcherViewModel: LauncherViewModel,
+    calendarViewModel: CalendarViewModel,
+    settingsViewModel: SettingsViewModel
 ) {
     var showAddScreen by remember { mutableStateOf(false) }
-    val tasks by viewModel.tasks.collectAsStateWithLifecycle(initialValue = emptyList())
+    val tasks by taskViewModel.tasks.collectAsStateWithLifecycle(initialValue = emptyList())
     val apps by launcherViewModel.apps.collectAsStateWithLifecycle(initialValue = emptyList())
     var isPeeking by remember { mutableStateOf(false) }
     var showAppDrawer by remember { mutableStateOf(false) }
     var dragStart by remember { mutableStateOf(Offset.Zero) }
     
-    val bottomSheetState = rememberModalBottomSheetState(
-        skipPartiallyExpanded = true
-    )
+    // Get calendar events from the ViewModel
+    val calendarEvents by calendarViewModel.events.collectAsState()
+    val isCalendarLoading by calendarViewModel.isLoading.collectAsState()
+    
+    // Use a simpler approach for hasCalendarPermission
+    var hasCalendarPermission by remember { mutableStateOf(false) }
+    
+    // Initialize calendar events when the app starts
+    LaunchedEffect(Unit) {
+        calendarViewModel.initialize()
+        // Just use a default value for now, and update it later if needed
+        hasCalendarPermission = true
+    }
+    
+    // Calendar selection related state
+    val availableCalendars by calendarViewModel.availableCalendars.collectAsState()
+    
+    // Settings related state
+    val appSettings by settingsViewModel.settings.collectAsState()
+    val showSettingsDialog by settingsViewModel.showSettingsDialog.collectAsState()
+    val showCalendarSelection by settingsViewModel.showCalendarSelection.collectAsState()
+    
+    // Define a proper coroutine scope
     val coroutineScope = rememberCoroutineScope()
     
+    // Define our bottom sheet state for the app drawer
+    val bottomSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
     val currentTimeHorizon = remember(tasks) {
         TimeHorizon.entries.firstOrNull { horizon ->
             tasks.any { it.timeHorizon == horizon }
@@ -122,9 +159,6 @@ fun TaskApp(
 
     val configuration = LocalConfiguration.current
     val screenHeight = configuration.screenHeightDp.dp.value
-
-    // Get calendar events from provider
-    val calendarEvents = remember { CalendarEventProvider.getUpcomingEvents() }
     val context = LocalContext.current
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -138,7 +172,7 @@ fun TaskApp(
             // Show the AddTaskScreen on top of the overlay
             AddTaskScreen(
                 onAddTask = { title, timeHorizon ->
-                    viewModel.addTask(title, timeHorizon)
+                    taskViewModel.addTask(title, timeHorizon)
                     showAddScreen = false
                 },
                 onDismiss = { showAddScreen = false }
@@ -147,7 +181,7 @@ fun TaskApp(
             // Use ModalBottomSheet with proper configuration for full-screen display
             ModalBottomSheet(
                 onDismissRequest = { showAppDrawer = false },
-                sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), // Force full expansion
+                sheetState = bottomSheetState,
                 dragHandle = { /* No visible drag handle */ },
                 containerColor = MaterialTheme.colorScheme.background,
                 modifier = Modifier.fillMaxSize(),
@@ -159,6 +193,13 @@ fun TaskApp(
                     onAppClick = { app ->
                         launcherViewModel.launchApp(app.packageName, app.launchIntent)
                         showAppDrawer = false
+                    },
+                    onNotificationPullDown = {
+                        // Handle notification pull down
+                        coroutineScope.launch {
+                            showAppDrawer = false
+                            // Add additional actions for notification panel if needed
+                        }
                     }
                 )
             }
@@ -240,12 +281,18 @@ fun TaskApp(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(padding)
-                        // Add double tap gesture detection to the main screen
+                        // Add gesture detection to the main screen
                         .pointerInput(Unit) {
                             detectTapGestures(
                                 onDoubleTap = {
-                                    // Launch dialer app on double tap
-                                    launcherViewModel.launchDialerApp()
+                                    // Launch dialer app on double tap if enabled
+                                    if (appSettings.enableDoubleTapForDialer) {
+                                        launcherViewModel.launchDialerApp()
+                                    }
+                                },
+                                onLongPress = {
+                                    // Show settings on long press
+                                    settingsViewModel.showSettingsDialog()
                                 }
                             )
                         }
@@ -254,37 +301,108 @@ fun TaskApp(
                     Column(
                         modifier = Modifier.fillMaxSize()
                     ) {
-                        // TaskList (first part of the screen)
-                        TaskList(
-                            modifier = Modifier.weight(1f),
-                            timeHorizon = displayedTimeHorizon,
-                            tasks = tasks,
-                            onDeleteTask = viewModel::deleteTask,
-                            onMoveTask = viewModel::moveTask
-                        )
+                        // Calculate the filtered tasks for the current time horizon
+                        val currentTasks = remember(tasks, displayedTimeHorizon) {
+                            tasks.filter { it.timeHorizon == displayedTimeHorizon }
+                        }
                         
-                        // Calendar Agenda Widget (added between tasks and app drawer)
-                        CalendarAgendaWidget(
-                            events = calendarEvents,
-                            onEventClick = { event ->
-                                // Handle calendar event click - in a real app, you would open the event
-                                Toast.makeText(
-                                    context, 
-                                    "Opening event: ${event.title}", 
-                                    Toast.LENGTH_SHORT
-                                ).show()
-                                // Optionally launch the calendar app
-                                launcherViewModel.launchCalendarApp("org.fossify.calendar")
-                            },
-                            modifier = Modifier.padding(bottom = 24.dp)
-                        )
+                        // Get screen height for calculations
+                        val screenHeight = LocalConfiguration.current.screenHeightDp.dp
+                        
+                        // Calculate the task list height based on number of tasks
+                        // Give each task ~76dp (card + padding) and limit to 2/3 of screen height
+                        val taskCount = currentTasks.size
+                        val estimatedTaskHeight = 76.dp * taskCount + 48.dp // Add padding
+                        val maxTaskListHeight = screenHeight * 0.67f // 2/3 of screen
+                        val taskListHeight = estimatedTaskHeight.coerceAtMost(maxTaskListHeight)
+                                    
+                        // TaskList with dynamic height based on content
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(taskListHeight)
+                        ) {
+                            TaskList(
+                                modifier = Modifier.fillMaxSize(),
+                                timeHorizon = displayedTimeHorizon,
+                                tasks = tasks,
+                                onDeleteTask = taskViewModel::deleteTask,
+                                onMoveTask = taskViewModel::moveTask
+                            )
+                        }
+                        
+                        // Calendar section - only show if enabled in settings
+                        if (appSettings.showCalendarWidget) {
+                            // The calendar section takes remaining space with its own scrolling
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .weight(1f) // Take remaining space
+                            ) {
+                                // Calendar widget with scrolling
+                                if (hasCalendarPermission) {
+                                    if (isCalendarLoading) {
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .fillMaxHeight(),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            CircularProgressIndicator()
+                                        }
+                                    } else {
+                                        CalendarAgendaWidget(
+                                            events = calendarEvents,
+                                            onEventClick = { event ->
+                                                // Handle calendar event click
+                                                Toast.makeText(
+                                                    context, 
+                                                    "Opening event: ${event.title}", 
+                                                    Toast.LENGTH_SHORT
+                                                ).show()
+                                                
+                                                // Log event details
+                                                Log.d("CalendarEvent", "Clicked on: ${event.title}")
+                                                
+                                                // Optionally launch the calendar app
+                                                launcherViewModel.launchCalendarApp("org.fossify.calendar")
+                                            },
+                                            modifier = Modifier
+                                                .fillMaxSize()
+                                                .padding(bottom = 24.dp)
+                                        )
+                                    }
+                                } else {
+                                    // If no permission, use the mock data provider
+                                    val mockEvents = remember { 
+                                        CalendarEventProvider.getUpcomingEvents() 
+                                    }
+                                    
+                                    CalendarAgendaWidget(
+                                        events = mockEvents,
+                                        onEventClick = { event ->
+                                            // Handle calendar event click
+                                            Toast.makeText(
+                                                context, 
+                                                "Opening event: ${event.title}", 
+                                                Toast.LENGTH_SHORT
+                                            ).show()
+                                            
+                                            // Request calendar permission
+                                            calendarViewModel.initialize()
+                                        },
+                                        modifier = Modifier.padding(bottom = 24.dp)
+                                    )
+                                }
+                            }
+                        }
                     }
                     
-                    // App drawer overlay
+                    // App drawer overlay - move to bottom area of the screen and improve gesture detection
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .fillMaxHeight(0.5f)
+                            .height(60.dp) // Fixed height instead of percentage
                             .align(Alignment.BottomCenter)
                             .pointerInput(Unit) {
                                 detectVerticalDragGestures(
@@ -292,7 +410,8 @@ fun TaskApp(
                                     onDragEnd = {},
                                     onDragCancel = {},
                                     onVerticalDrag = { change, dragAmount ->
-                                        if (dragAmount < -20f) {
+                                        // Only trigger for more intentional upward swipes (more negative value)
+                                        if (dragAmount < -40f) {
                                             showAppDrawer = true
                                             change.consume()
                                         }
@@ -302,6 +421,52 @@ fun TaskApp(
                     )
                 }
             }
+        }
+        
+        // Settings dialog
+        if (showSettingsDialog) {
+            SettingsDialog(
+                appSettings = appSettings,
+                onDismiss = { settingsViewModel.hideSettingsDialog() },
+                onToggleCalendarWidget = { settingsViewModel.toggleCalendarWidget() },
+                onCalendarDaysChange = { days -> 
+                    settingsViewModel.updateCalendarDaysToShow(days)
+                    // Reload calendar events with new days setting
+                    calendarViewModel.loadEvents(days)
+                },
+                onToggleDarkTheme = { settingsViewModel.toggleDarkTheme() },
+                onToggleDoubleTapDialer = { settingsViewModel.toggleDoubleTapForDialer() },
+                onCalendarSelectionClick = { settingsViewModel.showCalendarSelection() }
+            )
+        }
+        
+        // Calendar selection dialog - now shown from within settings
+        if (showCalendarSelection) {
+            CalendarSelectionDialog(
+                availableCalendars = availableCalendars,
+                onCalendarToggle = { calendarId ->
+                    calendarViewModel.toggleCalendarSelection(calendarId)
+                },
+                onDismiss = {
+                    settingsViewModel.hideCalendarSelection()
+                },
+                onSelectAll = {
+                    // Implementation needed in CalendarViewModel to select all calendars
+                    availableCalendars.forEach { calendar ->
+                        if (!calendar.selected) {
+                            calendarViewModel.toggleCalendarSelection(calendar.id)
+                        }
+                    }
+                },
+                onSelectNone = {
+                    // Implementation needed in CalendarViewModel to deselect all calendars
+                    availableCalendars.forEach { calendar ->
+                        if (calendar.selected) {
+                            calendarViewModel.toggleCalendarSelection(calendar.id)
+                        }
+                    }
+                }
+            )
         }
     }
 }

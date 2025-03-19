@@ -1,6 +1,7 @@
 package com.example.entropysdefiance.ui.components
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -28,38 +29,36 @@ fun CalendarAgendaWidget(
     events: List<CalendarEvent>,
     onEventClick: (CalendarEvent) -> Unit,
     modifier: Modifier = Modifier,
-    maxEvents: Int = 5
+    maxEvents: Int = Int.MAX_VALUE // Allow all events with scrolling
 ) {
     val currentDate = remember { LocalDate.now() }
     val currentDateTime = remember { LocalDateTime.now() }
     val filteredEvents = remember(events, currentDateTime) {
+        // Group events by day, then sort all-day events to the end of each day's group
         events
-            .sortedBy { it.startTime }
-            .take(maxEvents)
+            .groupBy { it.startTime.toLocalDate() }
+            .flatMap { (_, dayEvents) ->
+                dayEvents.sortedWith(compareBy<CalendarEvent> { it.isAllDay }.thenBy { it.startTime })
+            }
+            // No longer limiting events as scrolling is enabled
     }
 
-    Surface(
+    // Use scrollable surface for events - removing outer border to match task list styling
+    LazyColumn(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 24.dp),
-        shape = MaterialTheme.shapes.medium,
-        color = MaterialTheme.colorScheme.background,
-        border = BorderStroke(
-            width = 1.dp,
-            color = MaterialTheme.colorScheme.outline
-        )
+            .fillMaxHeight() // Take all remaining height
+            .padding(bottom = 80.dp), // Add bottom padding to avoid conflict with app drawer gesture area
+        contentPadding = PaddingValues(horizontal = 24.dp, vertical = 8.dp), // Match task list padding
+        verticalArrangement = Arrangement.spacedBy(12.dp) // Match task list spacing
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp)
-        ) {
-            if (filteredEvents.isEmpty()) {
+        if (filteredEvents.isEmpty()) {
+            item {
                 // No upcoming events
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(vertical = 24.dp),
+                        .padding(vertical = 16.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
@@ -68,21 +67,15 @@ fun CalendarAgendaWidget(
                         color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
                     )
                 }
-            } else {
-                // Event List
-                LazyColumn(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    items(filteredEvents) { event ->
-                        CalendarEventItem(
-                            event = event,
-                            currentDate = currentDate,
-                            currentDateTime = currentDateTime,
-                            onClick = { onEventClick(event) }
-                        )
-                    }
-                }
+            }
+        } else {
+            items(filteredEvents) { event ->
+                CalendarEventItem(
+                    event = event,
+                    currentDate = currentDate,
+                    currentDateTime = currentDateTime,
+                    onClick = { onEventClick(event) }
+                )
             }
         }
     }
@@ -148,127 +141,90 @@ private fun CalendarEventItem(
     
     // Calculate event color or use a default
     val eventColor = event.color?.let { Color(it) } ?: MaterialTheme.colorScheme.primary
-    val accentColor = MaterialTheme.colorScheme.primary
     
-    // For ongoing events, use a more prominent color
+    // For ongoing events, use a more prominent color, but keep event color for normal cases
     val statusColor = when {
         isEventOngoing -> MaterialTheme.colorScheme.tertiary
         minutesUntilStart in 1..360 -> MaterialTheme.colorScheme.secondary
         else -> eventColor
     }
     
-    Card(
+    Surface(
         modifier = modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface,
-        ),
+            .fillMaxWidth(),
+        color = MaterialTheme.colorScheme.background,
         border = BorderStroke(
             width = 1.dp,
-            color = if (isEventOngoing) statusColor.copy(alpha = 0.7f) else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+            color = MaterialTheme.colorScheme.outline
         ),
-        onClick = onClick
+        shape = MaterialTheme.shapes.small
     ) {
-        Column(
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(12.dp)
+                .padding(horizontal = 16.dp, vertical = 12.dp)
+                .clickable { onClick() },
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            // Date and time
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+            // Event title and details (left side)
+            Column(
+                modifier = Modifier.weight(1f)
             ) {
-                // Left side: Date indicator
-                Surface(
-                    shape = MaterialTheme.shapes.small,
-                    color = statusColor.copy(alpha = 0.15f),
-                    modifier = Modifier.padding(end = 8.dp)
-                ) {
-                    Text(
-                        text = dateText,
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
-                        color = statusColor
-                    )
-                }
+                // Event title - using same style as task title
+                Text(
+                    text = event.title,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onBackground,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
                 
-                // Right side: Time info
+                // Date and time indicators
                 Row(
+                    modifier = Modifier.padding(top = 4.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = "⏰",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = statusColor,
-                        modifier = Modifier.padding(end = 4.dp)
-                    )
+                    // Date indicator with event color
+                    Surface(
+                        shape = MaterialTheme.shapes.small,
+                        color = eventColor.copy(alpha = 0.15f),
+                        modifier = Modifier.padding(end = 8.dp)
+                    ) {
+                        Text(
+                            text = dateText,
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                            color = eventColor
+                        )
+                    }
+                    
+                    // Time info
                     Text(
                         text = timeText,
                         style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurface
+                        color = MaterialTheme.colorScheme.onBackground
                     )
-                }
-            }
-            
-            Spacer(modifier = Modifier.height(8.dp))
-            
-            // Event title
-            Text(
-                text = event.title,
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            
-            // Event location if available
-            event.location?.let { location ->
-                Spacer(modifier = Modifier.height(4.dp))
-                Row(
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "📍",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = accentColor,
-                        modifier = Modifier.padding(end = 4.dp)
-                    )
-                    Text(
-                        text = location,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-            }
-            
-            // Event duration indicator with progress for ongoing events
-            val durationMinutes = ChronoUnit.MINUTES.between(event.startTime, event.endTime)
-            if (!event.isAllDay && durationMinutes > 0) {
-                Spacer(modifier = Modifier.height(8.dp))
-                
-                // Calculate progress for ongoing events
-                val progressFraction = if (isEventOngoing && durationMinutes > 0) {
-                    val elapsedMinutes = ChronoUnit.MINUTES.between(event.startTime, currentDateTime)
-                    (elapsedMinutes.toFloat() / durationMinutes).coerceIn(0f, 1f)
-                } else {
-                    0f // Default for future events
                 }
                 
-                LinearProgressIndicator(
-                    progress = { progressFraction },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(4.dp),
-                    color = statusColor,
-                    trackColor = statusColor.copy(alpha = 0.2f)
-                )
+                // Event location if available - only show if location exists
+                event.location?.let { location ->
+                    if (location.isNotBlank()) {
+                        Row(
+                            modifier = Modifier.padding(top = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = location,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+                }
             }
         }
     }

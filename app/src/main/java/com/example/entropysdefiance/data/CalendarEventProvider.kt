@@ -1,97 +1,167 @@
 package com.example.entropysdefiance.data
 
 import com.example.entropysdefiance.model.CalendarEvent
+import com.example.entropysdefiance.model.DeviceCalendar
 import java.time.LocalDateTime
-import java.time.temporal.ChronoUnit
-import java.util.UUID
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 
 /**
- * Provides sample calendar events data
- * In a real app, this would fetch events from the Calendar Provider ContentResolver
+ * Provides mock calendar events for testing or when permissions aren't granted.
+ * This is a fallback for the real CalendarRepository that fetches events from the device calendar.
  */
 object CalendarEventProvider {
-
     /**
-     * Get a list of upcoming calendar events
-     * @return List of calendar events ordered by start time
+     * Get a list of mock calendars
+     */
+    fun getMockCalendars(): List<DeviceCalendar> {
+        return listOf(
+            DeviceCalendar(
+                id = 1L,
+                name = "Personal",
+                color = Color(0xFF2196F3).toArgb(), // Blue
+                account = "personal@example.com",
+                owner = "personal@example.com",
+                visible = true,
+                selected = true
+            ),
+            DeviceCalendar(
+                id = 2L,
+                name = "Work",
+                color = Color(0xFFF44336).toArgb(), // Red
+                account = "work@example.com",
+                owner = "work@example.com",
+                visible = true,
+                selected = true
+            ),
+            DeviceCalendar(
+                id = 3L,
+                name = "Family",
+                color = Color(0xFF4CAF50).toArgb(), // Green
+                account = "family@example.com",
+                owner = "family@example.com",
+                visible = true,
+                selected = true
+            ),
+            DeviceCalendar(
+                id = 4L,
+                name = "Birthdays",
+                color = Color(0xFFFF9800).toArgb(), // Orange
+                account = "personal@example.com",
+                owner = "personal@example.com",
+                visible = true,
+                selected = false
+            )
+        )
+    }
+    
+    /**
+     * Get a list of mock upcoming events
      */
     fun getUpcomingEvents(): List<CalendarEvent> {
-        // Return sample events
-        return generateSampleEvents()
-    }
-
-    /**
-     * Generate sample calendar events for demo purposes
-     */
-    private fun generateSampleEvents(): List<CalendarEvent> {
-        val now = LocalDateTime.now().truncatedTo(ChronoUnit.HOURS)
+        val now = LocalDateTime.now()
         
         return listOf(
+            // Event 1: Today, in an hour (Personal calendar)
             CalendarEvent(
-                id = UUID.randomUUID().toString(),
-                title = "Team Stand-up Meeting",
-                startTime = now.plusHours(2),
-                endTime = now.plusHours(3),
-                location = "Virtual - Zoom",
-                description = "Daily team sync-up",
+                id = 1L,
+                title = "Team Meeting",
+                location = "Conference Room 3",
+                startTime = now.plusHours(1),
+                endTime = now.plusHours(2),
                 isAllDay = false,
-                color = 0xFF1E88E5.toInt(),
-                calendarId = "work@example.com"
+                color = Color(0xFF2196F3).toArgb(), // Blue
+                calendarId = 1L
             ),
+            
+            // Event 2: Tomorrow morning (Work calendar)
             CalendarEvent(
-                id = UUID.randomUUID().toString(),
+                id = 2L,
                 title = "Dentist Appointment",
-                startTime = now.plusDays(1).withHour(14).withMinute(30),
-                endTime = now.plusDays(1).withHour(15).withMinute(30),
-                location = "Smile Dental Clinic",
-                description = "Regular checkup",
+                location = "Bright Smile Dental",
+                startTime = now.plusDays(1).withHour(9).withMinute(0),
+                endTime = now.plusDays(1).withHour(10).withMinute(0),
                 isAllDay = false,
-                color = 0xFFE53935.toInt(),
-                calendarId = "personal@example.com"
+                color = Color(0xFFF44336).toArgb(), // Red
+                calendarId = 2L
             ),
+            
+            // Event 3: This weekend (Family calendar)
             CalendarEvent(
-                id = UUID.randomUUID().toString(),
-                title = "Gym Session",
-                startTime = now.plusDays(2).withHour(7),
-                endTime = now.plusDays(2).withHour(8),
-                location = "Fitness Center",
-                description = "Cardio and weights",
+                id = 3L,
+                title = "Weekend Hike",
+                location = "Mountain Trail Park",
+                startTime = now.plusDays(3).withHour(8).withMinute(0),
+                endTime = now.plusDays(3).withHour(12).withMinute(0),
                 isAllDay = false,
-                color = 0xFF43A047.toInt(),
-                calendarId = "personal@example.com"
+                color = Color(0xFF4CAF50).toArgb(), // Green
+                calendarId = 3L
             ),
+            
+            // Event 4: Next week, all day (Work calendar)
             CalendarEvent(
-                id = UUID.randomUUID().toString(),
-                title = "Project Deadline",
-                startTime = now.plusDays(3).withHour(18),
-                endTime = now.plusDays(3).withHour(18),
-                description = "Submit final deliverables",
+                id = 4L,
+                title = "Company Holiday",
+                location = null,
+                startTime = now.plusDays(7).withHour(0).withMinute(0),
+                endTime = now.plusDays(7).withHour(23).withMinute(59),
                 isAllDay = true,
-                color = 0xFFEF6C00.toInt(),
-                calendarId = "work@example.com"
+                color = Color(0xFFF44336).toArgb(), // Red
+                calendarId = 2L
             ),
+            
+            // Event 5: Later today, almost starting (Personal calendar)
             CalendarEvent(
-                id = UUID.randomUUID().toString(),
-                title = "Dinner with Friends",
-                startTime = now.plusDays(5).withHour(19),
-                endTime = now.plusDays(5).withHour(21).withMinute(30),
-                location = "La Trattoria Restaurant",
-                description = "Catch-up dinner with college friends",
+                id = 5L,
+                title = "Coffee with Alex",
+                location = "Starbucks Downtown",
+                startTime = now.plusMinutes(15),
+                endTime = now.plusMinutes(45),
                 isAllDay = false,
-                color = 0xFF8E24AA.toInt(),
-                calendarId = "personal@example.com"
+                color = Color(0xFF2196F3).toArgb(), // Blue
+                calendarId = 1L
             ),
+            
+            // Event 6: Ongoing event (Work calendar)
             CalendarEvent(
-                id = UUID.randomUUID().toString(),
-                title = "Flight to Boston",
-                startTime = now.plusDays(10).withHour(10).withMinute(15),
-                endTime = now.plusDays(10).withHour(12).withMinute(30),
-                location = "Airport - Terminal B",
-                description = "Flight AC123",
+                id = 6L,
+                title = "Project Sprint",
+                location = "Home Office",
+                startTime = now.minusHours(1),
+                endTime = now.plusHours(3),
                 isAllDay = false,
-                color = 0xFF546E7A.toInt(),
-                calendarId = "travel@example.com"
+                color = Color(0xFFF44336).toArgb(), // Red
+                calendarId = 2L
+            ),
+            
+            // Event 7: Birthday (Birthday calendar)
+            CalendarEvent(
+                id = 7L,
+                title = "Sarah's Birthday",
+                location = null,
+                startTime = now.plusDays(5).withHour(0).withMinute(0),
+                endTime = now.plusDays(5).withHour(23).withMinute(59),
+                isAllDay = true,
+                color = Color(0xFFFF9800).toArgb(), // Orange
+                calendarId = 4L
             )
-        ).sortedBy { it.startTime }
+        )
+    }
+    
+    /**
+     * Get filtered events based on selected calendar IDs
+     */
+    fun getFilteredEvents(selectedCalendarIds: List<Long>): List<CalendarEvent> {
+        val allEvents = getUpcomingEvents()
+        
+        // If no selection or empty selection, return all events
+        if (selectedCalendarIds.isEmpty()) {
+            return allEvents
+        }
+        
+        // Filter events by selected calendar IDs
+        return allEvents.filter { event ->
+            event.calendarId in selectedCalendarIds
+        }
     }
 } 

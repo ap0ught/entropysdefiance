@@ -3,16 +3,16 @@ package com.example.entropysdefiance.model
 import java.time.LocalDateTime
 
 /**
- * Data class representing a calendar event
+ * Model class representing a calendar event
  */
 data class CalendarEvent(
-    val id: String,
+    val id: Long,
     val title: String,
+    val location: String? = null,
     val startTime: LocalDateTime,
     val endTime: LocalDateTime,
-    val location: String? = null,
-    val description: String? = null,
     val isAllDay: Boolean = false,
     val color: Int? = null,
-    val calendarId: String
+    val eventId: Long? = null,
+    val calendarId: Long? = null
 ) 
