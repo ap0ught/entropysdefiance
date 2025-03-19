@@ -90,15 +90,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
             }
             context.startActivity(calendarIntent)
         } catch (e: Exception) {
-            // Last resort: try to find any calendar app
-            val anyCalendarApp = apps.value.firstOrNull { 
-                it.packageName.contains("calendar", ignoreCase = true) || 
-                it.appName.contains("calendar", ignoreCase = true) 
-            }
-            
-            if (anyCalendarApp != null) {
-                launchApp(anyCalendarApp.packageName, anyCalendarApp.launchIntent)
-            }
+            // Log or handle the exception
         }
     }
 
@@ -138,6 +130,35 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         } catch (e: Exception) {
             println("Failed to launch phone app: ${e.message}")
             // We've tried our best, nothing more we can do
+        }
+    }
+
+    // New method to launch the dialer app
+    fun launchDialerApp() {
+        val context = getApplication<Application>()
+        
+        // First try to find the dialer app by name or package
+        val dialerApp = apps.value.firstOrNull { app -> 
+            app.appName.equals("Phone", ignoreCase = true) || 
+            app.appName.equals("Dialer", ignoreCase = true) ||
+            app.packageName.contains("dialer", ignoreCase = true) ||
+            app.packageName.contains("phone", ignoreCase = true)
+        }
+        
+        if (dialerApp != null) {
+            // Launch the dialer app if found
+            launchApp(dialerApp.packageName, dialerApp.launchIntent)
+            return
+        }
+        
+        try {
+            // Fall back to the system dialer intent if custom app not found
+            val dialerIntent = Intent(Intent.ACTION_DIAL).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(dialerIntent)
+        } catch (e: Exception) {
+            // Log or handle the exception
         }
     }
 } 

@@ -27,11 +27,15 @@ import com.example.entropysdefiance.model.TimeHorizon
 import com.example.entropysdefiance.ui.components.TaskList
 import com.example.entropysdefiance.ui.components.AddTaskScreen
 import com.example.entropysdefiance.ui.components.AppDrawer
+import com.example.entropysdefiance.ui.components.CalendarAgendaWidget
 import com.example.entropysdefiance.viewmodel.TaskViewModel
 import com.example.entropysdefiance.viewmodel.LauncherViewModel
+import com.example.entropysdefiance.data.CalendarEventProvider
+import com.example.entropysdefiance.model.CalendarEvent
 import androidx.compose.ui.input.pointer.pointerInteropFilter
 import android.view.MotionEvent
 import android.app.Application
+import android.widget.Toast
 import androidx.lifecycle.ViewModelProvider
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -118,6 +122,10 @@ fun TaskApp(
 
     val configuration = LocalConfiguration.current
     val screenHeight = configuration.screenHeightDp.dp.value
+
+    // Get calendar events from provider
+    val calendarEvents = remember { CalendarEventProvider.getUpcomingEvents() }
+    val context = LocalContext.current
 
     Box(modifier = Modifier.fillMaxSize()) {
         // Semi-transparent dark overlay that extends behind system bars
@@ -232,15 +240,45 @@ fun TaskApp(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(padding)
+                        // Add double tap gesture detection to the main screen
+                        .pointerInput(Unit) {
+                            detectTapGestures(
+                                onDoubleTap = {
+                                    // Launch dialer app on double tap
+                                    launcherViewModel.launchDialerApp()
+                                }
+                            )
+                        }
                 ) {
-                    // TaskList (base layer)
-                    TaskList(
-                        modifier = Modifier.fillMaxSize(),
-                        timeHorizon = displayedTimeHorizon,
-                        tasks = tasks,
-                        onDeleteTask = viewModel::deleteTask,
-                        onMoveTask = viewModel::moveTask
-                    )
+                    // Create a Column to arrange our UI elements vertically
+                    Column(
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        // TaskList (first part of the screen)
+                        TaskList(
+                            modifier = Modifier.weight(1f),
+                            timeHorizon = displayedTimeHorizon,
+                            tasks = tasks,
+                            onDeleteTask = viewModel::deleteTask,
+                            onMoveTask = viewModel::moveTask
+                        )
+                        
+                        // Calendar Agenda Widget (added between tasks and app drawer)
+                        CalendarAgendaWidget(
+                            events = calendarEvents,
+                            onEventClick = { event ->
+                                // Handle calendar event click - in a real app, you would open the event
+                                Toast.makeText(
+                                    context, 
+                                    "Opening event: ${event.title}", 
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                                // Optionally launch the calendar app
+                                launcherViewModel.launchCalendarApp("org.fossify.calendar")
+                            },
+                            modifier = Modifier.padding(bottom = 24.dp)
+                        )
+                    }
                     
                     // App drawer overlay
                     Box(
