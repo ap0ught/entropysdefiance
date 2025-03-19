@@ -203,6 +203,46 @@ fun TaskApp(
                     }
                 )
             }
+        } else if (showSettingsDialog) {
+            // Show settings as a full screen replacement for main content
+            SettingsDialog(
+                appSettings = appSettings,
+                onDismiss = { settingsViewModel.hideSettingsDialog() },
+                onToggleCalendarWidget = { settingsViewModel.toggleCalendarWidget() },
+                onCalendarDaysChange = { days -> 
+                    settingsViewModel.updateCalendarDaysToShow(days)
+                    // Reload calendar events with new days setting
+                    calendarViewModel.loadEvents(days)
+                },
+                onToggleDarkTheme = { settingsViewModel.toggleDarkTheme() },
+                onToggleDoubleTapDialer = { settingsViewModel.toggleDoubleTapForDialer() },
+                onCalendarSelectionClick = { settingsViewModel.showCalendarSelection() }
+            )
+        } else if (showCalendarSelection) {
+            // Show calendar selection as a full screen replacement for main content
+            CalendarSelectionDialog(
+                availableCalendars = availableCalendars,
+                onCalendarToggle = { calendarId ->
+                    calendarViewModel.toggleCalendarSelection(calendarId)
+                },
+                onDismiss = {
+                    settingsViewModel.hideCalendarSelection()
+                },
+                onSelectAll = {
+                    availableCalendars.forEach { calendar ->
+                        if (!calendar.selected) {
+                            calendarViewModel.toggleCalendarSelection(calendar.id)
+                        }
+                    }
+                },
+                onSelectNone = {
+                    availableCalendars.forEach { calendar ->
+                        if (calendar.selected) {
+                            calendarViewModel.toggleCalendarSelection(calendar.id)
+                        }
+                    }
+                }
+            )
         } else {
             // Home screen content
             Scaffold(
@@ -310,10 +350,10 @@ fun TaskApp(
                         val screenHeight = LocalConfiguration.current.screenHeightDp.dp
                         
                         // Calculate the task list height based on number of tasks
-                        // Give each task ~76dp (card + padding) and limit to 2/3 of screen height
+                        // Give each task ~76dp (card + padding) and limit to 1/2 of screen height
                         val taskCount = currentTasks.size
                         val estimatedTaskHeight = 76.dp * taskCount + 48.dp // Add padding
-                        val maxTaskListHeight = screenHeight * 0.67f // 2/3 of screen
+                        val maxTaskListHeight = screenHeight * 0.45f // Reduced to 45% to ensure space for whitespace
                         val taskListHeight = estimatedTaskHeight.coerceAtMost(maxTaskListHeight)
                                     
                         // TaskList with dynamic height based on content
@@ -330,6 +370,9 @@ fun TaskApp(
                                 onMoveTask = taskViewModel::moveTask
                             )
                         }
+                        
+                        // Add mandatory spacing between task list and calendar events
+                        Spacer(modifier = Modifier.height(16.dp))
                         
                         // Calendar section - only show if enabled in settings
                         if (appSettings.showCalendarWidget) {
@@ -369,7 +412,7 @@ fun TaskApp(
                                             },
                                             modifier = Modifier
                                                 .fillMaxSize()
-                                                .padding(bottom = 24.dp)
+                                                .padding(bottom = 80.dp) // Increased padding to avoid peek button
                                         )
                                     }
                                 } else {
@@ -391,7 +434,7 @@ fun TaskApp(
                                             // Request calendar permission
                                             calendarViewModel.initialize()
                                         },
-                                        modifier = Modifier.padding(bottom = 24.dp)
+                                        modifier = Modifier.padding(bottom = 80.dp) // Increased padding to avoid peek button
                                     )
                                 }
                             }
@@ -402,18 +445,36 @@ fun TaskApp(
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(60.dp) // Fixed height instead of percentage
+                            .height(100.dp) // Increased height for better detection area (was 60.dp)
                             .align(Alignment.BottomCenter)
                             .pointerInput(Unit) {
+                                var totalDragDistance = 0f
+                                
                                 detectVerticalDragGestures(
-                                    onDragStart = { dragStart = it },
-                                    onDragEnd = {},
+                                    onDragStart = { 
+                                        dragStart = it 
+                                        totalDragDistance = 0f
+                                    },
+                                    onDragEnd = { 
+                                        // If we reached a smaller threshold on drag end, also trigger
+                                        if (totalDragDistance < -20f) {
+                                            showAppDrawer = true
+                                        }
+                                    },
                                     onDragCancel = {},
                                     onVerticalDrag = { change, dragAmount ->
-                                        // Only trigger for more intentional upward swipes (more negative value)
-                                        if (dragAmount < -40f) {
-                                            showAppDrawer = true
+                                        // Track total distance dragged
+                                        totalDragDistance += dragAmount
+                                        
+                                        // Use a lower threshold for more responsive detection
+                                        // Only respond to upward swipes (negative dragAmount)
+                                        if (dragAmount < -5f) {
                                             change.consume()
+                                            
+                                            // If significant upward movement, show app drawer immediately
+                                            if (totalDragDistance < -30f) {
+                                                showAppDrawer = true
+                                            }
                                         }
                                     }
                                 )
@@ -421,52 +482,6 @@ fun TaskApp(
                     )
                 }
             }
-        }
-        
-        // Settings dialog
-        if (showSettingsDialog) {
-            SettingsDialog(
-                appSettings = appSettings,
-                onDismiss = { settingsViewModel.hideSettingsDialog() },
-                onToggleCalendarWidget = { settingsViewModel.toggleCalendarWidget() },
-                onCalendarDaysChange = { days -> 
-                    settingsViewModel.updateCalendarDaysToShow(days)
-                    // Reload calendar events with new days setting
-                    calendarViewModel.loadEvents(days)
-                },
-                onToggleDarkTheme = { settingsViewModel.toggleDarkTheme() },
-                onToggleDoubleTapDialer = { settingsViewModel.toggleDoubleTapForDialer() },
-                onCalendarSelectionClick = { settingsViewModel.showCalendarSelection() }
-            )
-        }
-        
-        // Calendar selection dialog - now shown from within settings
-        if (showCalendarSelection) {
-            CalendarSelectionDialog(
-                availableCalendars = availableCalendars,
-                onCalendarToggle = { calendarId ->
-                    calendarViewModel.toggleCalendarSelection(calendarId)
-                },
-                onDismiss = {
-                    settingsViewModel.hideCalendarSelection()
-                },
-                onSelectAll = {
-                    // Implementation needed in CalendarViewModel to select all calendars
-                    availableCalendars.forEach { calendar ->
-                        if (!calendar.selected) {
-                            calendarViewModel.toggleCalendarSelection(calendar.id)
-                        }
-                    }
-                },
-                onSelectNone = {
-                    // Implementation needed in CalendarViewModel to deselect all calendars
-                    availableCalendars.forEach { calendar ->
-                        if (calendar.selected) {
-                            calendarViewModel.toggleCalendarSelection(calendar.id)
-                        }
-                    }
-                }
-            )
         }
     }
 }

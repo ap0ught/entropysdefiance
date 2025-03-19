@@ -292,7 +292,7 @@ fun AppDrawer(
                     items(filteredApps, key = { it.packageName }) { app ->
                         AppItem(
                             app = app,
-                            onTap = { onAppClick(app) },
+                            onClick = { onAppClick(app) },
                             onLongPress = { 
                                 // TODO: Implement long press functionality
                                 // For now, just open the app
@@ -302,8 +302,7 @@ fun AppDrawer(
                                 // TODO: Implement double tap functionality
                                 // For now, just open the app
                                 onAppClick(app)
-                            },
-                            gestureHandler = gestureHandler
+                            }
                         )
                     }
                 }
@@ -315,12 +314,14 @@ fun AppDrawer(
 @Composable
 private fun AppItem(
     app: AppInfo,
-    onTap: () -> Unit,
+    onClick: () -> Unit,
     onLongPress: () -> Unit = {},
     onDoubleTap: () -> Unit = {},
-    gestureHandler: GestureHandler,
     modifier: Modifier = Modifier
 ) {
+    var lastTapTimeMs by remember { mutableLongStateOf(0L) }
+    val doubleTapTimeoutMs = 300L
+    
     Box(
         modifier = modifier.fillMaxWidth(),
         contentAlignment = Alignment.CenterEnd
@@ -333,15 +334,31 @@ private fun AppItem(
             overflow = TextOverflow.Ellipsis,
             textAlign = TextAlign.End,
             modifier = Modifier
-                .wrapContentWidth() // Only make the text area clickable, not the entire width
+                .fillMaxWidth() // Fill width to be part of scrollable area
                 .padding(start = 16.dp, end = 16.dp)
-                .then(
-                    gestureHandler.createGestureModifier(
-                        onTap = onTap,
-                        onLongPress = onLongPress,
-                        onDoubleTap = onDoubleTap
+                // Use combined pointer input for handling gestures while allowing scrolling
+                .pointerInput(Unit) {
+                    detectTapGestures(
+                        onPress = { /* Empty implementation to allow scrolling */ },
+                        onDoubleTap = { 
+                            onDoubleTap()
+                        },
+                        onLongPress = { 
+                            onLongPress() 
+                        },
+                        onTap = {
+                            val currentTime = System.currentTimeMillis()
+                            val isDoubleTap = (currentTime - lastTapTimeMs) < doubleTapTimeoutMs
+                            
+                            if (!isDoubleTap) {
+                                // Single tap after timeout
+                                onClick()
+                            }
+                            
+                            lastTapTimeMs = currentTime
+                        }
                     )
-                )
+                }
         )
     }
 } 

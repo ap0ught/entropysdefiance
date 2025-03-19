@@ -108,6 +108,9 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
      * Show calendar selection within settings
      */
     fun showCalendarSelection() {
+        // Hide settings dialog first to ensure calendar selection can be shown
+        _showSettingsDialog.value = false
+        // Show calendar selection
         _showCalendarSelection.value = true
     }
     
@@ -116,5 +119,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
      */
     fun hideCalendarSelection() {
         _showCalendarSelection.value = false
+        // Return to settings screen when closing calendar selection
+        _showSettingsDialog.value = true
     }
 } 
