@@ -1,0 +1,177 @@
+package com.example.entropysdefiance.ui.components
+
+import androidx.compose.animation.*
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.ArrowForward
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.unit.dp
+import com.example.entropysdefiance.model.Task
+import com.example.entropysdefiance.model.TimeHorizon
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlin.math.abs
+
+@Composable
+fun TaskList(
+    timeHorizon: TimeHorizon,
+    tasks: List<Task>,
+    onDeleteTask: (String) -> Unit,
+    onMoveTask: (String, TimeHorizon) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    LazyColumn(
+        modifier = modifier,
+        contentPadding = PaddingValues(24.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        items(
+            items = tasks.filter { it.timeHorizon == timeHorizon },
+            key = { it.id }
+        ) { task ->
+            TaskItem(
+                task = task,
+                onComplete = { onDeleteTask(task.id) },
+                onMoveTask = { newTimeHorizon -> onMoveTask(task.id, newTimeHorizon) },
+                currentTimeHorizon = timeHorizon
+            )
+        }
+    }
+}
+
+@Composable
+private fun TaskItem(
+    task: Task,
+    onComplete: () -> Unit,
+    onMoveTask: (TimeHorizon) -> Unit,
+    currentTimeHorizon: TimeHorizon,
+    modifier: Modifier = Modifier
+) {
+    var offsetX by remember { mutableStateOf(0f) }
+    var isCompleted by remember { mutableStateOf(false) }
+    val coroutineScope = rememberCoroutineScope()
+
+    val swipeThreshold = 100f
+    val alpha by animateFloatAsState(
+        targetValue = if (abs(offsetX) > swipeThreshold) 0.5f else 1f,
+        label = "alpha"
+    )
+    
+    val rotation by animateFloatAsState(
+        targetValue = offsetX * 0.03f,
+        label = "rotation"
+    )
+
+    Surface(
+        modifier = modifier
+            .fillMaxWidth()
+            .graphicsLayer {
+                translationX = offsetX
+                rotationZ = rotation
+            }
+            .alpha(alpha)
+            .draggable(
+                orientation = Orientation.Horizontal,
+                state = rememberDraggableState { delta ->
+                    offsetX = (offsetX + delta).coerceIn(-200f, 200f)
+                },
+                onDragStopped = {
+                    if (abs(offsetX) > swipeThreshold) {
+                        // Determine the new time horizon based on swipe direction
+                        val newTimeHorizon = if (offsetX > 0) {
+                            // Right swipe - move to larger horizon
+                            val horizons = TimeHorizon.entries
+                            val nextIndex = (currentTimeHorizon.ordinal + 1).coerceAtMost(horizons.size - 1)
+                            horizons[nextIndex]
+                        } else {
+                            // Left swipe - move to smaller horizon
+                            val horizons = TimeHorizon.entries
+                            val prevIndex = (currentTimeHorizon.ordinal - 1).coerceAtLeast(0)
+                            horizons[prevIndex]
+                        }
+                        
+                        if (newTimeHorizon != currentTimeHorizon) {
+                            onMoveTask(newTimeHorizon)
+                        }
+                    }
+                    // Animate back to center
+                    offsetX = 0f
+                }
+            ),
+        color = MaterialTheme.colorScheme.background,
+        border = BorderStroke(
+            width = 1.dp,
+            color = MaterialTheme.colorScheme.outline
+        ),
+        shape = MaterialTheme.shapes.small
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 12.dp)
+                .clickable {
+                    if (!isCompleted) {
+                        isCompleted = true
+                        coroutineScope.launch {
+                            delay(500)
+                            onComplete()
+                        }
+                    }
+                },
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Left arrow indicator
+            Icon(
+                Icons.Default.ArrowBack,
+                contentDescription = "Move to smaller horizon",
+                modifier = Modifier.alpha(if (offsetX < -20) abs(offsetX/200) else 0f),
+                tint = MaterialTheme.colorScheme.primary
+            )
+            
+            // Task text
+            Text(
+                text = task.title,
+                modifier = Modifier.weight(1f),
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onBackground,
+                textDecoration = if (isCompleted) TextDecoration.LineThrough else null
+            )
+            
+            // Right arrow indicator
+            Icon(
+                Icons.Default.ArrowForward,
+                contentDescription = "Move to larger horizon",
+                modifier = Modifier.alpha(if (offsetX > 20) offsetX/200 else 0f),
+                tint = MaterialTheme.colorScheme.primary
+            )
+            
+            // Completion icon
+            Icon(
+                Icons.Default.CheckCircle,
+                contentDescription = "Complete Task",
+                tint = if (isCompleted) 
+                    MaterialTheme.colorScheme.primary 
+                else 
+                    MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
+            )
+        }
+    }
+} 
