@@ -172,7 +172,11 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
             addDataScheme("content")
             addDataAuthority("com.android.calendar", null)
         }
-        getApplication<Application>().registerReceiver(calendarChangeReceiver, filter)
+        getApplication<Application>().registerReceiver(
+            calendarChangeReceiver, 
+            filter,
+            Context.RECEIVER_NOT_EXPORTED
+        )
     }
     
     /**
