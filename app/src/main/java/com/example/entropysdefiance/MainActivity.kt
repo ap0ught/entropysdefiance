@@ -529,14 +529,14 @@ fun TaskApp(
                             }
                     )
                     
-                    // Add a top swipe area that spans the full width for better accessibility
-                    // This is positioned in the middle-upper part of the screen
+                    // Add a top swipe area at the very top edge for better accessibility
+                    // The detection area is just at the edge and no longer in the middle of the screen
                     Box(
                         modifier = Modifier
                             .align(Alignment.TopCenter)
                             .fillMaxWidth()
-                            .height(60.dp) // A thin strip for detection
-                            .offset(y = 200.dp) // Position about 1/3 down from the top
+                            .height(24.dp) // Much thinner strip at the very top
+                            // No more offset! This places it at the top edge
                             .pointerInput(Unit) {
                                 var totalDragDistance = 0f
                                 

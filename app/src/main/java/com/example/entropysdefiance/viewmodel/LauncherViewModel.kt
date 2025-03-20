@@ -170,8 +170,11 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     fun openCalendarEvent(eventId: Long?, calendarId: Long?) {
         val context = getApplication<Application>()
         
+        android.util.Log.d("LauncherViewModel", "Opening calendar event: eventId=$eventId, calendarId=$calendarId")
+        
         // If we don't have a valid event ID, fall back to opening the calendar app
         if (eventId == null) {
+            android.util.Log.d("LauncherViewModel", "No eventId provided, falling back to calendar app")
             launchCalendarApp()
             return
         }
@@ -184,9 +187,11 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
                 data = uri
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
+            android.util.Log.d("LauncherViewModel", "Launching intent with URI: content://com.android.calendar/events/$eventId")
             context.startActivity(viewEventIntent)
         } catch (e: Exception) {
             // If viewing the specific event fails, fall back to the calendar app
+            android.util.Log.e("LauncherViewModel", "Failed to open event: ${e.message}", e)
             launchCalendarApp()
         }
     }
