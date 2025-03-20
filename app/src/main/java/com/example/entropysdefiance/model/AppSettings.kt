@@ -7,6 +7,7 @@ data class AppSettings(
     // Calendar settings
     val showCalendarWidget: Boolean = true,
     val calendarDaysToShow: Int = 7,
+    val selectedCalendarIds: Set<Long> = emptySet(),
     
     // Appearance settings
     val useDarkTheme: Boolean = false,

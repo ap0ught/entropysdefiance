@@ -161,4 +161,33 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
             // Log or handle the exception
         }
     }
+    
+    /**
+     * Launch a specific calendar event by its ID
+     * @param eventId The event ID
+     * @param calendarId The calendar ID
+     */
+    fun openCalendarEvent(eventId: Long?, calendarId: Long?) {
+        val context = getApplication<Application>()
+        
+        // If we don't have a valid event ID, fall back to opening the calendar app
+        if (eventId == null) {
+            launchCalendarApp()
+            return
+        }
+        
+        try {
+            // Create an intent to view the specific event
+            val viewEventIntent = Intent(Intent.ACTION_VIEW).apply {
+                // Format: content://com.android.calendar/events/EVENT_ID
+                val uri = android.net.Uri.parse("content://com.android.calendar/events/$eventId")
+                data = uri
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(viewEventIntent)
+        } catch (e: Exception) {
+            // If viewing the specific event fails, fall back to the calendar app
+            launchCalendarApp()
+        }
+    }
 } 

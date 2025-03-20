@@ -5,15 +5,21 @@
 -->
 <data-extraction-rules>
     <cloud-backup>
+        <!-- Include DataStore files in cloud backups -->
+        <include domain="file" path="datastore"/>
+        <include domain="sharedpref" path="."/>
         <!-- TODO: Use <include> and <exclude> to control what is backed up.
         <include .../>
         <exclude .../>
         -->
     </cloud-backup>
-    <!--
     <device-transfer>
+        <!-- Include DataStore files in device transfers -->
+        <include domain="file" path="datastore"/>
+        <include domain="sharedpref" path="."/>
+        <!--
         <include .../>
         <exclude .../>
+        -->
     </device-transfer>
-    -->
 </data-extraction-rules>

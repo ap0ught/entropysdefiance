@@ -1,18 +1,28 @@
 package com.example.entropysdefiance.viewmodel
 
 import android.app.Application
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.entropysdefiance.EntropysDefianceApplication
+import com.example.entropysdefiance.data.SettingsRepository
 import com.example.entropysdefiance.model.AppSettings
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+
+private const val TAG = "SettingsViewModel"
 
 /**
  * ViewModel for managing application settings
  */
 class SettingsViewModel(application: Application) : AndroidViewModel(application) {
+    
+    // Initialize the repository from the application instance
+    private val repository = (application as EntropysDefianceApplication).settingsRepository
     
     // State for settings
     private val _settings = MutableStateFlow(AppSettings())
@@ -27,18 +37,21 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     val showCalendarSelection: StateFlow<Boolean> = _showCalendarSelection.asStateFlow()
     
     init {
+        Log.d(TAG, "Initializing SettingsViewModel")
         loadSettings()
     }
     
     /**
      * Load settings from persistent storage
-     * (For now, uses default values, but would be expanded to use SharedPreferences or DataStore)
      */
     private fun loadSettings() {
+        Log.d(TAG, "Loading settings from repository")
         viewModelScope.launch {
-            // TODO: Load from persistent storage when implemented
-            // For now, just use defaults
-            _settings.value = AppSettings()
+            // Start collecting the settings flow
+            repository.settingsFlow.collect { appSettings ->
+                Log.d(TAG, "Received settings update: $appSettings")
+                _settings.value = appSettings
+            }
         }
     }
     
@@ -46,9 +59,9 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
      * Save settings to persistent storage
      */
     private fun saveSettings() {
+        Log.d(TAG, "Saving settings to repository: ${_settings.value}")
         viewModelScope.launch {
-            // TODO: Save to persistent storage when implemented
-            // For now, just keep in memory
+            repository.updateAllSettings(_settings.value)
         }
     }
     
@@ -56,7 +69,10 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
      * Update a specific setting
      */
     fun updateSetting(updater: (AppSettings) -> AppSettings) {
-        _settings.value = updater(_settings.value)
+        val oldSettings = _settings.value
+        val newSettings = updater(oldSettings)
+        Log.d(TAG, "Updating setting from $oldSettings to $newSettings")
+        _settings.value = newSettings
         saveSettings()
     }
     
@@ -64,34 +80,53 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
      * Toggle calendar widget visibility
      */
     fun toggleCalendarWidget() {
-        updateSetting { it.copy(showCalendarWidget = !it.showCalendarWidget) }
+        Log.d(TAG, "Toggling calendar widget visibility")
+        viewModelScope.launch {
+            val newValue = !_settings.value.showCalendarWidget
+            Log.d(TAG, "New showCalendarWidget value: $newValue")
+            repository.updateShowCalendarWidget(newValue)
+        }
     }
     
     /**
      * Update days to show in calendar
      */
     fun updateCalendarDaysToShow(days: Int) {
-        updateSetting { it.copy(calendarDaysToShow = days) }
+        Log.d(TAG, "Updating calendar days to show: $days")
+        viewModelScope.launch {
+            repository.updateCalendarDaysToShow(days)
+        }
     }
     
     /**
      * Toggle dark theme
      */
     fun toggleDarkTheme() {
-        updateSetting { it.copy(useDarkTheme = !it.useDarkTheme) }
+        Log.d(TAG, "Toggling dark theme")
+        viewModelScope.launch {
+            val newValue = !_settings.value.useDarkTheme
+            Log.d(TAG, "New useDarkTheme value: $newValue")
+            repository.updateUseDarkTheme(newValue)
+        }
     }
     
     /**
      * Toggle double tap for dialer
      */
     fun toggleDoubleTapForDialer() {
-        updateSetting { it.copy(enableDoubleTapForDialer = !it.enableDoubleTapForDialer) }
+        Log.d(TAG, "Toggling double tap for dialer")
+        viewModelScope.launch {
+            val newValue = !_settings.value.enableDoubleTapForDialer
+            Log.d(TAG, "New enableDoubleTapForDialer value: $newValue")
+            repository.updateEnableDoubleTapDialer(newValue)
+        }
     }
     
     /**
      * Show settings dialog
      */
     fun showSettingsDialog() {
+        Log.d(TAG, "Showing settings dialog")
         _showSettingsDialog.value = true
     }
     
@@ -99,6 +134,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
      * Hide settings dialog
      */
     fun hideSettingsDialog() {
+        Log.d(TAG, "Hiding settings dialog")
         _showSettingsDialog.value = false
         // Also hide any sub-dialogs
         _showCalendarSelection.value = false
@@ -108,6 +144,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
      * Show calendar selection within settings
      */
     fun showCalendarSelection() {
+        Log.d(TAG, "Showing calendar selection")
         // Hide settings dialog first to ensure calendar selection can be shown
         _showSettingsDialog.value = false
         // Show calendar selection
@@ -118,6 +155,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
      * Hide calendar selection within settings
      */
     fun hideCalendarSelection() {
+        Log.d(TAG, "Hiding calendar selection")
         _showCalendarSelection.value = false
         // Return to settings screen when closing calendar selection
         _showSettingsDialog.value = true

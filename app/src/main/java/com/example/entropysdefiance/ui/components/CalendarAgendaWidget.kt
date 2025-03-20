@@ -135,8 +135,12 @@ private fun CalendarEventItem(
         // For all-day events
         event.isAllDay -> "All day"
         
-        // For regular future events, show standard time
-        else -> event.startTime.format(DateTimeFormatter.ofPattern("h:mm a"))
+        // For regular future events, show standard time with 24-hour format and include end time
+        else -> {
+            val startFormat = DateTimeFormatter.ofPattern("HH:mm")
+            val endFormat = DateTimeFormatter.ofPattern("HH:mm")
+            "${event.startTime.format(startFormat)} - ${event.endTime.format(endFormat)}"
+        }
     }
     
     // Calculate event color or use a default

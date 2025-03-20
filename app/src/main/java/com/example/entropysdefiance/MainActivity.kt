@@ -58,6 +58,11 @@ import android.util.Log
 import com.example.entropysdefiance.viewmodel.CalendarViewModel
 import androidx.compose.runtime.collectAsState
 import kotlinx.coroutines.flow.collect
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import kotlinx.coroutines.flow.take
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalComposeUiApi::class)
 class MainActivity : ComponentActivity() {
@@ -122,11 +127,39 @@ fun TaskApp(
     // Use a simpler approach for hasCalendarPermission
     var hasCalendarPermission by remember { mutableStateOf(false) }
     
+    // Track whether settings have been loaded
+    var settingsLoaded by remember { mutableStateOf(false) }
+    
     // Initialize calendar events when the app starts
     LaunchedEffect(Unit) {
-        calendarViewModel.initialize()
-        // Just use a default value for now, and update it later if needed
-        hasCalendarPermission = true
+        // Wait for settings to be loaded first - collect only the first item
+        settingsViewModel.settings.take(1).collect { settings ->
+            settingsLoaded = true
+            // Initialize calendar after settings are loaded
+            if (!hasCalendarPermission) {
+                hasCalendarPermission = true
+                calendarViewModel.initialize()
+            }
+        }
+    }
+    
+    // Lifecycle observer to refresh calendar events when app becomes active
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                // Refresh calendar events when app comes to foreground
+                calendarViewModel.loadEvents()
+            }
+        }
+        
+        // Register the observer
+        lifecycleOwner.lifecycle.addObserver(observer)
+        
+        // Cleanup when leaving the composition
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
     }
     
     // Calendar selection related state
@@ -229,18 +262,10 @@ fun TaskApp(
                     settingsViewModel.hideCalendarSelection()
                 },
                 onSelectAll = {
-                    availableCalendars.forEach { calendar ->
-                        if (!calendar.selected) {
-                            calendarViewModel.toggleCalendarSelection(calendar.id)
-                        }
-                    }
+                    calendarViewModel.selectAllCalendars()
                 },
                 onSelectNone = {
-                    availableCalendars.forEach { calendar ->
-                        if (calendar.selected) {
-                            calendarViewModel.toggleCalendarSelection(calendar.id)
-                        }
-                    }
+                    calendarViewModel.deselectAllCalendars()
                 }
             )
         } else {
@@ -382,8 +407,17 @@ fun TaskApp(
                                     .fillMaxWidth()
                                     .weight(1f) // Take remaining space
                             ) {
-                                // Calendar widget with scrolling
-                                if (hasCalendarPermission) {
+                                // Only display calendar data when settings have been loaded
+                                if (!settingsLoaded) {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .fillMaxHeight(),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        CircularProgressIndicator()
+                                    }
+                                } else if (hasCalendarPermission) {
                                     if (isCalendarLoading) {
                                         Box(
                                             modifier = Modifier
@@ -397,18 +431,8 @@ fun TaskApp(
                                         CalendarAgendaWidget(
                                             events = calendarEvents,
                                             onEventClick = { event ->
-                                                // Handle calendar event click
-                                                Toast.makeText(
-                                                    context, 
-                                                    "Opening event: ${event.title}", 
-                                                    Toast.LENGTH_SHORT
-                                                ).show()
-                                                
-                                                // Log event details
-                                                Log.d("CalendarEvent", "Clicked on: ${event.title}")
-                                                
-                                                // Optionally launch the calendar app
-                                                launcherViewModel.launchCalendarApp("org.fossify.calendar")
+                                                // Open the specific calendar event
+                                                launcherViewModel.openCalendarEvent(event.eventId, event.calendarId)
                                             },
                                             modifier = Modifier
                                                 .fillMaxSize()
@@ -424,14 +448,7 @@ fun TaskApp(
                                     CalendarAgendaWidget(
                                         events = mockEvents,
                                         onEventClick = { event ->
-                                            // Handle calendar event click
-                                            Toast.makeText(
-                                                context, 
-                                                "Opening event: ${event.title}", 
-                                                Toast.LENGTH_SHORT
-                                            ).show()
-                                            
-                                            // Request calendar permission
+                                            // For mock events, just request calendar permission
                                             calendarViewModel.initialize()
                                         },
                                         modifier = Modifier.padding(bottom = 80.dp) // Increased padding to avoid peek button

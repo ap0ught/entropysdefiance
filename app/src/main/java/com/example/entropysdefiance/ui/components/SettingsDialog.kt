@@ -18,10 +18,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.entropysdefiance.model.AppSettings
 import com.example.entropysdefiance.model.DeviceCalendar
+import com.example.entropysdefiance.BuildConfig
+import com.example.entropysdefiance.EntropysDefianceApplication
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 @Composable
 fun SettingsDialog(
@@ -34,6 +40,10 @@ fun SettingsDialog(
     onCalendarSelectionClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    // Get application context for debug actions
+    val context = LocalContext.current
+    val applicationContext = remember { context.applicationContext as EntropysDefianceApplication }
+    
     // Full screen layout
     Surface(
         modifier = Modifier.fillMaxSize(),
@@ -138,6 +148,29 @@ fun SettingsDialog(
                 )
                 
                 Spacer(modifier = Modifier.height(24.dp))
+                
+                // Add a divider before the debug section
+                Divider(modifier = Modifier.padding(vertical = 16.dp))
+                
+                // Debug section - only in debug builds
+                if (BuildConfig.DEBUG) {
+                    SettingsSectionHeader(title = "Debug", icon = Icons.Default.Settings)
+                    
+                    // Add a button to manually dump DataStore contents
+                    Button(
+                        onClick = {
+                            // Use the remembered applicationContext
+                            CoroutineScope(Dispatchers.IO).launch {
+                                applicationContext.settingsRepository.dumpDataStoreContents()
+                            }
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 8.dp)
+                    ) {
+                        Text("Dump Settings to Logcat")
+                    }
+                }
             }
         }
     }
