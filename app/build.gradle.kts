@@ -84,8 +84,8 @@ dependencies {
     ksp("androidx.room:room-compiler:$roomVersion")
     
     // DataStore
-    implementation("androidx.datastore:datastore-preferences:1.0.0")
-    implementation("androidx.datastore:datastore:1.0.0")
+    implementation("androidx.datastore:datastore-preferences:1.1.0-beta02")
+    implementation("androidx.datastore:datastore:1.1.0-beta02")
 
     // JSON Serialization
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.0")
@@ -97,4 +97,6 @@ dependencies {
     testImplementation("androidx.test:core:1.5.0")
     testImplementation("androidx.test:runner:1.5.2")
     testImplementation("androidx.test.ext:junit:1.1.5")
+    testImplementation("androidx.datastore:datastore-preferences:1.1.0-beta02")
+    androidTestImplementation("androidx.datastore:datastore-preferences:1.1.0-beta02")
 }

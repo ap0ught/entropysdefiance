@@ -2,7 +2,6 @@ package com.example.entropysdefiance
 
 import android.content.Context
 import androidx.datastore.core.DataStore
-import androidx.datastore.preferences.core.PreferencesKey
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
@@ -14,6 +13,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.example.entropysdefiance.data.SettingsRepository
 import com.example.entropysdefiance.model.AppSettings
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Before
