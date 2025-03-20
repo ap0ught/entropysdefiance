@@ -19,6 +19,8 @@ import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 import kotlin.math.abs
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.CircleShape
 
 /**
  * A calendar agenda widget that displays upcoming events.
@@ -43,41 +45,75 @@ fun CalendarAgendaWidget(
             // No longer limiting events as scrolling is enabled
     }
 
-    // Use scrollable surface for events - removing outer border to match task list styling
-    LazyColumn(
-        modifier = modifier
-            .fillMaxWidth()
-            .fillMaxHeight() // Take all remaining height
-            .padding(bottom = 80.dp), // Add bottom padding to avoid conflict with app drawer gesture area
-        contentPadding = PaddingValues(horizontal = 24.dp, vertical = 8.dp), // Match task list padding
-        verticalArrangement = Arrangement.spacedBy(12.dp) // Match task list spacing
+    // Create a constrained hitbox for the calendar widget that leaves space for the FAB and gesture areas
+    // This creates a visual-only "cut" on the right side without affecting the actual layout
+    Box(
+        modifier = modifier.fillMaxSize()
     ) {
-        if (filteredEvents.isEmpty()) {
-            item {
-                // No upcoming events
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 16.dp),
-                    contentAlignment = Alignment.Center
-                ) {
+        // Left part (main content area)
+        Box(
+            modifier = Modifier
+                .fillMaxHeight()
+                .fillMaxWidth(0.8f) // Use 80% of width, leaving 20% for FAB area
+        ) {
+            // Improved scrollable surface with more elegant spacing
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(
+                    start = 24.dp,
+                    end = 16.dp, // Reduced right padding as we're already constrained
+                    top = 16.dp,
+                    bottom = 100.dp // Increase bottom padding to ensure content is visible above app drawer area
+                ),
+                verticalArrangement = Arrangement.spacedBy(16.dp) // Increased spacing between items for a more airy feel
+            ) {
+                // Optional: Add a subtle header for the upcoming events section
+                item {
                     Text(
-                        text = "No upcoming events",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
+                        text = "UPCOMING EVENTS",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
+                        modifier = Modifier.padding(start = 8.dp, bottom = 8.dp)
                     )
                 }
-            }
-        } else {
-            items(filteredEvents) { event ->
-                CalendarEventItem(
-                    event = event,
-                    currentDate = currentDate,
-                    currentDateTime = currentDateTime,
-                    onClick = { onEventClick(event) }
-                )
+                
+                if (filteredEvents.isEmpty()) {
+                    item {
+                        // No upcoming events - more elegant empty state
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 24.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "No upcoming events",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f)
+                            )
+                        }
+                    }
+                } else {
+                    items(filteredEvents) { event ->
+                        CalendarEventItem(
+                            event = event,
+                            currentDate = currentDate,
+                            currentDateTime = currentDateTime,
+                            onClick = { onEventClick(event) }
+                        )
+                    }
+                }
             }
         }
+        
+        // Right part (invisible, allows gestures to pass through to underlying gesture detectors)
+        // This area intentionally has no content and no interaction handling
+        Box(
+            modifier = Modifier
+                .fillMaxHeight()
+                .fillMaxWidth(0.2f) // 20% of width for FAB area
+                .align(Alignment.CenterEnd)
+        )
     }
 }
 
@@ -153,81 +189,85 @@ private fun CalendarEventItem(
         else -> eventColor
     }
     
-    Surface(
+    // New minimal design - replaces the Surface with border approach
+    Row(
         modifier = modifier
-            .fillMaxWidth(),
-        color = MaterialTheme.colorScheme.background,
-        border = BorderStroke(
-            width = 1.dp,
-            color = MaterialTheme.colorScheme.outline
-        ),
-        shape = MaterialTheme.shapes.small
+            .fillMaxWidth()
+            .clickable { onClick() }
+            .padding(vertical = 12.dp, horizontal = 6.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(
+        // Vertical colored indicator bar - thin elegant line
+        Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp)
-                .clickable { onClick() },
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+                .width(3.dp)
+                .height(50.dp)
+                .background(
+                    color = statusColor.copy(alpha = 0.8f),
+                    shape = MaterialTheme.shapes.small
+                )
+        )
+        
+        // Event content
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .padding(start = 12.dp)
         ) {
-            // Event title and details (left side)
-            Column(
-                modifier = Modifier.weight(1f)
+            // Event title - slightly more prominent
+            Text(
+                text = event.title,
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onBackground,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            
+            // Spacer for visual separation
+            Spacer(modifier = Modifier.height(4.dp))
+            
+            // Time row with improved spacing
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                // Event title - using same style as task title
+                // Date pill - smaller and more subtle
                 Text(
-                    text = event.title,
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onBackground,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    text = dateText,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = statusColor,
+                    fontWeight = FontWeight.Medium
                 )
                 
-                // Date and time indicators
-                Row(
-                    modifier = Modifier.padding(top = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    // Date indicator with event color
-                    Surface(
-                        shape = MaterialTheme.shapes.small,
-                        color = eventColor.copy(alpha = 0.15f),
-                        modifier = Modifier.padding(end = 8.dp)
-                    ) {
-                        Text(
-                            text = dateText,
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
-                            color = eventColor
+                // Subtle dot separator
+                Box(
+                    modifier = Modifier
+                        .size(3.dp)
+                        .background(
+                            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.3f),
+                            shape = CircleShape
                         )
-                    }
-                    
-                    // Time info
-                    Text(
-                        text = timeText,
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onBackground
-                    )
-                }
+                )
                 
-                // Event location if available - only show if location exists
-                event.location?.let { location ->
-                    if (location.isNotBlank()) {
-                        Row(
-                            modifier = Modifier.padding(top = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = location,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
-                    }
+                // Time text - unified style
+                Text(
+                    text = timeText,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
+                )
+            }
+            
+            // Event location if available - only show if location exists
+            event.location?.let { location ->
+                if (location.isNotBlank()) {
+                    Text(
+                        text = location,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(top = 2.dp)
+                    )
                 }
             }
         }

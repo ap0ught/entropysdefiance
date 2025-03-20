@@ -434,9 +434,7 @@ fun TaskApp(
                                                 // Open the specific calendar event
                                                 launcherViewModel.openCalendarEvent(event.eventId, event.calendarId)
                                             },
-                                            modifier = Modifier
-                                                .fillMaxSize()
-                                                .padding(bottom = 80.dp) // Increased padding to avoid peek button
+                                            modifier = Modifier.fillMaxSize()
                                         )
                                     }
                                 } else {
@@ -451,7 +449,7 @@ fun TaskApp(
                                             // For mock events, just request calendar permission
                                             calendarViewModel.initialize()
                                         },
-                                        modifier = Modifier.padding(bottom = 80.dp) // Increased padding to avoid peek button
+                                        modifier = Modifier.fillMaxSize()
                                     )
                                 }
                             }
@@ -492,6 +490,72 @@ fun TaskApp(
                                             if (totalDragDistance < -30f) {
                                                 showAppDrawer = true
                                             }
+                                        }
+                                    }
+                                )
+                            }
+                    )
+                    
+                    // Add additional FAB area gesture detection to ensure swipes in this area
+                    // trigger the app drawer rather than scrolling calendar events
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .width(80.dp)
+                            .height(350.dp) // Increased from 200dp to 350dp to extend higher up the screen
+                            .padding(bottom = 100.dp) // Position above the bottom app drawer area
+                            .pointerInput(Unit) {
+                                var totalDragDistance = 0f
+                                
+                                detectVerticalDragGestures(
+                                    onDragStart = { 
+                                        totalDragDistance = 0f
+                                    },
+                                    onDragEnd = { 
+                                        if (totalDragDistance < -20f) {
+                                            showAppDrawer = true
+                                        }
+                                    },
+                                    onDragCancel = {},
+                                    onVerticalDrag = { change, dragAmount ->
+                                        change.consume() // Always consume to prevent calendar scrolling
+                                        totalDragDistance += dragAmount
+                                        
+                                        if (totalDragDistance < -30f) {
+                                            showAppDrawer = true
+                                        }
+                                    }
+                                )
+                            }
+                    )
+                    
+                    // Add a top swipe area that spans the full width for better accessibility
+                    // This is positioned in the middle-upper part of the screen
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopCenter)
+                            .fillMaxWidth()
+                            .height(60.dp) // A thin strip for detection
+                            .offset(y = 200.dp) // Position about 1/3 down from the top
+                            .pointerInput(Unit) {
+                                var totalDragDistance = 0f
+                                
+                                detectVerticalDragGestures(
+                                    onDragStart = { 
+                                        totalDragDistance = 0f
+                                    },
+                                    onDragEnd = { 
+                                        if (totalDragDistance < -20f) {
+                                            showAppDrawer = true
+                                        }
+                                    },
+                                    onDragCancel = {},
+                                    onVerticalDrag = { change, dragAmount ->
+                                        change.consume() // Always consume to prevent calendar scrolling
+                                        totalDragDistance += dragAmount
+                                        
+                                        if (totalDragDistance < -30f) {
+                                            showAppDrawer = true
                                         }
                                     }
                                 )
