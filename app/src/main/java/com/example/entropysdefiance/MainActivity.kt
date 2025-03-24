@@ -1,5 +1,6 @@
 package com.example.entropysdefiance
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -63,6 +64,10 @@ import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import kotlinx.coroutines.flow.take
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
+import android.Manifest
+import android.content.pm.PackageManager
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalComposeUiApi::class)
 class MainActivity : ComponentActivity() {
@@ -283,7 +288,24 @@ fun TaskApp(
                                     .fillMaxWidth()
                                     .padding(top = 18.dp)
                                     .clickable { 
-                                        launcherViewModel.launchCalendarApp("org.fossify.calendar")
+                                        // Check for calendar permission first
+                                        if (ContextCompat.checkSelfPermission(
+                                                context,
+                                                Manifest.permission.READ_CALENDAR
+                                            ) == PackageManager.PERMISSION_GRANTED
+                                        ) {
+                                            // Permission granted, launch calendar app
+                                            launcherViewModel.launchCalendarApp("org.fossify.calendar")
+                                        } else {
+                                            // No permission, request it
+                                            calendarViewModel.initialize()
+                                            // Show a toast message to inform the user
+                                            Toast.makeText(
+                                                context,
+                                                "Calendar permission needed to open calendar app",
+                                                Toast.LENGTH_SHORT
+                                            ).show()
+                                        }
                                     },
                                 textAlign = TextAlign.Center,
                                 style = MaterialTheme.typography.titleLarge.copy(

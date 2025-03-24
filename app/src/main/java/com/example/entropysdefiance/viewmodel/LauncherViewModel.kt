@@ -70,27 +70,67 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     fun launchCalendarApp(customCalendarName: String = "Calendar") {
         val context = getApplication<Application>()
         
+        android.util.Log.d("LauncherViewModel", "Attempting to launch calendar app: $customCalendarName")
+        
         // First try to find the custom calendar app by name or package
-        val customCalendarApp = apps.value.firstOrNull { app -> 
+        var customCalendarApp = apps.value.firstOrNull { app -> 
             app.appName.contains(customCalendarName, ignoreCase = true) || 
             app.packageName.contains(customCalendarName.lowercase().replace(" ", ""), ignoreCase = true)
         }
         
         if (customCalendarApp != null) {
             // Launch the custom calendar app if found
+            android.util.Log.d("LauncherViewModel", "Found custom calendar app: ${customCalendarApp.appName}, launching it")
+            launchApp(customCalendarApp.packageName, customCalendarApp.launchIntent)
+            return
+        }
+        
+        // If specific calendar app not found, try looking for any calendar app
+        android.util.Log.d("LauncherViewModel", "Custom calendar app not found, looking for any calendar app")
+        customCalendarApp = apps.value.firstOrNull { app -> 
+            app.appName.equals("Calendar", ignoreCase = true) ||
+            app.appName.contains("Calendar", ignoreCase = true) ||
+            app.packageName.contains("calendar", ignoreCase = true) ||
+            app.packageName.contains("com.google.android.calendar", ignoreCase = true) ||
+            app.packageName.contains("com.android.calendar", ignoreCase = true) ||
+            app.packageName.contains("samsung.android.calendar", ignoreCase = true) ||
+            app.packageName.contains("huawei.calendar", ignoreCase = true) ||
+            app.packageName.contains("xiaomi.calendar", ignoreCase = true) ||
+            app.packageName.contains("oppo.calendar", ignoreCase = true) ||
+            app.packageName.contains("vivo.calendar", ignoreCase = true) ||
+            app.packageName.contains("oneplus.calendar", ignoreCase = true)
+        }
+        
+        if (customCalendarApp != null) {
+            // Launch the found calendar app
+            android.util.Log.d("LauncherViewModel", "Found general calendar app: ${customCalendarApp.appName}, launching it")
             launchApp(customCalendarApp.packageName, customCalendarApp.launchIntent)
             return
         }
         
         try {
             // Fall back to the system calendar intent if custom app not found
+            android.util.Log.d("LauncherViewModel", "No calendar app found in app list, using system intent")
             val calendarIntent = Intent(Intent.ACTION_MAIN).apply {
                 addCategory(Intent.CATEGORY_APP_CALENDAR)
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
             context.startActivity(calendarIntent)
         } catch (e: Exception) {
-            // Log or handle the exception
+            android.util.Log.e("LauncherViewModel", "Failed to launch calendar app via system intent: ${e.message}", e)
+            
+            // Last resort: try to open calendar via VIEW intent
+            try {
+                android.util.Log.d("LauncherViewModel", "Trying VIEW intent for calendar as last resort")
+                val viewCalendarIntent = Intent(Intent.ACTION_VIEW).apply {
+                    data = android.net.Uri.parse("content://com.android.calendar/time/")
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                context.startActivity(viewCalendarIntent)
+            } catch (e2: Exception) {
+                android.util.Log.e("LauncherViewModel", "All calendar launch attempts failed: ${e2.message}", e2)
+                // We've tried everything, nothing more we can do
+            }
         }
     }
 

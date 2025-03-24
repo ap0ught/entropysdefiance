@@ -25,6 +25,53 @@ import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 import kotlin.math.abs
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.graphics.ColorMatrix
+
+/**
+ * Utility function to determine if a color is dark based on luminance
+ */
+private fun Color.isDark() = this.luminance() < 0.5f
+
+/**
+ * Calculate contrast ratio between two colors
+ * Based on WCAG 2.0 contrast guidelines
+ */
+private fun calculateContrastRatio(color1: Color, color2: Color): Float {
+    val l1 = color1.luminance() + 0.05f
+    val l2 = color2.luminance() + 0.05f
+    
+    return if (l1 > l2) l1/l2 else l2/l1
+}
+
+/**
+ * Utility function to enhance text contrast based on background and text colors
+ * Returns the appropriate text color for better visibility
+ */
+private fun getContrastEnhancedTextStyle(
+    baseStyle: TextStyle,
+    textColor: Color,
+    backgroundColor: Color
+): TextStyle {
+    // Calculate contrast ratio
+    val contrastRatio = calculateContrastRatio(textColor, backgroundColor)
+    
+    // WCAG 2.0 recommends at least 4.5:1 for normal text
+    val minimumContrastRatio = 4.5f
+    
+    // If contrast is sufficient, use the original color
+    if (contrastRatio >= minimumContrastRatio) {
+        return baseStyle.copy(color = textColor)
+    }
+    
+    // Otherwise, choose either white or black based on background luminance
+    val isDarkBackground = backgroundColor.isDark()
+    
+    return baseStyle.copy(
+        color = if (isDarkBackground) Color.White else Color.Black
+    )
+}
 
 /**
  * A calendar agenda widget that displays upcoming events.
@@ -39,14 +86,20 @@ fun CalendarAgendaWidget(
 ) {
     val currentDate = remember { LocalDate.now() }
     val currentDateTime = remember { LocalDateTime.now() }
-    val filteredEvents = remember(events, currentDateTime) {
-        // Group events by day, then sort all-day events to the end of each day's group
+    
+    // Group events by day for easier processing when rendering
+    val eventsByDay = remember(events, currentDateTime) {
         events
             .groupBy { it.startTime.toLocalDate() }
-            .flatMap { (_, dayEvents) ->
+            .mapValues { (_, dayEvents) ->
                 dayEvents.sortedWith(compareBy<CalendarEvent> { it.isAllDay }.thenBy { it.startTime })
             }
-            // No longer limiting events as scrolling is enabled
+            .toSortedMap() // Sort by date
+    }
+    
+    // For a flat list when needed
+    val filteredEvents = remember(eventsByDay) {
+        eventsByDay.flatMap { it.value }
     }
 
     // Create a constrained hitbox for the calendar widget that leaves space for the FAB and gesture areas
@@ -61,11 +114,11 @@ fun CalendarAgendaWidget(
                 .padding(bottom = 16.dp), // Add bottom padding to the column itself
             contentPadding = PaddingValues(
                 start = 24.dp,
-                end = 16.dp,
+                end = 80.dp, // Increased end padding to match the overlay width
                 top = 24.dp, // Increase top padding for better visibility
                 bottom = 120.dp // Substantial bottom padding to ensure content is visible above app drawer
             ),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(0.dp)
         ) {
             // Optional: Add a subtle header for the upcoming events section
             item {
@@ -98,33 +151,57 @@ fun CalendarAgendaWidget(
                     }
                 }
             } else {
-                items(filteredEvents) { event ->
-                    // Use Surface to improve the clickable area definition
-                    Surface(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { 
-                                android.util.Log.d("CalendarAgendaWidget", "Surface clicked: ${event.title}")
-                                onEventClick(event) 
-                            },
-                        color = MaterialTheme.colorScheme.background,
-                        tonalElevation = 0.dp
-                    ) {
-                        // Use a non-clickable version of the item to avoid double-click handlers
-                        CalendarEventItemContent(
-                            event = event,
-                            currentDate = currentDate,
-                            currentDateTime = currentDateTime,
-                            statusColor = when {
-                                event.startTime.isAfter(currentDateTime) && 
-                                ChronoUnit.MINUTES.between(currentDateTime, event.startTime) <= 360 -> 
-                                    MaterialTheme.colorScheme.secondary
-                                currentDateTime.isAfter(event.startTime) && 
-                                currentDateTime.isBefore(event.endTime) -> 
-                                    MaterialTheme.colorScheme.tertiary
-                                else -> event.color?.let { Color(it) } ?: MaterialTheme.colorScheme.primary
-                            }
-                        )
+                // Iterate through each day's events and add dividers between days
+                var isFirstDay = true
+                
+                eventsByDay.forEach { (day, dayEvents) ->
+                    // Add a divider before each day except the first one
+                    if (!isFirstDay) {
+                        item {
+                            Divider(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 8.dp),
+                                thickness = 0.5.dp,
+                                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f)
+                            )
+                        }
+                    } else {
+                        isFirstDay = false
+                    }
+                    
+                    // Add all events for this day
+                    items(dayEvents) { event ->
+                        // Use Surface to improve the clickable area definition
+                        Surface(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { 
+                                    android.util.Log.d("CalendarAgendaWidget", "Surface clicked: ${event.title}")
+                                    onEventClick(event) 
+                                },
+                            color = MaterialTheme.colorScheme.background,
+                            tonalElevation = 0.dp
+                        ) {
+                            // Use a non-clickable version of the item to avoid double-click handlers
+                            CalendarEventItemContent(
+                                event = event,
+                                currentDate = currentDate,
+                                currentDateTime = currentDateTime,
+                                statusColor = when {
+                                    // For ongoing events, use the event's color but with higher opacity
+                                    currentDateTime.isAfter(event.startTime) && 
+                                    currentDateTime.isBefore(event.endTime) -> 
+                                        event.color?.let { Color(it) } ?: MaterialTheme.colorScheme.tertiary
+                                    // For events starting soon (in the next 6 hours), use the event's color 
+                                    event.startTime.isAfter(currentDateTime) && 
+                                    ChronoUnit.MINUTES.between(currentDateTime, event.startTime) <= 360 -> 
+                                        event.color?.let { Color(it) } ?: MaterialTheme.colorScheme.secondary
+                                    // For all other events, use the event's original color
+                                    else -> event.color?.let { Color(it) } ?: MaterialTheme.colorScheme.primary
+                                }
+                            )
+                        }
                     }
                 }
             }
@@ -134,7 +211,7 @@ fun CalendarAgendaWidget(
         Box(
             modifier = Modifier
                 .fillMaxHeight()
-                .width(70.dp) // Right overlay width
+                .width(80.dp) // Exact 80.dp to match the gesture detection area in MainActivity
                 .align(Alignment.CenterEnd)
                 .background(MaterialTheme.colorScheme.background)
                 .pointerInput(Unit) {} // Empty pointer input to prevent this box from intercepting clicks
@@ -394,11 +471,19 @@ private fun CalendarEventItemContent(
                 .weight(1f)
                 .padding(start = 12.dp)
         ) {
-            // Event title - slightly more prominent
+            // Get the background color for contrast calculation
+            val backgroundColor = MaterialTheme.colorScheme.background
+            
+            // Event title - with enhanced contrast if needed
+            val titleStyle = getContrastEnhancedTextStyle(
+                baseStyle = MaterialTheme.typography.bodyLarge,
+                textColor = MaterialTheme.colorScheme.onBackground,
+                backgroundColor = backgroundColor
+            )
+            
             Text(
                 text = event.title,
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onBackground,
+                style = titleStyle,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
@@ -411,13 +496,33 @@ private fun CalendarEventItemContent(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                // Date pill - smaller and more subtle
-                Text(
-                    text = dateText,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = statusColor,
-                    fontWeight = FontWeight.Medium
+                // Date pill - with contrast enhancement and pill-shaped background
+                val dateTextStyle = getContrastEnhancedTextStyle(
+                    baseStyle = MaterialTheme.typography.labelSmall,
+                    textColor = statusColor,
+                    backgroundColor = backgroundColor
                 )
+                
+                // If the background is dark and the event color is also dark, make a more visible pill
+                val pillColor = if (backgroundColor.isDark() && statusColor.isDark()) {
+                    // Use a lightened version of the status color
+                    Color.White.copy(alpha = 0.2f)
+                } else {
+                    // Otherwise use the status color with low opacity
+                    statusColor.copy(alpha = 0.15f)
+                }
+                
+                Surface(
+                    color = pillColor,
+                    shape = MaterialTheme.shapes.extraSmall
+                ) {
+                    Text(
+                        text = dateText,
+                        style = dateTextStyle,
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                    )
+                }
                 
                 // Subtle dot separator
                 Box(
@@ -429,21 +534,31 @@ private fun CalendarEventItemContent(
                         )
                 )
                 
-                // Time text - unified style
+                // Time text - unified style with contrast enhancement
+                val timeTextStyle = getContrastEnhancedTextStyle(
+                    baseStyle = MaterialTheme.typography.labelSmall,
+                    textColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
+                    backgroundColor = backgroundColor
+                )
+                
                 Text(
                     text = timeText,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
+                    style = timeTextStyle
                 )
             }
             
             // Event location if available - only show if location exists
             event.location?.let { location ->
                 if (location.isNotBlank()) {
+                    val locationTextStyle = getContrastEnhancedTextStyle(
+                        baseStyle = MaterialTheme.typography.bodySmall,
+                        textColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f),
+                        backgroundColor = backgroundColor
+                    )
+                    
                     Text(
                         text = location,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f),
+                        style = locationTextStyle,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.padding(top = 2.dp)
