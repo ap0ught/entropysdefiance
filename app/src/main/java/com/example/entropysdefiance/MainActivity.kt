@@ -9,6 +9,9 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -30,6 +33,7 @@ import com.example.entropysdefiance.ui.components.AppDrawer
 import com.example.entropysdefiance.ui.components.CalendarAgendaWidget
 import com.example.entropysdefiance.ui.components.CalendarSelectionDialog
 import com.example.entropysdefiance.ui.components.SettingsDialog
+import com.example.entropysdefiance.ui.components.TimeHorizonProgressBar
 import com.example.entropysdefiance.viewmodel.TaskViewModel
 import com.example.entropysdefiance.viewmodel.LauncherViewModel
 import com.example.entropysdefiance.viewmodel.SettingsViewModel
@@ -50,7 +54,6 @@ import androidx.compose.ui.input.pointer.pointerInput
 import kotlin.math.abs
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -68,6 +71,15 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import android.Manifest
 import android.content.pm.PackageManager
+import androidx.compose.animation.*
+import androidx.compose.animation.core.*
+import android.provider.CalendarContract
+import androidx.compose.foundation.layout.Arrangement.spacedBy
+import androidx.compose.foundation.layout.Box
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.ui.graphics.graphicsLayer
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalComposeUiApi::class)
 class MainActivity : ComponentActivity() {
@@ -124,6 +136,9 @@ fun TaskApp(
     var isPeeking by remember { mutableStateOf(false) }
     var showAppDrawer by remember { mutableStateOf(false) }
     var dragStart by remember { mutableStateOf(Offset.Zero) }
+    
+    // FAB expanded state
+    var isFabExpanded by remember { mutableStateOf(false) }
     
     // Get calendar events from the ViewModel
     val calendarEvents by calendarViewModel.events.collectAsState()
@@ -200,11 +215,20 @@ fun TaskApp(
     val context = LocalContext.current
 
     Box(modifier = Modifier.fillMaxSize()) {
-        // Semi-transparent dark overlay that extends behind system bars
-        Surface(
-            modifier = Modifier.fillMaxSize(),
-            color = Color.Black.copy(alpha = 0.4f) // Slightly darker for better dimming
-        ) {}
+        // Semi-transparent dark overlay that extends behind system bars when fab is expanded
+        // Removing the dimming overlay
+        /* AnimatedVisibility(
+            visible = isFabExpanded,
+            enter = fadeIn(animationSpec = tween(durationMillis = 300)),
+            exit = fadeOut(animationSpec = tween(durationMillis = 300))
+        ) {
+            Surface(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clickable { isFabExpanded = false }, // Close FAB menu when clicking overlay
+                color = Color.Black.copy(alpha = 0.5f)
+            ) {}
+        } */
 
         if (showAddScreen) {
             // Show the AddTaskScreen on top of the overlay
@@ -280,88 +304,105 @@ fun TaskApp(
                 topBar = {
                     TopAppBar(
                         title = { 
-                            Text(
-                                text = displayedTimeHorizon.title,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
+                            Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .padding(top = 18.dp)
-                                    .clickable { 
-                                        // Check for calendar permission first
-                                        if (ContextCompat.checkSelfPermission(
-                                                context,
-                                                Manifest.permission.READ_CALENDAR
-                                            ) == PackageManager.PERMISSION_GRANTED
-                                        ) {
-                                            // Permission granted, launch calendar app
-                                            launcherViewModel.launchCalendarApp("org.fossify.calendar")
-                                        } else {
-                                            // No permission, request it
-                                            calendarViewModel.initialize()
-                                            // Show a toast message to inform the user
-                                            Toast.makeText(
-                                                context,
-                                                "Calendar permission needed to open calendar app",
-                                                Toast.LENGTH_SHORT
-                                            ).show()
-                                        }
-                                    },
-                                textAlign = TextAlign.Center,
-                                style = MaterialTheme.typography.titleLarge.copy(
-                                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.9f)
+                            ) {
+                                Text(
+                                    text = displayedTimeHorizon.title,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable { 
+                                            // Check for calendar permission first
+                                            if (ContextCompat.checkSelfPermission(
+                                                    context,
+                                                    Manifest.permission.READ_CALENDAR
+                                                ) == PackageManager.PERMISSION_GRANTED
+                                            ) {
+                                                // Permission granted, launch calendar app
+                                                launcherViewModel.launchCalendarApp("org.fossify.calendar")
+                                            } else {
+                                                // No permission, request it
+                                                calendarViewModel.initialize()
+                                                // Show a toast message to inform the user
+                                                Toast.makeText(
+                                                    context,
+                                                    "Calendar permission needed to open calendar app",
+                                                    Toast.LENGTH_SHORT
+                                                ).show()
+                                            }
+                                        },
+                                    textAlign = TextAlign.Center,
+                                    style = MaterialTheme.typography.titleLarge.copy(
+                                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.9f)
+                                    )
                                 )
-                            )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                TimeHorizonProgressBar(
+                                    timeHorizon = displayedTimeHorizon,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 32.dp)
+                                )
+                            }
                         },
-                        modifier = Modifier.padding(top = 12.dp),
+                        modifier = Modifier
+                            .padding(top = 12.dp)
+                            .background(MaterialTheme.colorScheme.background),
                         colors = TopAppBarDefaults.topAppBarColors(
-                            containerColor = Color.Transparent,
-                            scrolledContainerColor = Color.Transparent
+                            containerColor = MaterialTheme.colorScheme.background,
+                            scrolledContainerColor = MaterialTheme.colorScheme.background
                         )
                     )
                 },
                 floatingActionButton = {
-                    Column(
-                        horizontalAlignment = Alignment.End,
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        IconButton(
-                            onClick = { }, 
-                            modifier = Modifier
-                                .pointerInteropFilter { event ->
-                                    when (event.action) {
-                                        MotionEvent.ACTION_DOWN -> {
-                                            isPeeking = true
-                                            true
-                                        }
-                                        MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                                            isPeeking = false
-                                            true
-                                        }
-                                        else -> false
-                                    }
+                    MultiFunctionFAB(
+                        expanded = isFabExpanded,
+                        onExpandedChange = { isFabExpanded = it },
+                        isPeeking = isPeeking,
+                        onPeekingChange = { isPeeking = it },
+                        onAddTask = { 
+                            isFabExpanded = false
+                            showAddScreen = true 
+                        },
+                        onAddCalendarEvent = {
+                            isFabExpanded = false
+                            // Open the "Add Event" dialog directly in the calendar app
+                            if (ContextCompat.checkSelfPermission(
+                                    context,
+                                    Manifest.permission.READ_CALENDAR
+                                ) == PackageManager.PERMISSION_GRANTED
+                            ) {
+                                // Create intent to open the "Add Event" dialog
+                                val intent = Intent(Intent.ACTION_INSERT)
+                                    .setData(CalendarContract.Events.CONTENT_URI)
+                                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                
+                                try {
+                                    context.startActivity(intent)
+                                } catch (e: Exception) {
+                                    // If it fails, fall back to just opening the calendar app
+                                    Log.e("MainActivity", "Failed to open add event dialog", e)
+                                    launcherViewModel.launchCalendarApp("org.fossify.calendar")
+                                    Toast.makeText(
+                                        context, 
+                                        "Couldn't open add event directly", 
+                                        Toast.LENGTH_SHORT
+                                    ).show()
                                 }
-                                .size(48.dp),
-                            colors = IconButtonDefaults.iconButtonColors(
-                                containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                                contentColor = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        ) {
-                            Icon(
-                                Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                                contentDescription = "Peek Next Time Horizon",
-                                modifier = Modifier.size(24.dp)
-                            )
+                            } else {
+                                calendarViewModel.initialize()
+                                Toast.makeText(
+                                    context,
+                                    "Calendar permission needed to add calendar events",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            }
                         }
-                        
-                        FloatingActionButton(
-                            onClick = { showAddScreen = true },
-                            containerColor = MaterialTheme.colorScheme.primary,
-                            contentColor = MaterialTheme.colorScheme.onPrimary
-                        ) {
-                            Icon(Icons.Default.Add, contentDescription = "Add Task")
-                        }
-                    }
+                    )
                 }
             ) { padding ->
                 Box(
@@ -380,6 +421,12 @@ fun TaskApp(
                                 onLongPress = {
                                     // Show settings on long press
                                     settingsViewModel.showSettingsDialog()
+                                },
+                                onTap = {
+                                    // Close FAB menu when tapping anywhere on the screen
+                                    if (isFabExpanded) {
+                                        isFabExpanded = false
+                                    }
                                 }
                             )
                         }
@@ -584,6 +631,163 @@ fun TaskApp(
                             }
                     )
                 }
+            }
+        }
+    }
+}
+
+/**
+ * Multi-functional Floating Action Button with expandable options
+ */
+@OptIn(ExperimentalComposeUiApi::class)
+@Composable
+fun MultiFunctionFAB(
+    expanded: Boolean,
+    onExpandedChange: (Boolean) -> Unit,
+    isPeeking: Boolean,
+    onPeekingChange: (Boolean) -> Unit,
+    onAddTask: () -> Unit,
+    onAddCalendarEvent: () -> Unit
+) {
+    // Use the theme's predefined colors instead of transparency
+    val primaryColor = MaterialTheme.colorScheme.primary
+    val taskButtonColor = MaterialTheme.colorScheme.secondary  // Uses primaryVariant1 from theme
+    val calendarButtonColor = MaterialTheme.colorScheme.secondary  // Uses primaryVariant2 from theme
+    
+    // Animation specs for smoother animations
+    val enterTransition = remember {
+        fadeIn(animationSpec = tween(150)) + 
+        expandVertically(
+            animationSpec = tween(200, easing = FastOutSlowInEasing),
+            expandFrom = Alignment.CenterVertically
+        )
+    }
+    
+    val exitTransition = remember {
+        fadeOut(animationSpec = tween(100)) + 
+        shrinkVertically(
+            animationSpec = tween(200, easing = FastOutSlowInEasing),
+            shrinkTowards = Alignment.CenterVertically
+        )
+    }
+    
+    // Use Box to align items vertically centered with main FAB
+    Box(
+        contentAlignment = Alignment.BottomEnd,
+        modifier = Modifier.padding(bottom = 4.dp)
+    ) {
+        // ----------------
+        // Expanded options
+        // ----------------
+        Column(
+            horizontalAlignment = Alignment.End,
+            verticalArrangement = spacedBy(16.dp),
+            modifier = Modifier.padding(end = 4.dp, bottom = 4.dp)
+        ) {
+            // Task option FAB - only shown when expanded
+            AnimatedVisibility(
+                visible = expanded,
+                enter = enterTransition,
+                exit = exitTransition
+            ) {
+                FloatingActionButton(
+                    onClick = onAddTask,
+                    containerColor = taskButtonColor,
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                    modifier = Modifier.size(48.dp)
+                ) {
+                    Icon(
+                        Icons.Default.Edit,
+                        contentDescription = "Add Task",
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+            }
+            
+            // Calendar option FAB - only shown when expanded
+            AnimatedVisibility(
+                visible = expanded,
+                enter = enterTransition,
+                exit = exitTransition
+            ) {
+                FloatingActionButton(
+                    onClick = onAddCalendarEvent,
+                    containerColor = calendarButtonColor,
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                    modifier = Modifier.size(48.dp)
+                ) {
+                    Icon(
+                        Icons.Default.DateRange,
+                        contentDescription = "Add Calendar Event",
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(64.dp)) // Space for main FAB
+        }
+        
+        // ----------------
+        // Peek button and main FAB
+        // ----------------
+        Column(
+            horizontalAlignment = Alignment.End,
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            // Only show the peek button when FAB is not expanded
+            AnimatedVisibility(
+                visible = !expanded,
+                enter = fadeIn(animationSpec = tween(150)),
+                exit = fadeOut(animationSpec = tween(100))
+            ) {
+                IconButton(
+                    onClick = { }, 
+                    modifier = Modifier
+                        .pointerInteropFilter { event ->
+                            when (event.action) {
+                                MotionEvent.ACTION_DOWN -> {
+                                    onPeekingChange(true)
+                                    true
+                                }
+                                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                                    onPeekingChange(false)
+                                    true
+                                }
+                                else -> false
+                            }
+                        }
+                        .size(48.dp),
+                    colors = IconButtonDefaults.iconButtonColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                        contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                ) {
+                    Icon(
+                        Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                        contentDescription = "Peek Next Time Horizon",
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+            }
+            
+            // Main FAB - toggles expansion
+            FloatingActionButton(
+                onClick = { onExpandedChange(!expanded) },
+                containerColor = primaryColor,
+                contentColor = MaterialTheme.colorScheme.onPrimary
+            ) {
+                // Animate the plus icon to rotate when expanded
+                val rotation by animateFloatAsState(
+                    targetValue = if (expanded) 45f else 0f,
+                    animationSpec = tween(200, easing = FastOutSlowInEasing),
+                    label = "FabRotation"
+                )
+                
+                Icon(
+                    Icons.Default.Add,
+                    contentDescription = if (expanded) "Close Menu" else "Open Menu",
+                    modifier = Modifier.graphicsLayer { rotationZ = rotation }
+                )
             }
         }
     }

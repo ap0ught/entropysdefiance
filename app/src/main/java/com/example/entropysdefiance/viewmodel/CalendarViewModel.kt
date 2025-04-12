@@ -112,6 +112,13 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
                 val oldSelectedIds = savedSelectedCalendarIds
                 savedSelectedCalendarIds = settings.selectedCalendarIds
                 
+                // Update currentCalendarDays when settings change
+                if (currentCalendarDays != settings.calendarDaysToShow) {
+                    currentCalendarDays = settings.calendarDaysToShow
+                    // Reload events with new days setting
+                    loadEvents(currentCalendarDays)
+                }
+                
                 // If this is the first load after app start and we have available calendars,
                 // immediately persist any default selections to avoid stale data
                 if (isFirstLoad) {
@@ -253,7 +260,7 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
     /**
      * Load calendar events with default 7 day window
      */
-    fun loadEvents(daysInFuture: Int = 7) {
+    fun loadEvents(daysInFuture: Int = currentCalendarDays) {
         if (!hasCalendarPermission.value) {
             Log.d(TAG, "Cannot load events: No calendar permission")
             return

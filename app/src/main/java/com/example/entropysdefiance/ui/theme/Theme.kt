@@ -15,6 +15,10 @@ private val md_theme_dark_onBackground = Color(0xFFE1E1E1)  // Soft white
 private val md_theme_dark_onSurface = Color(0xFFE1E1E1)
 private val md_theme_dark_outline = Color(0xFF858585)  // Subtle outline for cards
 
+// New colors for FAB variants - lighter versions of primary
+private val md_theme_dark_primaryVariant1 = Color(0xFF589B5A)  // 20% lighter than primary
+private val md_theme_dark_primaryVariant2 = Color(0xFF69B76B)  // 40% lighter than primary
+
 private val DarkColorScheme = darkColorScheme(
     primary = md_theme_dark_primary,
     onPrimary = md_theme_dark_onPrimary,
@@ -27,7 +31,10 @@ private val DarkColorScheme = darkColorScheme(
     surfaceTint = md_theme_dark_background,
     inverseSurface = md_theme_dark_background,
     surfaceBright = md_theme_dark_background,
-    surfaceContainer = md_theme_dark_background
+    surfaceContainer = md_theme_dark_background,
+    // Add the new variants to the color scheme
+    secondary = md_theme_dark_primaryVariant1,
+    tertiary = md_theme_dark_primaryVariant2
 )
 
 @Composable
