@@ -27,7 +27,7 @@ This section guides you through submitting an enhancement suggestion, including 
 #### Setting Up Your Development Environment
 
 1. Fork the repository
-2. Clone your fork: `git clone https://github.com/yourusername/entropysdefiance.git`
+2. Clone your fork: `git clone https://gitlab.com/yourusername/entropysdefiance.git`
 3. Set up Android Studio with the project
 4. Create a new branch for your feature: `git checkout -b feature/amazing-feature`
 
@@ -38,11 +38,11 @@ This section guides you through submitting an enhancement suggestion, including 
 3. Write meaningful commit messages that explain your changes
 4. Test your changes thoroughly
 
-#### Submitting a Pull Request
+#### Submitting a Merge Request
 
 1. Push your branch to your fork: `git push origin feature/amazing-feature`
-2. Create a pull request from your branch to the main repository
-3. Fill out the pull request template with details about your changes
+2. Create a merge request from your branch to the main repository
+3. Fill out the merge request template with details about your changes
 4. Respond to any feedback during the review process
 
 ## Styleguides
@@ -52,7 +52,7 @@ This section guides you through submitting an enhancement suggestion, including 
 - Use the present tense ("Add feature" not "Added feature")
 - Use the imperative mood ("Move cursor to..." not "Moves cursor to...")
 - Limit the first line to 72 characters or less
-- Reference issues and pull requests liberally after the first line
+- Reference issues and merge requests liberally after the first line
 
 ### Kotlin Styleguide
 
@@ -70,9 +70,9 @@ This section guides you through submitting an enhancement suggestion, including 
 
 ## Additional Notes
 
-### Issue and Pull Request Labels
+### Issue and Merge Request Labels
 
-This section lists the labels we use to help us track and manage issues and pull requests.
+This section lists the labels we use to help us track and manage issues and merge requests.
 
 - `bug`: Something isn't working
 - `documentation`: Improvements or additions to documentation

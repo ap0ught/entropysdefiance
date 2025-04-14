@@ -1,0 +1,57 @@
+image: openjdk:11-jdk
+
+variables:
+  ANDROID_COMPILE_SDK: "35"
+  ANDROID_BUILD_TOOLS: "35.0.0"
+  ANDROID_SDK_TOOLS: "7583922"
+
+before_script:
+  - apt-get --quiet update --yes
+  - apt-get --quiet install --yes wget tar unzip lib32stdc++6 lib32z1
+
+  # Setup Android SDK
+  - wget --quiet --output-document=android-sdk.zip https://dl.google.com/android/repository/commandlinetools-linux-${ANDROID_SDK_TOOLS}_latest.zip
+  - unzip -d android-sdk-linux android-sdk.zip
+  - mkdir -p android-sdk-linux/cmdline-tools/latest
+  - mv android-sdk-linux/cmdline-tools/* android-sdk-linux/cmdline-tools/latest/ || true
+  - rm -rf android-sdk-linux/cmdline-tools/latest/cmdline-tools || true
+  - export ANDROID_HOME=$PWD/android-sdk-linux
+  - export PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools
+
+  # Install SDK packages
+  - mkdir -p $ANDROID_HOME/licenses/
+  - echo "24333f8a63b6825ea9c5514f83c2829b004d1fee" > $ANDROID_HOME/licenses/android-sdk-license
+  - sdkmanager "platforms;android-${ANDROID_COMPILE_SDK}" "build-tools;${ANDROID_BUILD_TOOLS}" "platform-tools"
+  
+  # Accept licenses
+  - yes | sdkmanager --licenses
+
+stages:
+  - build
+  - test
+
+assembleDebug:
+  stage: build
+  script:
+    - ./gradlew assembleDebug
+  artifacts:
+    paths:
+      - app/build/outputs/
+
+unitTests:
+  stage: test
+  script:
+    - ./gradlew test
+  artifacts:
+    reports:
+      junit: app/build/test-results/testDebugUnitTest/TEST-*.xml
+
+lintDebug:
+  stage: test
+  script:
+    - ./gradlew lintDebug
+  artifacts:
+    paths:
+      - app/build/reports/
+    reports:
+      codequality: app/build/reports/lint-results-debug.xml 

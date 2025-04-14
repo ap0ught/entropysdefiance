@@ -1,12 +1,23 @@
 # Entropy's Defiance
 
 <p align="center">
-  <img src="icon.svg" width="200" alt="Entropy's Defiance Logo">
+  <img src="icon.svg" width="300" alt="Entropy's Defiance Logo">
 </p>
 
 ## Overview
 
 Entropy's Defiance is a minimalist Android launcher and task management app designed to bring order to the chaos of everyday digital life. It offers a unique approach to task management based on time horizons and seamlessly integrates with your calendar to keep you focused on what matters.
+
+## Project Origin: Vibe-Coding
+
+This project was created entirely through "vibe-coding" - a development approach where the entire app was built with the assistance of AI. Unlike traditional software development:
+
+- The code, architecture, and features were generated through AI interactions
+- Human input focused on guiding the AI with high-level ideas and feedback
+- The project evolved through collaborative human-AI conversation
+- Design decisions emerged from this dialogue rather than conventional planning
+
+Entropy's Defiance represents an exploration of how software can be created when human creativity is augmented by AI capabilities, without requiring extensive traditional coding knowledge.
 
 ## Features
 
@@ -34,13 +45,15 @@ Entropy's Defiance is a minimalist Android launcher and task management app desi
 
 ## Screenshots
 
-<p align="center">
-  <!-- Add screenshot placeholders - to be updated when publishing -->
-  <img src="screenshots/screenshot1.png" width="200" alt="Home Screen">
-  <img src="screenshots/screenshot2.png" width="200" alt="App Drawer">
-  <img src="screenshots/screenshot3.png" width="200" alt="Task Management">
-  <img src="screenshots/screenshot4.png" width="200" alt="Calendar View">
-</p>
+As this project was born through vibe-coding, it remains a work in progress with the visual interface evolving organically. The screenshots directory contains placeholders for future visual documentation. Current design emphasizes:
+
+- Minimalist interface with focus on essential information
+- Dark theme with subtle transparency effects
+- Time horizon-based task organization
+- Seamless calendar integration
+- Gesture-based navigation
+
+Actual screenshots will be added as the interface stabilizes through use and iteration.
 
 ## Getting Started
 
@@ -49,7 +62,7 @@ Entropy's Defiance is a minimalist Android launcher and task management app desi
 - Permissions for calendar access (for calendar features)
 
 ### Installation
-1. Download the latest APK from the [Releases](https://github.com/USERNAME/entropysdefiance/releases) section
+1. Download the latest APK from the [Releases](https://gitlab.com/hwanderer/entropysdefiance/-/releases) section
 2. Install the APK on your device
 3. Set Entropy's Defiance as your default launcher when prompted
 
@@ -63,41 +76,48 @@ Entropy's Defiance is a minimalist Android launcher and task management app desi
 
 ## Building From Source
 
+This codebase was generated through AI assistance rather than traditional development. As such, building from source has some unique characteristics:
+
 1. Clone the repository:
 ```
-git clone https://github.com/USERNAME/entropysdefiance.git
+git clone https://gitlab.com/hwanderer/entropysdefiance.git
 ```
 
 2. Open the project in Android Studio
 
-3. Build the project:
+3. Be aware that the code architecture and patterns reflect AI-generated solutions rather than conventional development approaches
+
+4. Build the project:
 ```
 ./gradlew assembleDebug
 ```
 
-4. Install on your device:
+5. Install on your device:
 ```
 ./gradlew installDebug
 ```
 
+The codebase may contain structures and approaches that differ from human-written code, as it emerged from human-AI collaboration rather than traditional development practices. This represents an exploration of how software can be created when human creativity is extended through AI capabilities.
+
 ## Contributing
 
-Contributions are welcome! Feel free to open issues or submit pull requests.
+While this project was created through AI assistance, thoughtful contributions are welcome. Feel free to open issues or submit merge requests if you're interested in extending this AI-assisted development approach.
 
 1. Fork the repository
 2. Create your feature branch: `git checkout -b feature/amazing-feature`
 3. Commit your changes: `git commit -m 'Add some amazing feature'`
 4. Push to the branch: `git push origin feature/amazing-feature`
-5. Open a Pull Request
+5. Open a Merge Request
 
-Please read our [Contributing Guidelines](.github/CONTRIBUTING.md) for more details.
+Please read our [Contributing Guidelines](.gitlab/CONTRIBUTING.md) for more details.
 
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## Acknowledgments
+## Inspiration & Acknowledgments
 
-- [Material Design 3](https://m3.material.io/) for UI components
+- [Anthropic's Claude](https://www.anthropic.com/claude) and other AI assistants that made vibe-coding possible
+- [Material Design 3](https://m3.material.io/) for UI design language interpreted by AI
 - [Jetpack Compose](https://developer.android.com/jetpack/compose) for modern UI development
-- All [contributors](https://github.com/USERNAME/entropysdefiance/graphs/contributors) who have helped shape this project 
+- The emerging field of AI-assisted software development and "vibe-coding"

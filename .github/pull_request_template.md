@@ -1,5 +1,5 @@
 ## Description
-Briefly describe the changes in this pull request.
+Briefly describe the changes in this merge request.
 
 ## Related Issue
 Fixes #(issue)
