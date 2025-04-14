@@ -215,20 +215,11 @@ fun TaskApp(
     val context = LocalContext.current
 
     Box(modifier = Modifier.fillMaxSize()) {
-        // Semi-transparent dark overlay that extends behind system bars when fab is expanded
-        // Removing the dimming overlay
-        /* AnimatedVisibility(
-            visible = isFabExpanded,
-            enter = fadeIn(animationSpec = tween(durationMillis = 300)),
-            exit = fadeOut(animationSpec = tween(durationMillis = 300))
-        ) {
-            Surface(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .clickable { isFabExpanded = false }, // Close FAB menu when clicking overlay
-                color = Color.Black.copy(alpha = 0.5f)
-            ) {}
-        } */
+        // Add a full-screen scrim overlay with 60% opacity
+        Surface(
+            modifier = Modifier.fillMaxSize(),
+            color = Color.Black.copy(alpha = 0.6f)
+        ) {}
 
         if (showAddScreen) {
             // Show the AddTaskScreen on top of the overlay
