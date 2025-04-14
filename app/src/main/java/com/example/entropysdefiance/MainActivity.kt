@@ -80,6 +80,9 @@ import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.ui.graphics.graphicsLayer
+import com.example.entropysdefiance.ui.theme.*
+import com.example.entropysdefiance.ui.components.ColorPaletteSelectionDialog
+import com.example.entropysdefiance.model.AppSettings
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalComposeUiApi::class)
 class MainActivity : ComponentActivity() {
@@ -98,7 +101,18 @@ class MainActivity : ComponentActivity() {
         val viewModelFactory = ViewModelProvider.AndroidViewModelFactory.getInstance(application)
         
         setContent {
-            EntropysDefianceTheme {
+            // Get settings from the ViewModel
+            val settingsViewModel: SettingsViewModel = viewModel(factory = viewModelFactory)
+            val appSettings by settingsViewModel.settings.collectAsState(AppSettings())
+            
+            // Get the selected color palette based on settings
+            val selectedColorPalette = remember(appSettings.colorTheme) {
+                availableColorPalettes.find { it.displayName == appSettings.colorTheme } ?: GreenPalette
+            }
+            
+            EntropysDefianceTheme(
+                colorPalette = selectedColorPalette
+            ) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
@@ -107,7 +121,6 @@ class MainActivity : ComponentActivity() {
                     val taskViewModel: TaskViewModel = viewModel(factory = viewModelFactory)
                     val launcherViewModel: LauncherViewModel = viewModel(factory = viewModelFactory)
                     val calendarViewModel: CalendarViewModel = viewModel(factory = viewModelFactory)
-                    val settingsViewModel: SettingsViewModel = viewModel(factory = viewModelFactory)
                     
                     // Use the TaskApp composable with Calendar integration
                     TaskApp(
@@ -189,6 +202,7 @@ fun TaskApp(
     val appSettings by settingsViewModel.settings.collectAsState()
     val showSettingsDialog by settingsViewModel.showSettingsDialog.collectAsState()
     val showCalendarSelection by settingsViewModel.showCalendarSelection.collectAsState()
+    val showColorPaletteSelection by settingsViewModel.showColorPaletteSelection.collectAsState()
     
     // Define a proper coroutine scope
     val coroutineScope = rememberCoroutineScope()
@@ -215,7 +229,8 @@ fun TaskApp(
     val context = LocalContext.current
 
     Box(modifier = Modifier.fillMaxSize()) {
-        // Add a full-screen scrim overlay with 60% opacity
+        // We don't need the separate overlay with padding
+        // Just apply the scrim overlay to the entire screen
         Surface(
             modifier = Modifier.fillMaxSize(),
             color = Color.Black.copy(alpha = 0.6f)
@@ -269,7 +284,8 @@ fun TaskApp(
                 },
                 onToggleDarkTheme = { settingsViewModel.toggleDarkTheme() },
                 onToggleDoubleTapDialer = { settingsViewModel.toggleDoubleTapForDialer() },
-                onCalendarSelectionClick = { settingsViewModel.showCalendarSelection() }
+                onCalendarSelectionClick = { settingsViewModel.showCalendarSelection() },
+                onColorPaletteClick = { settingsViewModel.showColorPaletteSelection() }
             )
         } else if (showCalendarSelection) {
             // Show calendar selection as a full screen replacement for main content
@@ -286,6 +302,18 @@ fun TaskApp(
                 },
                 onSelectNone = {
                     calendarViewModel.deselectAllCalendars()
+                }
+            )
+        } else if (showColorPaletteSelection) {
+            // Show color palette selection
+            ColorPaletteSelectionDialog(
+                currentColorTheme = appSettings.colorTheme,
+                onColorSelect = { colorTheme ->
+                    settingsViewModel.updateColorTheme(colorTheme)
+                    settingsViewModel.hideColorPaletteSelection()
+                },
+                onDismiss = {
+                    settingsViewModel.hideColorPaletteSelection()
                 }
             )
         } else {
@@ -331,21 +359,24 @@ fun TaskApp(
                                         color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.9f)
                                     )
                                 )
-                                Spacer(modifier = Modifier.height(8.dp))
-                                TimeHorizonProgressBar(
-                                    timeHorizon = displayedTimeHorizon,
+                                Spacer(modifier = Modifier.height(4.dp))
+                                // Place the progress bar with proper spacing
+                                Box(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .padding(horizontal = 32.dp)
-                                )
+                                        .padding(horizontal = 32.dp, vertical = 2.dp)
+                                ) {
+                                    TimeHorizonProgressBar(
+                                        timeHorizon = displayedTimeHorizon,
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
+                                }
                             }
                         },
-                        modifier = Modifier
-                            .padding(top = 12.dp)
-                            .background(MaterialTheme.colorScheme.background),
+                        modifier = Modifier.padding(top = 12.dp),
                         colors = TopAppBarDefaults.topAppBarColors(
-                            containerColor = MaterialTheme.colorScheme.background,
-                            scrolledContainerColor = MaterialTheme.colorScheme.background
+                            containerColor = Color.Transparent,
+                            scrolledContainerColor = Color.Transparent
                         )
                     )
                 },

@@ -32,6 +32,7 @@ class SettingsRepository(private val context: Context) {
         val CALENDAR_DAYS_TO_SHOW = intPreferencesKey("calendar_days_to_show")
         val USE_DARK_THEME = booleanPreferencesKey("use_dark_theme")
         val ENABLE_DOUBLE_TAP_DIALER = booleanPreferencesKey("enable_double_tap_dialer")
+        val COLOR_THEME = stringPreferencesKey("color_theme")
         
         // Use a string set to store the selected calendar IDs
         val SELECTED_CALENDAR_IDS = stringSetPreferencesKey("selected_calendar_ids")
@@ -58,6 +59,7 @@ class SettingsRepository(private val context: Context) {
             val calendarDaysToShow = preferences[PreferencesKeys.CALENDAR_DAYS_TO_SHOW] ?: 7
             val useDarkTheme = preferences[PreferencesKeys.USE_DARK_THEME] ?: false
             val enableDoubleTapForDialer = preferences[PreferencesKeys.ENABLE_DOUBLE_TAP_DIALER] ?: true
+            val colorTheme = preferences[PreferencesKeys.COLOR_THEME] ?: "Green"
             
             // Extract selected calendar IDs from the string set
             val selectedCalendarIdStrings = preferences[PreferencesKeys.SELECTED_CALENDAR_IDS] ?: emptySet()
@@ -67,6 +69,7 @@ class SettingsRepository(private val context: Context) {
             
             Log.d(TAG, "Loading settings: showCalendar=$showCalendarWidget, days=$calendarDaysToShow, " +
                        "darkTheme=$useDarkTheme, doubleTap=$enableDoubleTapForDialer, " +
+                       "colorTheme=$colorTheme, " +
                        "selectedCalendars=${selectedCalendarIds.size}")
             
             AppSettings(
@@ -74,6 +77,7 @@ class SettingsRepository(private val context: Context) {
                 calendarDaysToShow = calendarDaysToShow,
                 useDarkTheme = useDarkTheme,
                 enableDoubleTapForDialer = enableDoubleTapForDialer,
+                colorTheme = colorTheme,
                 selectedCalendarIds = selectedCalendarIds
             )
         }
@@ -143,6 +147,22 @@ class SettingsRepository(private val context: Context) {
     }
     
     /**
+     * Update color theme setting
+     */
+    suspend fun updateColorTheme(theme: String) {
+        Log.d(TAG, "Saving colorTheme: $theme")
+        try {
+            context.settingsDataStore.edit { preferences ->
+                preferences[PreferencesKeys.COLOR_THEME] = theme
+            }
+            Log.d(TAG, "Successfully saved colorTheme")
+            dumpDataStoreContents() // Debug - dump contents after updating
+        } catch (e: Exception) {
+            Log.e(TAG, "Error saving colorTheme: ${e.message}", e)
+        }
+    }
+    
+    /**
      * Update selected calendar IDs
      */
     suspend fun updateSelectedCalendarIds(calendarIds: Set<Long>) {
@@ -175,6 +195,7 @@ class SettingsRepository(private val context: Context) {
                 preferences[PreferencesKeys.CALENDAR_DAYS_TO_SHOW] = settings.calendarDaysToShow
                 preferences[PreferencesKeys.USE_DARK_THEME] = settings.useDarkTheme
                 preferences[PreferencesKeys.ENABLE_DOUBLE_TAP_DIALER] = settings.enableDoubleTapForDialer
+                preferences[PreferencesKeys.COLOR_THEME] = settings.colorTheme
                 preferences[PreferencesKeys.SELECTED_CALENDAR_IDS] = calendarIdStrings
             }
             Log.d(TAG, "Successfully saved all settings")
@@ -198,12 +219,14 @@ class SettingsRepository(private val context: Context) {
             val days = preferences[PreferencesKeys.CALENDAR_DAYS_TO_SHOW]
             val darkTheme = preferences[PreferencesKeys.USE_DARK_THEME]
             val doubleTap = preferences[PreferencesKeys.ENABLE_DOUBLE_TAP_DIALER]
+            val colorTheme = preferences[PreferencesKeys.COLOR_THEME]
             val calendarIdStrings = preferences[PreferencesKeys.SELECTED_CALENDAR_IDS]
             
             Log.d(TAG, "SHOW_CALENDAR_WIDGET: $showCalendar")
             Log.d(TAG, "CALENDAR_DAYS_TO_SHOW: $days")
             Log.d(TAG, "USE_DARK_THEME: $darkTheme")
             Log.d(TAG, "ENABLE_DOUBLE_TAP_DIALER: $doubleTap")
+            Log.d(TAG, "COLOR_THEME: $colorTheme")
             Log.d(TAG, "SELECTED_CALENDAR_IDS: $calendarIdStrings")
             
             // Dump all keys in the preferences

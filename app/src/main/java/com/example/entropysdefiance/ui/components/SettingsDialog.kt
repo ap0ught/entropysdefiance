@@ -38,6 +38,7 @@ fun SettingsDialog(
     onToggleDarkTheme: () -> Unit,
     onToggleDoubleTapDialer: () -> Unit,
     onCalendarSelectionClick: () -> Unit,
+    onColorPaletteClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     // Get application context for debug actions
@@ -132,6 +133,15 @@ fun SettingsDialog(
                     description = "Use dark theme for the launcher",
                     checked = appSettings.useDarkTheme,
                     onCheckedChange = { onToggleDarkTheme() }
+                )
+                
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                // Color palette selection
+                SettingsActionItem(
+                    title = "Color Theme",
+                    description = "Current theme: ${appSettings.colorTheme}",
+                    onClick = onColorPaletteClick
                 )
                 
                 Divider(modifier = Modifier.padding(vertical = 16.dp))

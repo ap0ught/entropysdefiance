@@ -36,6 +36,10 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     private val _showCalendarSelection = MutableStateFlow(false)
     val showCalendarSelection: StateFlow<Boolean> = _showCalendarSelection.asStateFlow()
     
+    // State for color palette selection visibility
+    private val _showColorPaletteSelection = MutableStateFlow(false)
+    val showColorPaletteSelection: StateFlow<Boolean> = _showColorPaletteSelection.asStateFlow()
+    
     init {
         Log.d(TAG, "Initializing SettingsViewModel")
         loadSettings()
@@ -138,6 +142,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         _showSettingsDialog.value = false
         // Also hide any sub-dialogs
         _showCalendarSelection.value = false
+        _showColorPaletteSelection.value = false
     }
     
     /**
@@ -158,6 +163,37 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         Log.d(TAG, "Hiding calendar selection")
         _showCalendarSelection.value = false
         // Return to settings screen when closing calendar selection
+        _showSettingsDialog.value = true
+    }
+    
+    /**
+     * Update color theme
+     */
+    fun updateColorTheme(theme: String) {
+        Log.d(TAG, "Updating color theme to: $theme")
+        viewModelScope.launch {
+            repository.updateColorTheme(theme)
+        }
+    }
+    
+    /**
+     * Show color palette selection
+     */
+    fun showColorPaletteSelection() {
+        Log.d(TAG, "Showing color palette selection")
+        // Hide settings dialog first to ensure color selection can be shown
+        _showSettingsDialog.value = false
+        // Show color selection
+        _showColorPaletteSelection.value = true
+    }
+    
+    /**
+     * Hide color palette selection
+     */
+    fun hideColorPaletteSelection() {
+        Log.d(TAG, "Hiding color palette selection")
+        _showColorPaletteSelection.value = false
+        // Return to settings screen when closing color selection
         _showSettingsDialog.value = true
     }
 } 

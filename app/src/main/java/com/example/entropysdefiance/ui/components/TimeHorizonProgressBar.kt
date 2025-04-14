@@ -16,9 +16,12 @@ import kotlinx.coroutines.delay
 @Composable
 fun TimeHorizonProgressBar(
     timeHorizon: TimeHorizon,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    showPercentage: Boolean = false
 ) {
-    var progress by remember { mutableStateOf(0f) }
+    // Calculate progress immediately for initial display
+    val initialProgress = remember(timeHorizon) { calculateProgress(timeHorizon) }
+    var progress by remember { mutableStateOf(initialProgress) }
     
     // Update progress every minute
     LaunchedEffect(timeHorizon) {
@@ -28,24 +31,42 @@ fun TimeHorizonProgressBar(
         }
     }
 
-    Box(
+    // Box wrapper with minimal vertical padding
+    Column(
         modifier = modifier
             .fillMaxWidth()
-            .height(4.dp)
-            .background(
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                shape = MaterialTheme.shapes.small
-            )
+            .padding(vertical = 2.dp)
     ) {
+        // Custom progress bar implementation - slimmer and more elegant
         Box(
             modifier = Modifier
-                .fillMaxHeight()
-                .fillMaxWidth(progress)
+                .fillMaxWidth()
+                .height(2.dp) // Even slimmer for more elegance
                 .background(
-                    color = MaterialTheme.colorScheme.primary,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f), // More visible track
                     shape = MaterialTheme.shapes.small
                 )
-        )
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .fillMaxWidth(progress)
+                    .background(
+                        color = MaterialTheme.colorScheme.primary, // Fully opaque for visibility
+                        shape = MaterialTheme.shapes.small
+                    )
+            )
+        }
+        
+        // Only show percentage if requested
+        if (showPercentage) {
+            Text(
+                text = "${(progress * 100).toInt()}%",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f),
+                modifier = Modifier.padding(top = 2.dp)
+            )
+        }
     }
 }
 

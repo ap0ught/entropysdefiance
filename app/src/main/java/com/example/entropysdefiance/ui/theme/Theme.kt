@@ -19,30 +19,34 @@ private val md_theme_dark_outline = Color(0xFF858585)  // Subtle outline for car
 private val md_theme_dark_primaryVariant1 = Color(0xFF589B5A)  // 20% lighter than primary
 private val md_theme_dark_primaryVariant2 = Color(0xFF69B76B)  // 40% lighter than primary
 
-private val DarkColorScheme = darkColorScheme(
-    primary = md_theme_dark_primary,
-    onPrimary = md_theme_dark_onPrimary,
-    surface = md_theme_dark_surface,
-    surfaceVariant = md_theme_dark_surfaceVariant,
-    background = md_theme_dark_background,
-    onBackground = md_theme_dark_onBackground,
-    onSurface = md_theme_dark_onSurface,
-    outline = md_theme_dark_outline,
-    surfaceTint = md_theme_dark_background,
-    inverseSurface = md_theme_dark_background,
-    surfaceBright = md_theme_dark_background,
-    surfaceContainer = md_theme_dark_background,
-    // Add the new variants to the color scheme
-    secondary = md_theme_dark_primaryVariant1,
-    tertiary = md_theme_dark_primaryVariant2
+// Create dark color scheme with the provided color palette
+private fun createDarkColorScheme(colorPalette: ColorPalette) = darkColorScheme(
+    primary = colorPalette.primary,
+    onPrimary = colorPalette.onPrimary,
+    surface = Color.Transparent,  // Transparent for glass effect
+    surfaceVariant = Color(0x11FFFFFF),  // Semi-transparent white for subtle contrast
+    background = Color.Transparent,  // Transparent for glass effect
+    onBackground = Color(0xFFE1E1E1),  // Soft white
+    onSurface = Color(0xFFE1E1E1),
+    outline = Color(0xFF858585),  // Subtle outline for cards
+    surfaceTint = Color.Transparent,
+    inverseSurface = Color.Transparent,
+    surfaceBright = Color.Transparent,
+    surfaceContainer = Color.Transparent,
+    // Add the new variants from the palette
+    secondary = colorPalette.secondary,
+    tertiary = colorPalette.tertiary
 )
 
 @Composable
 fun EntropysDefianceTheme(
+    colorPalette: ColorPalette = GreenPalette,  // Use Green palette as default
     content: @Composable () -> Unit
 ) {
+    val colorScheme = createDarkColorScheme(colorPalette)
+    
     MaterialTheme(
-        colorScheme = DarkColorScheme,
+        colorScheme = colorScheme,
         typography = Typography,
         content = content
     )

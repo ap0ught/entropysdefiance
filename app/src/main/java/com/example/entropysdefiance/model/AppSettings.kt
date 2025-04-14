@@ -11,6 +11,7 @@ data class AppSettings(
     
     // Appearance settings
     val useDarkTheme: Boolean = false,
+    val colorTheme: String = "Green", // Default to Green theme
     
     // Gesture settings
     val enableDoubleTapForDialer: Boolean = true
