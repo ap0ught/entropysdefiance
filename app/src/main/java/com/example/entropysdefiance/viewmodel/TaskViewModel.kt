@@ -48,4 +48,15 @@ class TaskViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
     }
+    
+    fun updateTask(taskId: String, newTitle: String, timeHorizon: TimeHorizon) {
+        viewModelScope.launch {
+            val updatedTask = TaskEntity(
+                id = taskId,
+                title = newTitle,
+                timeHorizon = timeHorizon
+            )
+            taskDao.insertTask(updatedTask)
+        }
+    }
 } 

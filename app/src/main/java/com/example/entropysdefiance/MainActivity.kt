@@ -83,6 +83,11 @@ import androidx.compose.ui.graphics.graphicsLayer
 import com.example.entropysdefiance.ui.theme.*
 import com.example.entropysdefiance.ui.components.ColorPaletteSelectionDialog
 import com.example.entropysdefiance.model.AppSettings
+import java.time.LocalDateTime
+import java.time.LocalTime
+import java.time.temporal.ChronoUnit
+import com.example.entropysdefiance.ui.components.AlignmentScreen
+import com.example.entropysdefiance.viewmodel.AlignmentViewModel
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalComposeUiApi::class)
 class MainActivity : ComponentActivity() {
@@ -152,6 +157,11 @@ fun TaskApp(
     
     // FAB expanded state
     var isFabExpanded by remember { mutableStateOf(false) }
+    
+    // Create AlignmentViewModel
+    val alignmentViewModel: AlignmentViewModel = viewModel()
+    val isAlignmentActive by alignmentViewModel.isAlignmentActive.collectAsState()
+    val currentAlignmentHorizon by alignmentViewModel.currentAlignmentHorizon.collectAsState()
     
     // Get calendar events from the ViewModel
     val calendarEvents by calendarViewModel.events.collectAsState()
@@ -316,69 +326,109 @@ fun TaskApp(
                     settingsViewModel.hideColorPaletteSelection()
                 }
             )
+        } else if (isAlignmentActive) {
+            // Show alignment screen when active
+            AlignmentScreen(
+                currentHorizon = currentAlignmentHorizon,
+                tasks = tasks,
+                onNext = { 
+                    alignmentViewModel.moveToNextHorizon() 
+                },
+                onClose = { 
+                    alignmentViewModel.cancelAlignment() 
+                },
+                onAddTask = { title, timeHorizon ->
+                    taskViewModel.addTask(title, timeHorizon)
+                },
+                onDeleteTask = { taskId ->
+                    taskViewModel.deleteTask(taskId)
+                },
+                onMoveTask = { taskId, newTimeHorizon ->
+                    taskViewModel.moveTask(taskId, newTimeHorizon)
+                },
+                onUpdateTask = { taskId, newTitle, timeHorizon ->
+                    taskViewModel.updateTask(taskId, newTitle, timeHorizon)
+                },
+                modifier = Modifier.fillMaxSize()
+            )
         } else {
             // Home screen content
             Scaffold(
                 containerColor = Color.Transparent,
                 topBar = {
-                    TopAppBar(
-                        title = { 
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(top = 18.dp)
-                            ) {
+                    Column {
+                        TopAppBar(
+                            title = { 
                                 Text(
                                     text = displayedTimeHorizon.title,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis,
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .clickable { 
-                                            // Check for calendar permission first
-                                            if (ContextCompat.checkSelfPermission(
-                                                    context,
-                                                    Manifest.permission.READ_CALENDAR
-                                                ) == PackageManager.PERMISSION_GRANTED
-                                            ) {
-                                                // Permission granted, launch calendar app
-                                                launcherViewModel.launchCalendarApp("org.fossify.calendar")
-                                            } else {
-                                                // No permission, request it
-                                                calendarViewModel.initialize()
-                                                // Show a toast message to inform the user
-                                                Toast.makeText(
-                                                    context,
-                                                    "Calendar permission needed to open calendar app",
-                                                    Toast.LENGTH_SHORT
-                                                ).show()
-                                            }
+                                        .pointerInput(Unit) {
+                                            detectTapGestures(
+                                                onTap = { 
+                                                    // Check for calendar permission first
+                                                    if (ContextCompat.checkSelfPermission(
+                                                            context,
+                                                            Manifest.permission.READ_CALENDAR
+                                                        ) == PackageManager.PERMISSION_GRANTED
+                                                    ) {
+                                                        // Permission granted, launch calendar app
+                                                        launcherViewModel.launchCalendarApp("org.fossify.calendar")
+                                                    } else {
+                                                        // No permission, request it
+                                                        calendarViewModel.initialize()
+                                                        // Show a toast message to inform the user
+                                                        Toast.makeText(
+                                                            context,
+                                                            "Calendar permission needed to open calendar app",
+                                                            Toast.LENGTH_SHORT
+                                                        ).show()
+                                                    }
+                                                },
+                                                onLongPress = {
+                                                    // Start alignment mode on long press
+                                                    alignmentViewModel.startAlignment()
+                                                }
+                                            )
                                         },
                                     textAlign = TextAlign.Center,
                                     style = MaterialTheme.typography.titleLarge.copy(
                                         color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.9f)
                                     )
                                 )
-                                Spacer(modifier = Modifier.height(4.dp))
-                                // Place the progress bar with proper spacing
+                            },
+                            modifier = Modifier
+                                .padding(top = 12.dp),
+                            colors = TopAppBarDefaults.topAppBarColors(
+                                containerColor = Color.Transparent,
+                                scrolledContainerColor = Color.Transparent
+                            )
+                        )
+                        
+                        // Progress bar OUTSIDE of the TopAppBar for better visibility
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 32.dp, vertical = 2.dp)
+                        ) {
+                            // Use this simpler direct implementation that should work on all devices
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(2.dp) // Make it slimmer
+                                    .background(Color.White.copy(alpha = 0.15f), shape = MaterialTheme.shapes.small)
+                            ) {
                                 Box(
                                     modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 32.dp, vertical = 2.dp)
-                                ) {
-                                    TimeHorizonProgressBar(
-                                        timeHorizon = displayedTimeHorizon,
-                                        modifier = Modifier.fillMaxWidth()
-                                    )
-                                }
+                                        .fillMaxHeight()
+                                        .fillMaxWidth(calculateProgress(displayedTimeHorizon))
+                                        .background(MaterialTheme.colorScheme.primary, shape = MaterialTheme.shapes.small)
+                                )
                             }
-                        },
-                        modifier = Modifier.padding(top = 12.dp),
-                        colors = TopAppBarDefaults.topAppBarColors(
-                            containerColor = Color.Transparent,
-                            scrolledContainerColor = Color.Transparent
-                        )
-                    )
+                        }
+                    }
                 },
                 floatingActionButton = {
                     MultiFunctionFAB(
@@ -441,8 +491,10 @@ fun TaskApp(
                                     }
                                 },
                                 onLongPress = {
-                                    // Show settings on long press
-                                    settingsViewModel.showSettingsDialog()
+                                    // Only show settings on long press if alignment mode is not active
+                                    if (!isAlignmentActive) {
+                                        settingsViewModel.showSettingsDialog()
+                                    }
                                 },
                                 onTap = {
                                     // Close FAB menu when tapping anywhere on the screen
@@ -811,6 +863,54 @@ fun MultiFunctionFAB(
                     modifier = Modifier.graphicsLayer { rotationZ = rotation }
                 )
             }
+        }
+    }
+}
+
+/**
+ * Calculate progress for a given time horizon
+ */
+@Composable
+private fun calculateProgress(timeHorizon: TimeHorizon): Float {
+    val now = LocalDateTime.now()
+    
+    // Calculate progress and ensure it's at least 1% visible
+    return when (timeHorizon) {
+        TimeHorizon.Today -> {
+            val startOfDay = now.with(LocalTime.MIN)
+            val endOfDay = now.with(LocalTime.MAX)
+            val totalMinutes = ChronoUnit.MINUTES.between(startOfDay, endOfDay)
+            val elapsedMinutes = ChronoUnit.MINUTES.between(startOfDay, now)
+            (elapsedMinutes.toFloat() / totalMinutes.toFloat()).coerceIn(0.01f, 1f)
+        }
+        TimeHorizon.ThisWeek -> {
+            val startOfWeek = now.with(LocalTime.MIN).minusDays(now.dayOfWeek.value.toLong() - 1)
+            val endOfWeek = startOfWeek.plusDays(6).with(LocalTime.MAX)
+            val totalMinutes = ChronoUnit.MINUTES.between(startOfWeek, endOfWeek)
+            val elapsedMinutes = ChronoUnit.MINUTES.between(startOfWeek, now)
+            (elapsedMinutes.toFloat() / totalMinutes.toFloat()).coerceIn(0.01f, 1f)
+        }
+        TimeHorizon.ThisMonth -> {
+            val startOfMonth = now.withDayOfMonth(1).with(LocalTime.MIN)
+            val endOfMonth = startOfMonth.plusMonths(1).minusDays(1).with(LocalTime.MAX)
+            val totalMinutes = ChronoUnit.MINUTES.between(startOfMonth, endOfMonth)
+            val elapsedMinutes = ChronoUnit.MINUTES.between(startOfMonth, now)
+            (elapsedMinutes.toFloat() / totalMinutes.toFloat()).coerceIn(0.01f, 1f)
+        }
+        TimeHorizon.ThisYear -> {
+            val startOfYear = now.withMonth(1).withDayOfMonth(1).with(LocalTime.MIN)
+            val endOfYear = startOfYear.plusYears(1).minusDays(1).with(LocalTime.MAX)
+            val totalMinutes = ChronoUnit.MINUTES.between(startOfYear, endOfYear)
+            val elapsedMinutes = ChronoUnit.MINUTES.between(startOfYear, now)
+            (elapsedMinutes.toFloat() / totalMinutes.toFloat()).coerceIn(0.01f, 1f)
+        }
+        TimeHorizon.ThisLife -> {
+            // For life, we'll use a fixed age of 100 years as the total duration
+            val birthDate = now.minusYears(30) // Assuming 30 years old as a default
+            val deathDate = birthDate.plusYears(100)
+            val totalMinutes = ChronoUnit.MINUTES.between(birthDate, deathDate)
+            val elapsedMinutes = ChronoUnit.MINUTES.between(birthDate, now)
+            (elapsedMinutes.toFloat() / totalMinutes.toFloat()).coerceIn(0.01f, 1f)
         }
     }
 }
