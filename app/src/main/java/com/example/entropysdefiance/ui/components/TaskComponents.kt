@@ -5,6 +5,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -38,7 +39,7 @@ fun TaskList(
     timeHorizon: TimeHorizon,
     tasks: List<Task>,
     onAddTask: (String, TimeHorizon) -> Unit,
-    onDeleteTask: (String) -> Unit,
+    onCompleteTask: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     var showAddDialog by remember { mutableStateOf(false) }
@@ -52,7 +53,7 @@ fun TaskList(
             items(tasks.filter { it.timeHorizon == timeHorizon }, key = { it.id }) { task ->
                 TaskItem(
                     task = task,
-                    onDelete = { onDeleteTask(task.id) }
+                    onComplete = { onCompleteTask(task.id) }
                 )
             }
         }
@@ -79,7 +80,7 @@ fun TaskList(
 @Composable
 private fun TaskItem(
     task: Task,
-    onDelete: () -> Unit,
+    onComplete: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -93,8 +94,8 @@ private fun TaskItem(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(text = task.title)
-            IconButton(onClick = onDelete) {
-                Icon(Icons.Default.Delete, contentDescription = "Delete Task")
+            IconButton(onClick = onComplete) {
+                Icon(Icons.Default.CheckCircle, contentDescription = "Complete Task")
             }
         }
     }

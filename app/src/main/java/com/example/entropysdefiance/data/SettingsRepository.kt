@@ -33,6 +33,8 @@ class SettingsRepository(private val context: Context) {
         val USE_DARK_THEME = booleanPreferencesKey("use_dark_theme")
         val ENABLE_DOUBLE_TAP_DIALER = booleanPreferencesKey("enable_double_tap_dialer")
         val COLOR_THEME = stringPreferencesKey("color_theme")
+        val ENABLE_AUTOMATIC_BACKUP = booleanPreferencesKey("enable_automatic_backup")
+        val BACKUP_INTERVAL_HOURS = intPreferencesKey("backup_interval_hours")
         
         // Use a string set to store the selected calendar IDs
         val SELECTED_CALENDAR_IDS = stringSetPreferencesKey("selected_calendar_ids")
@@ -60,6 +62,8 @@ class SettingsRepository(private val context: Context) {
             val useDarkTheme = preferences[PreferencesKeys.USE_DARK_THEME] ?: false
             val enableDoubleTapForDialer = preferences[PreferencesKeys.ENABLE_DOUBLE_TAP_DIALER] ?: true
             val colorTheme = preferences[PreferencesKeys.COLOR_THEME] ?: "Green"
+            val enableAutomaticBackup = preferences[PreferencesKeys.ENABLE_AUTOMATIC_BACKUP] ?: false
+            val backupIntervalHours = preferences[PreferencesKeys.BACKUP_INTERVAL_HOURS] ?: 24
             
             // Extract selected calendar IDs from the string set
             val selectedCalendarIdStrings = preferences[PreferencesKeys.SELECTED_CALENDAR_IDS] ?: emptySet()
@@ -69,7 +73,7 @@ class SettingsRepository(private val context: Context) {
             
             Log.d(TAG, "Loading settings: showCalendar=$showCalendarWidget, days=$calendarDaysToShow, " +
                        "darkTheme=$useDarkTheme, doubleTap=$enableDoubleTapForDialer, " +
-                       "colorTheme=$colorTheme, " +
+                       "colorTheme=$colorTheme, backup=$enableAutomaticBackup, " +
                        "selectedCalendars=${selectedCalendarIds.size}")
             
             AppSettings(
@@ -78,7 +82,9 @@ class SettingsRepository(private val context: Context) {
                 useDarkTheme = useDarkTheme,
                 enableDoubleTapForDialer = enableDoubleTapForDialer,
                 colorTheme = colorTheme,
-                selectedCalendarIds = selectedCalendarIds
+                selectedCalendarIds = selectedCalendarIds,
+                enableAutomaticBackup = enableAutomaticBackup,
+                backupIntervalHours = backupIntervalHours
             )
         }
 
@@ -196,12 +202,42 @@ class SettingsRepository(private val context: Context) {
                 preferences[PreferencesKeys.USE_DARK_THEME] = settings.useDarkTheme
                 preferences[PreferencesKeys.ENABLE_DOUBLE_TAP_DIALER] = settings.enableDoubleTapForDialer
                 preferences[PreferencesKeys.COLOR_THEME] = settings.colorTheme
+                preferences[PreferencesKeys.ENABLE_AUTOMATIC_BACKUP] = settings.enableAutomaticBackup
+                preferences[PreferencesKeys.BACKUP_INTERVAL_HOURS] = settings.backupIntervalHours
                 preferences[PreferencesKeys.SELECTED_CALENDAR_IDS] = calendarIdStrings
             }
             Log.d(TAG, "Successfully saved all settings")
             dumpDataStoreContents() // Debug - dump contents after updating
         } catch (e: Exception) {
             Log.e(TAG, "Error saving all settings: ${e.message}", e)
+        }
+    }
+    
+    /**
+     * Update automatic backup setting
+     */
+    suspend fun updateAutomaticBackup(enabled: Boolean) {
+        try {
+            context.settingsDataStore.edit { preferences ->
+                preferences[PreferencesKeys.ENABLE_AUTOMATIC_BACKUP] = enabled
+            }
+            Log.d(TAG, "Updated automatic backup setting: $enabled")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error updating automatic backup setting: ${e.message}", e)
+        }
+    }
+    
+    /**
+     * Update backup interval setting
+     */
+    suspend fun updateBackupInterval(hours: Int) {
+        try {
+            context.settingsDataStore.edit { preferences ->
+                preferences[PreferencesKeys.BACKUP_INTERVAL_HOURS] = hours
+            }
+            Log.d(TAG, "Updated backup interval setting: $hours hours")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error updating backup interval setting: ${e.message}", e)
         }
     }
     

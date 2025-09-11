@@ -11,6 +11,8 @@ import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -23,27 +25,18 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.entropysdefiance.model.AppSettings
 import com.example.entropysdefiance.model.DeviceCalendar
-import com.example.entropysdefiance.BuildConfig
-import com.example.entropysdefiance.EntropysDefianceApplication
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 
 @Composable
 fun SettingsDialog(
     appSettings: AppSettings,
     onDismiss: () -> Unit,
-    onToggleCalendarWidget: () -> Unit,
-    onCalendarDaysChange: (Int) -> Unit,
-    onToggleDarkTheme: () -> Unit,
-    onToggleDoubleTapDialer: () -> Unit,
-    onCalendarSelectionClick: () -> Unit,
-    onColorPaletteClick: () -> Unit,
+    onCalendarSettingsClick: () -> Unit,
+    onAppearanceSettingsClick: () -> Unit,
+    onGesturesSettingsClick: () -> Unit,
+    onBackupSettingsClick: () -> Unit,
+    onStatisticsClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    // Get application context for debug actions
-    val context = LocalContext.current
-    val applicationContext = remember { context.applicationContext as EntropysDefianceApplication }
     
     // Full screen layout
     Surface(
@@ -88,99 +81,54 @@ fun SettingsDialog(
                     .padding(vertical = 8.dp)
             ) {
                 // Calendar Settings Section
-                SettingsSectionHeader(title = "Calendar", icon = Icons.Default.Settings)
-                
-                // Toggle for showing calendar
-                SettingsSwitchItem(
-                    title = "Show Calendar Widget",
-                    description = "Display calendar events on the home screen",
-                    checked = appSettings.showCalendarWidget,
-                    onCheckedChange = { onToggleCalendarWidget() }
+                SettingsSectionButton(
+                    title = "Calendar",
+                    description = "Calendar widget, days to show, calendar selection",
+                    icon = Icons.Default.DateRange,
+                    onClick = onCalendarSettingsClick
                 )
                 
-                if (appSettings.showCalendarWidget) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    
-                    // Calendar days slider
-                    SettingsSliderItem(
-                        title = "Days to Show",
-                        description = "Number of days to look ahead for events",
-                        value = appSettings.calendarDaysToShow.toFloat(),
-                        onValueChange = { onCalendarDaysChange(it.toInt()) },
-                        valueRange = 1f..30f,
-                        steps = 29,
-                        valueText = "${appSettings.calendarDaysToShow} days"
-                    )
-                    
-                    Spacer(modifier = Modifier.height(8.dp))
-                    
-                    // Calendar selection
-                    SettingsActionItem(
-                        title = "Calendar Selection",
-                        description = "Choose which calendars to display",
-                        onClick = onCalendarSelectionClick
-                    )
-                }
-                
-                Divider(modifier = Modifier.padding(vertical = 16.dp))
+                Spacer(modifier = Modifier.height(16.dp))
                 
                 // Appearance Settings Section
-                SettingsSectionHeader(title = "Appearance", icon = Icons.Default.Settings)
-                
-                // Toggle for dark theme
-                SettingsSwitchItem(
-                    title = "Dark Theme",
-                    description = "Use dark theme for the launcher",
-                    checked = appSettings.useDarkTheme,
-                    onCheckedChange = { onToggleDarkTheme() }
+                SettingsSectionButton(
+                    title = "Appearance",
+                    description = "Dark theme, color themes, visual customization",
+                    icon = Icons.Default.Settings,
+                    onClick = onAppearanceSettingsClick
                 )
                 
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(16.dp))
                 
-                // Color palette selection
-                SettingsActionItem(
-                    title = "Color Theme",
-                    description = "Current theme: ${appSettings.colorTheme}",
-                    onClick = onColorPaletteClick
+                // Gestures Settings Section
+                SettingsSectionButton(
+                    title = "Gestures",
+                    description = "Double tap actions, touch interactions",
+                    icon = Icons.Default.Settings,
+                    onClick = onGesturesSettingsClick
                 )
                 
-                Divider(modifier = Modifier.padding(vertical = 16.dp))
+                Spacer(modifier = Modifier.height(16.dp))
                 
-                // Gesture Settings Section
-                SettingsSectionHeader(title = "Gestures", icon = Icons.Default.Settings)
+                // Backup Settings Section
+                SettingsSectionButton(
+                    title = "Backup",
+                    description = "Automatic backup settings and intervals",
+                    icon = Icons.Default.Settings,
+                    onClick = onBackupSettingsClick
+                )
                 
-                // Toggle for double tap dialer
-                SettingsSwitchItem(
-                    title = "Double Tap for Dialer",
-                    description = "Double tap the home screen to open the phone app",
-                    checked = appSettings.enableDoubleTapForDialer,
-                    onCheckedChange = { onToggleDoubleTapDialer() }
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                // Statistics Section
+                SettingsSectionButton(
+                    title = "Statistics",
+                    description = "Task counts, completion rates, and more",
+                    icon = Icons.Default.Info,
+                    onClick = onStatisticsClick
                 )
                 
                 Spacer(modifier = Modifier.height(24.dp))
-                
-                // Add a divider before the debug section
-                Divider(modifier = Modifier.padding(vertical = 16.dp))
-                
-                // Debug section - only in debug builds
-                if (BuildConfig.DEBUG) {
-                    SettingsSectionHeader(title = "Debug", icon = Icons.Default.Settings)
-                    
-                    // Add a button to manually dump DataStore contents
-                    Button(
-                        onClick = {
-                            // Use the remembered applicationContext
-                            CoroutineScope(Dispatchers.IO).launch {
-                                applicationContext.settingsRepository.dumpDataStoreContents()
-                            }
-                        },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 8.dp)
-                    ) {
-                        Text("Dump Settings to Logcat")
-                    }
-                }
             }
         }
     }
@@ -309,6 +257,62 @@ fun SettingsSliderItem(
                 text = valueText,
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurface
+            )
+        }
+    }
+}
+
+@Composable
+fun SettingsSectionButton(
+    title: String,
+    description: String,
+    icon: ImageVector,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier
+            .fillMaxWidth()
+            .clickable { onClick() },
+        color = MaterialTheme.colorScheme.surface,
+        shape = RoundedCornerShape(8.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(24.dp)
+            )
+            
+            Spacer(modifier = Modifier.width(16.dp))
+            
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                
+                Text(
+                    text = description,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            
+            Icon(
+                imageVector = Icons.Default.ArrowForward,
+                contentDescription = "Open",
+                tint = MaterialTheme.colorScheme.primary
             )
         }
     }

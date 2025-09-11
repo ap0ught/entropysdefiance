@@ -252,32 +252,37 @@ private fun CalendarEventItem(
     val hoursUntilEnd = minutesUntilEnd / 60
     val remainingMinutesUntilEnd = minutesUntilEnd % 60
     
-    // Format time - dynamic for close events (< 6 hours), static for others
-    val timeText = when {
-        // If event is ongoing, show "ends in X hours Y minutes"
+    // Format time components - dynamic for close events (< 6 hours), static for others
+    val (relativeTimeText, actualTimeText) = when {
+        // If event is ongoing, show "ends in X hours Y minutes" + actual times
         isEventOngoing -> {
-            when {
+            val relativeTime = when {
                 hoursUntilEnd > 0 -> "ends in ${hoursUntilEnd}h ${remainingMinutesUntilEnd}min"
                 else -> "ends in ${remainingMinutesUntilEnd}min"
             }
+            val actualTimes = "${event.startTime.format(DateTimeFormatter.ofPattern("HH:mm"))} - ${event.endTime.format(DateTimeFormatter.ofPattern("HH:mm"))}"
+            Pair(relativeTime, actualTimes)
         }
         
-        // If event is within 6 hours, show "in X hours Y minutes"
+        // If event is within 6 hours, show "in X hours Y minutes" + actual times
         minutesUntilStart in 1..360 -> {
-            when {
+            val relativeTime = when {
                 hoursUntilStart > 0 -> "in ${hoursUntilStart}h ${remainingMinutesUntilStart}min"
                 else -> "in ${remainingMinutesUntilStart}min"
             }
+            val actualTimes = "${event.startTime.format(DateTimeFormatter.ofPattern("HH:mm"))} - ${event.endTime.format(DateTimeFormatter.ofPattern("HH:mm"))}"
+            Pair(relativeTime, actualTimes)
         }
         
         // For all-day events
-        event.isAllDay -> "All day"
+        event.isAllDay -> Pair("All day", null)
         
         // For regular future events, show standard time with 24-hour format and include end time
         else -> {
             val startFormat = DateTimeFormatter.ofPattern("HH:mm")
             val endFormat = DateTimeFormatter.ofPattern("HH:mm")
-            "${event.startTime.format(startFormat)} - ${event.endTime.format(endFormat)}"
+            val timeText = "${event.startTime.format(startFormat)} - ${event.endTime.format(endFormat)}"
+            Pair(timeText, null)
         }
     }
     
@@ -361,10 +366,30 @@ private fun CalendarEventItem(
                 
                 // Time text - unified style
                 Text(
-                    text = timeText,
+                    text = relativeTimeText,
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
                 )
+                
+                // Show actual times with visual separator if available
+                actualTimeText?.let { actualTimes ->
+                    // Subtle dot separator
+                    Box(
+                        modifier = Modifier
+                            .size(3.dp)
+                            .background(
+                                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.3f),
+                                shape = CircleShape
+                            )
+                    )
+                    
+                    // Actual time text
+                    Text(
+                        text = actualTimes,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
+                    )
+                }
             }
             
             // Event location if available - only show if location exists
@@ -417,32 +442,37 @@ private fun CalendarEventItemContent(
     val hoursUntilEnd = minutesUntilEnd / 60
     val remainingMinutesUntilEnd = minutesUntilEnd % 60
     
-    // Format time - dynamic for close events (< 6 hours), static for others
-    val timeText = when {
-        // If event is ongoing, show "ends in X hours Y minutes"
+    // Format time components - dynamic for close events (< 6 hours), static for others
+    val (relativeTimeText, actualTimeText) = when {
+        // If event is ongoing, show "ends in X hours Y minutes" + actual times
         isEventOngoing -> {
-            when {
+            val relativeTime = when {
                 hoursUntilEnd > 0 -> "ends in ${hoursUntilEnd}h ${remainingMinutesUntilEnd}min"
                 else -> "ends in ${remainingMinutesUntilEnd}min"
             }
+            val actualTimes = "${event.startTime.format(DateTimeFormatter.ofPattern("HH:mm"))} - ${event.endTime.format(DateTimeFormatter.ofPattern("HH:mm"))}"
+            Pair(relativeTime, actualTimes)
         }
         
-        // If event is within 6 hours, show "in X hours Y minutes"
+        // If event is within 6 hours, show "in X hours Y minutes" + actual times
         minutesUntilStart in 1..360 -> {
-            when {
+            val relativeTime = when {
                 hoursUntilStart > 0 -> "in ${hoursUntilStart}h ${remainingMinutesUntilStart}min"
                 else -> "in ${remainingMinutesUntilStart}min"
             }
+            val actualTimes = "${event.startTime.format(DateTimeFormatter.ofPattern("HH:mm"))} - ${event.endTime.format(DateTimeFormatter.ofPattern("HH:mm"))}"
+            Pair(relativeTime, actualTimes)
         }
         
         // For all-day events
-        event.isAllDay -> "All day"
+        event.isAllDay -> Pair("All day", null)
         
         // For regular future events, show standard time with 24-hour format and include end time
         else -> {
             val startFormat = DateTimeFormatter.ofPattern("HH:mm")
             val endFormat = DateTimeFormatter.ofPattern("HH:mm")
-            "${event.startTime.format(startFormat)} - ${event.endTime.format(endFormat)}"
+            val timeText = "${event.startTime.format(startFormat)} - ${event.endTime.format(endFormat)}"
+            Pair(timeText, null)
         }
     }
     
@@ -542,9 +572,34 @@ private fun CalendarEventItemContent(
                 )
                 
                 Text(
-                    text = timeText,
+                    text = relativeTimeText,
                     style = timeTextStyle
                 )
+                
+                // Show actual times with visual separator if available
+                actualTimeText?.let { actualTimes ->
+                    // Subtle dot separator
+                    Box(
+                        modifier = Modifier
+                            .size(3.dp)
+                            .background(
+                                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.3f),
+                                shape = CircleShape
+                            )
+                    )
+                    
+                    // Actual time text with contrast enhancement
+                    val actualTimeTextStyle = getContrastEnhancedTextStyle(
+                        baseStyle = MaterialTheme.typography.labelSmall,
+                        textColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
+                        backgroundColor = backgroundColor
+                    )
+                    
+                    Text(
+                        text = actualTimes,
+                        style = actualTimeTextStyle
+                    )
+                }
             }
             
             // Event location if available - only show if location exists

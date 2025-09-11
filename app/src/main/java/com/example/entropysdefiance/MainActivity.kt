@@ -2,9 +2,11 @@ package com.example.entropysdefiance
 
 import android.content.Intent
 import android.os.Bundle
+import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -13,6 +15,8 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.*
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -33,6 +37,10 @@ import com.example.entropysdefiance.ui.components.AppDrawer
 import com.example.entropysdefiance.ui.components.CalendarAgendaWidget
 import com.example.entropysdefiance.ui.components.CalendarSelectionDialog
 import com.example.entropysdefiance.ui.components.SettingsDialog
+import com.example.entropysdefiance.ui.components.CalendarSettingsScreen
+import com.example.entropysdefiance.ui.components.AppearanceSettingsScreen
+import com.example.entropysdefiance.ui.components.GesturesSettingsScreen
+import com.example.entropysdefiance.ui.components.BackupSettingsScreen
 import com.example.entropysdefiance.ui.components.TimeHorizonProgressBar
 import com.example.entropysdefiance.viewmodel.TaskViewModel
 import com.example.entropysdefiance.viewmodel.LauncherViewModel
@@ -48,6 +56,15 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.ui.ExperimentalComposeUiApi
 import kotlinx.coroutines.launch
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
+import android.Manifest
+import android.content.pm.PackageManager
+import android.net.Uri
+import android.os.ParcelFileDescriptor
+import com.example.entropysdefiance.data.BackupRepository
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.pointerInput
@@ -68,9 +85,6 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import kotlinx.coroutines.flow.take
 import androidx.core.app.ActivityCompat
-import androidx.core.content.ContextCompat
-import android.Manifest
-import android.content.pm.PackageManager
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import android.provider.CalendarContract
@@ -87,7 +101,11 @@ import java.time.LocalDateTime
 import java.time.LocalTime
 import java.time.temporal.ChronoUnit
 import com.example.entropysdefiance.ui.components.AlignmentScreen
+import com.example.entropysdefiance.ui.components.StatisticsScreen
+import com.example.entropysdefiance.ui.components.ZenModeScreen
+import com.example.entropysdefiance.ui.components.ZenModeDurationDialog
 import com.example.entropysdefiance.viewmodel.AlignmentViewModel
+import com.example.entropysdefiance.viewmodel.ZenModeViewModel
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalComposeUiApi::class)
 class MainActivity : ComponentActivity() {
@@ -132,7 +150,8 @@ class MainActivity : ComponentActivity() {
                         taskViewModel = taskViewModel,
                         launcherViewModel = launcherViewModel,
                         calendarViewModel = calendarViewModel,
-                        settingsViewModel = settingsViewModel
+                        settingsViewModel = settingsViewModel,
+                        viewModelFactory = viewModelFactory
                     )
                 }
             }
@@ -146,7 +165,8 @@ fun TaskApp(
     taskViewModel: TaskViewModel,
     launcherViewModel: LauncherViewModel,
     calendarViewModel: CalendarViewModel,
-    settingsViewModel: SettingsViewModel
+    settingsViewModel: SettingsViewModel,
+    viewModelFactory: ViewModelProvider.AndroidViewModelFactory
 ) {
     var showAddScreen by remember { mutableStateOf(false) }
     val tasks by taskViewModel.tasks.collectAsStateWithLifecycle(initialValue = emptyList())
@@ -163,24 +183,100 @@ fun TaskApp(
     val isAlignmentActive by alignmentViewModel.isAlignmentActive.collectAsState()
     val currentAlignmentHorizon by alignmentViewModel.currentAlignmentHorizon.collectAsState()
     
+    // Create ZenModeViewModel
+    val zenModeViewModel: ZenModeViewModel = viewModel(factory = viewModelFactory)
+    val zenModeState by zenModeViewModel.zenModeState.collectAsState()
+    val showZenDurationDialog by zenModeViewModel.showDurationDialog.collectAsState()
+    val selectedTask by zenModeViewModel.selectedTask.collectAsState()
+    
     // Get calendar events from the ViewModel
     val calendarEvents by calendarViewModel.events.collectAsState()
     val isCalendarLoading by calendarViewModel.isLoading.collectAsState()
     
-    // Use a simpler approach for hasCalendarPermission
-    var hasCalendarPermission by remember { mutableStateOf(false) }
+    // Calendar permission state
+    val hasCalendarPermission by calendarViewModel.hasCalendarPermission
     
     // Track whether settings have been loaded
     var settingsLoaded by remember { mutableStateOf(false) }
+    
+    // Permission launcher for calendar
+    val calendarPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission(),
+        onResult = { isGranted ->
+            calendarViewModel.updatePermissionState()
+        }
+    )
+    
+    // Backup repository
+    val context = LocalContext.current
+    val backupRepository = remember { BackupRepository(context) }
+    val coroutineScope = rememberCoroutineScope()
+    
+    // File picker launchers for CSV export/import
+    val exportCsvLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("text/csv"),
+        onResult = { uri ->
+            if (uri != null) {
+                coroutineScope.launch {
+                    try {
+                        val database = com.example.entropysdefiance.data.TaskDatabase.getDatabase(context)
+                        val taskDao = database.taskDao()
+                        val allTasks = taskDao.getAllTasks()
+                        allTasks.collect { taskEntities ->
+                            val parcelFileDescriptor = context.contentResolver.openFileDescriptor(uri, "w")
+                            if (parcelFileDescriptor != null) {
+                                backupRepository.exportTasksToCsv(taskEntities, parcelFileDescriptor)
+                                parcelFileDescriptor.close()
+                                Toast.makeText(context, "Tasks exported successfully", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    } catch (e: Exception) {
+                        Toast.makeText(context, "Export failed: ${e.message}", Toast.LENGTH_LONG).show()
+                    }
+                }
+            }
+        }
+    )
+    
+    val importCsvLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent(),
+        onResult = { uri ->
+            if (uri != null) {
+                coroutineScope.launch {
+                    try {
+                        val inputStream = context.contentResolver.openInputStream(uri)
+                        if (inputStream != null) {
+                            val importedTasks = backupRepository.importTasksFromCsv(inputStream)
+                            // Add imported tasks to the database
+                            val database = com.example.entropysdefiance.data.TaskDatabase.getDatabase(context)
+                            val taskDao = database.taskDao()
+                            importedTasks.forEach { taskEntity ->
+                                taskDao.insertTask(taskEntity)
+                            }
+                            inputStream.close()
+                            Toast.makeText(context, "Tasks imported successfully", Toast.LENGTH_SHORT).show()
+                        }
+                    } catch (e: Exception) {
+                        Toast.makeText(context, "Import failed: ${e.message}", Toast.LENGTH_LONG).show()
+                    }
+                }
+            }
+        }
+    )
     
     // Initialize calendar events when the app starts
     LaunchedEffect(Unit) {
         // Wait for settings to be loaded first - collect only the first item
         settingsViewModel.settings.take(1).collect { settings ->
             settingsLoaded = true
-            // Initialize calendar after settings are loaded
-            if (!hasCalendarPermission) {
-                hasCalendarPermission = true
+            // Check calendar permission and request if needed
+            if (ContextCompat.checkSelfPermission(
+                    context,
+                    Manifest.permission.READ_CALENDAR
+                ) != PackageManager.PERMISSION_GRANTED
+            ) {
+                calendarPermissionLauncher.launch(Manifest.permission.READ_CALENDAR)
+            } else {
                 calendarViewModel.initialize()
             }
         }
@@ -213,9 +309,11 @@ fun TaskApp(
     val showSettingsDialog by settingsViewModel.showSettingsDialog.collectAsState()
     val showCalendarSelection by settingsViewModel.showCalendarSelection.collectAsState()
     val showColorPaletteSelection by settingsViewModel.showColorPaletteSelection.collectAsState()
-    
-    // Define a proper coroutine scope
-    val coroutineScope = rememberCoroutineScope()
+    val showStatisticsScreen by settingsViewModel.showStatisticsScreen.collectAsState()
+    val showCalendarSettings by settingsViewModel.showCalendarSettings.collectAsState()
+    val showAppearanceSettings by settingsViewModel.showAppearanceSettings.collectAsState()
+    val showGesturesSettings by settingsViewModel.showGesturesSettings.collectAsState()
+    val showBackupSettings by settingsViewModel.showBackupSettings.collectAsState()
     
     // Define our bottom sheet state for the app drawer
     val bottomSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -236,15 +334,17 @@ fun TaskApp(
 
     val configuration = LocalConfiguration.current
     val screenHeight = configuration.screenHeightDp.dp.value
-    val context = LocalContext.current
 
     Box(modifier = Modifier.fillMaxSize()) {
-        // We don't need the separate overlay with padding
-        // Just apply the scrim overlay to the entire screen
-        Surface(
-            modifier = Modifier.fillMaxSize(),
-            color = Color.Black.copy(alpha = 0.6f)
-        ) {}
+        // Only show scrim overlay when NOT in zen mode
+        if (!zenModeState.isActive) {
+            // We don't need the separate overlay with padding
+            // Just apply the scrim overlay to the entire screen
+            Surface(
+                modifier = Modifier.fillMaxSize(),
+                color = Color.Black.copy(alpha = 0.6f)
+            ) {}
+        }
 
         if (showAddScreen) {
             // Show the AddTaskScreen on top of the overlay
@@ -282,22 +382,27 @@ fun TaskApp(
                 )
             }
         } else if (showSettingsDialog) {
+            // Handle back press for settings dialog
+            BackHandler {
+                settingsViewModel.hideSettingsDialog()
+            }
+            
             // Show settings as a full screen replacement for main content
             SettingsDialog(
                 appSettings = appSettings,
                 onDismiss = { settingsViewModel.hideSettingsDialog() },
-                onToggleCalendarWidget = { settingsViewModel.toggleCalendarWidget() },
-                onCalendarDaysChange = { days -> 
-                    settingsViewModel.updateCalendarDaysToShow(days)
-                    // Reload calendar events with new days setting
-                    calendarViewModel.loadEvents(days)
-                },
-                onToggleDarkTheme = { settingsViewModel.toggleDarkTheme() },
-                onToggleDoubleTapDialer = { settingsViewModel.toggleDoubleTapForDialer() },
-                onCalendarSelectionClick = { settingsViewModel.showCalendarSelection() },
-                onColorPaletteClick = { settingsViewModel.showColorPaletteSelection() }
+                onCalendarSettingsClick = { settingsViewModel.showCalendarSettings() },
+                onAppearanceSettingsClick = { settingsViewModel.showAppearanceSettings() },
+                onGesturesSettingsClick = { settingsViewModel.showGesturesSettings() },
+                onBackupSettingsClick = { settingsViewModel.showBackupSettings() },
+                onStatisticsClick = { settingsViewModel.showStatisticsScreen() }
             )
         } else if (showCalendarSelection) {
+            // Handle back press for calendar selection
+            BackHandler {
+                settingsViewModel.hideCalendarSelection()
+            }
+            
             // Show calendar selection as a full screen replacement for main content
             CalendarSelectionDialog(
                 availableCalendars = availableCalendars,
@@ -315,6 +420,11 @@ fun TaskApp(
                 }
             )
         } else if (showColorPaletteSelection) {
+            // Handle back press for color palette selection
+            BackHandler {
+                settingsViewModel.hideColorPaletteSelection()
+            }
+            
             // Show color palette selection
             ColorPaletteSelectionDialog(
                 currentColorTheme = appSettings.colorTheme,
@@ -325,6 +435,102 @@ fun TaskApp(
                 onDismiss = {
                     settingsViewModel.hideColorPaletteSelection()
                 }
+            )
+        } else if (showStatisticsScreen) {
+            // Handle back press for statistics screen
+            BackHandler {
+                settingsViewModel.hideStatisticsScreen()
+            }
+            
+            // Show statistics screen
+            StatisticsScreen(
+                onBackClick = { settingsViewModel.hideStatisticsScreen() }
+            )
+        } else if (showCalendarSettings) {
+            // Handle back press for calendar settings
+            BackHandler {
+                settingsViewModel.hideCalendarSettings()
+            }
+            
+            // Show calendar settings screen
+            CalendarSettingsScreen(
+                appSettings = appSettings,
+                onBack = { settingsViewModel.hideCalendarSettings() },
+                onToggleCalendarWidget = { settingsViewModel.toggleCalendarWidget() },
+                onCalendarDaysChange = { days -> 
+                    settingsViewModel.updateCalendarDaysToShow(days)
+                    // Reload calendar events with new days setting
+                    calendarViewModel.loadEvents(days)
+                },
+                onCalendarSelectionClick = { settingsViewModel.showCalendarSelection() }
+            )
+        } else if (showAppearanceSettings) {
+            // Handle back press for appearance settings
+            BackHandler {
+                settingsViewModel.hideAppearanceSettings()
+            }
+            
+            // Show appearance settings screen
+            AppearanceSettingsScreen(
+                appSettings = appSettings,
+                onBack = { settingsViewModel.hideAppearanceSettings() },
+                onToggleDarkTheme = { settingsViewModel.toggleDarkTheme() },
+                onColorPaletteClick = { settingsViewModel.showColorPaletteSelection() }
+            )
+        } else if (showGesturesSettings) {
+            // Handle back press for gestures settings
+            BackHandler {
+                settingsViewModel.hideGesturesSettings()
+            }
+            
+            // Show gestures settings screen
+            GesturesSettingsScreen(
+                appSettings = appSettings,
+                onBack = { settingsViewModel.hideGesturesSettings() },
+                onToggleDoubleTapDialer = { settingsViewModel.toggleDoubleTapForDialer() }
+            )
+        } else if (showBackupSettings) {
+            // Handle back press for backup settings
+            BackHandler {
+                settingsViewModel.hideBackupSettings()
+            }
+            
+            // Show backup settings screen
+            BackupSettingsScreen(
+                appSettings = appSettings,
+                onBack = { settingsViewModel.hideBackupSettings() },
+                onExportClick = { 
+                    exportCsvLauncher.launch("tasks_export_${System.currentTimeMillis()}.csv")
+                },
+                onImportClick = { 
+                    importCsvLauncher.launch("text/*")
+                }
+            )
+        } else if (zenModeState.isActive) {
+            // Handle back press for zen mode - prevent exiting
+            BackHandler {
+                // Do nothing - prevent user from exiting zen mode
+            }
+            
+            // Show Zen Mode screen as full-screen surface (like settings dialog)
+            ZenModeScreen(
+                currentTask = zenModeState.currentTask,
+                isActive = zenModeState.isActive,
+                onCompleteTask = { taskId ->
+                    zenModeViewModel.completeCurrentTask()
+                },
+                modifier = Modifier.fillMaxSize()
+            )
+        } else if (showZenDurationDialog) {
+            // Show Zen Mode duration dialog
+            ZenModeDurationDialog(
+                onDurationSelected = { durationMinutes ->
+                    zenModeViewModel.startZenMode(durationMinutes)
+                },
+                onDismiss = {
+                    zenModeViewModel.hideDurationDialog()
+                },
+                selectedTask = selectedTask
             )
         } else if (isAlignmentActive) {
             // Show alignment screen when active
@@ -534,8 +740,11 @@ fun TaskApp(
                                 modifier = Modifier.fillMaxSize(),
                                 timeHorizon = displayedTimeHorizon,
                                 tasks = tasks,
-                                onDeleteTask = taskViewModel::deleteTask,
-                                onMoveTask = taskViewModel::moveTask
+                                onCompleteTask = taskViewModel::completeTask,
+                                onMoveTask = taskViewModel::moveTask,
+                        onLongPressTask = { task ->
+                            zenModeViewModel.startZenModeDirectly(task)
+                        }
                             )
                         }
                         
@@ -758,26 +967,6 @@ fun MultiFunctionFAB(
             verticalArrangement = spacedBy(16.dp),
             modifier = Modifier.padding(end = 4.dp, bottom = 4.dp)
         ) {
-            // Task option FAB - only shown when expanded
-            AnimatedVisibility(
-                visible = expanded,
-                enter = enterTransition,
-                exit = exitTransition
-            ) {
-                FloatingActionButton(
-                    onClick = onAddTask,
-                    containerColor = taskButtonColor,
-                    contentColor = MaterialTheme.colorScheme.onPrimary,
-                    modifier = Modifier.size(48.dp)
-                ) {
-                    Icon(
-                        Icons.Default.Edit,
-                        contentDescription = "Add Task",
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
-            }
-            
             // Calendar option FAB - only shown when expanded
             AnimatedVisibility(
                 visible = expanded,
@@ -793,6 +982,26 @@ fun MultiFunctionFAB(
                     Icon(
                         Icons.Default.DateRange,
                         contentDescription = "Add Calendar Event",
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+            }
+            
+            // Task option FAB - only shown when expanded
+            AnimatedVisibility(
+                visible = expanded,
+                enter = enterTransition,
+                exit = exitTransition
+            ) {
+                FloatingActionButton(
+                    onClick = onAddTask,
+                    containerColor = taskButtonColor,
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                    modifier = Modifier.size(48.dp)
+                ) {
+                    Icon(
+                        Icons.Default.Edit,
+                        contentDescription = "Add Task",
                         modifier = Modifier.size(24.dp)
                     )
                 }

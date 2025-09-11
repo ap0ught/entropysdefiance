@@ -40,6 +40,23 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     private val _showColorPaletteSelection = MutableStateFlow(false)
     val showColorPaletteSelection: StateFlow<Boolean> = _showColorPaletteSelection.asStateFlow()
     
+    // State for statistics screen visibility
+    private val _showStatisticsScreen = MutableStateFlow(false)
+    val showStatisticsScreen: StateFlow<Boolean> = _showStatisticsScreen.asStateFlow()
+    
+    // State for individual settings screens
+    private val _showCalendarSettings = MutableStateFlow(false)
+    val showCalendarSettings: StateFlow<Boolean> = _showCalendarSettings.asStateFlow()
+    
+    private val _showAppearanceSettings = MutableStateFlow(false)
+    val showAppearanceSettings: StateFlow<Boolean> = _showAppearanceSettings.asStateFlow()
+    
+    private val _showGesturesSettings = MutableStateFlow(false)
+    val showGesturesSettings: StateFlow<Boolean> = _showGesturesSettings.asStateFlow()
+    
+    private val _showBackupSettings = MutableStateFlow(false)
+    val showBackupSettings: StateFlow<Boolean> = _showBackupSettings.asStateFlow()
+    
     init {
         Log.d(TAG, "Initializing SettingsViewModel")
         loadSettings()
@@ -196,4 +213,78 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         // Return to settings screen when closing color selection
         _showSettingsDialog.value = true
     }
+    
+    /**
+     * Show statistics screen
+     */
+    fun showStatisticsScreen() {
+        Log.d(TAG, "Showing statistics screen")
+        // Hide settings dialog first to ensure statistics can be shown
+        _showSettingsDialog.value = false
+        // Show statistics screen
+        _showStatisticsScreen.value = true
+    }
+    
+    /**
+     * Hide statistics screen
+     */
+    fun hideStatisticsScreen() {
+        Log.d(TAG, "Hiding statistics screen")
+        _showStatisticsScreen.value = false
+        // Return to settings screen when closing statistics
+        _showSettingsDialog.value = true
+    }
+    
+    // Calendar Settings Navigation
+    fun showCalendarSettings() {
+        Log.d(TAG, "Showing calendar settings")
+        _showSettingsDialog.value = false
+        _showCalendarSettings.value = true
+    }
+    
+    fun hideCalendarSettings() {
+        Log.d(TAG, "Hiding calendar settings")
+        _showCalendarSettings.value = false
+        _showSettingsDialog.value = true
+    }
+    
+    // Appearance Settings Navigation
+    fun showAppearanceSettings() {
+        Log.d(TAG, "Showing appearance settings")
+        _showSettingsDialog.value = false
+        _showAppearanceSettings.value = true
+    }
+    
+    fun hideAppearanceSettings() {
+        Log.d(TAG, "Hiding appearance settings")
+        _showAppearanceSettings.value = false
+        _showSettingsDialog.value = true
+    }
+    
+    // Gestures Settings Navigation
+    fun showGesturesSettings() {
+        Log.d(TAG, "Showing gestures settings")
+        _showSettingsDialog.value = false
+        _showGesturesSettings.value = true
+    }
+    
+    fun hideGesturesSettings() {
+        Log.d(TAG, "Hiding gestures settings")
+        _showGesturesSettings.value = false
+        _showSettingsDialog.value = true
+    }
+    
+    // Backup Settings Navigation
+    fun showBackupSettings() {
+        Log.d(TAG, "Showing backup settings")
+        _showSettingsDialog.value = false
+        _showBackupSettings.value = true
+    }
+    
+    fun hideBackupSettings() {
+        Log.d(TAG, "Hiding backup settings")
+        _showBackupSettings.value = false
+        _showSettingsDialog.value = true
+    }
+    
 } 

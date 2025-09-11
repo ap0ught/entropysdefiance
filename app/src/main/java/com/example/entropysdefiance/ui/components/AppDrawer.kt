@@ -8,6 +8,7 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -208,9 +209,38 @@ fun AppDrawer(
     val listState = rememberLazyListState()
     val gestureHandler = remember { GestureHandler() }
     
+    // Track scroll state for keyboard visibility
+    var isScrolling by remember { mutableStateOf(false) }
+    var lastScrollOffset by remember { mutableIntStateOf(0) }
+    
     LaunchedEffect(Unit) {
         focusRequester.requestFocus()
         keyboardController?.show()
+    }
+    
+    // Monitor scroll state to hide/show keyboard
+    LaunchedEffect(listState) {
+        snapshotFlow { listState.firstVisibleItemScrollOffset }
+            .collect { scrollOffset ->
+                val isAtTop = scrollOffset == 0 && listState.firstVisibleItemIndex == 0
+                
+                // Hide keyboard when scrolling down, show when at top
+                if (scrollOffset > lastScrollOffset && scrollOffset > 10) {
+                    // Scrolling down - hide keyboard
+                    if (!isScrolling) {
+                        isScrolling = true
+                        keyboardController?.hide()
+                    }
+                } else if (isAtTop) {
+                    // At top - show keyboard
+                    if (isScrolling) {
+                        isScrolling = false
+                        keyboardController?.show()
+                    }
+                }
+                
+                lastScrollOffset = scrollOffset
+            }
     }
 
     // Auto-launch when there's exactly one match in the filtered list

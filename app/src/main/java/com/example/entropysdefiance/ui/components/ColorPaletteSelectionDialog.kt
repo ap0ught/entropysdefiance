@@ -102,12 +102,12 @@ fun ColorPaletteOption(
     isSelected: Boolean,
     onClick: () -> Unit
 ) {
-    Card(
+    Surface(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick),
-        shape = RoundedCornerShape(16.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        color = MaterialTheme.colorScheme.surface,
+        shape = RoundedCornerShape(8.dp)
     ) {
         Row(
             modifier = Modifier

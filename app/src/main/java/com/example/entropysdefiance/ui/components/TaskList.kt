@@ -10,6 +10,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowForward
@@ -33,8 +35,9 @@ import kotlin.math.abs
 fun TaskList(
     timeHorizon: TimeHorizon,
     tasks: List<Task>,
-    onDeleteTask: (String) -> Unit,
+    onCompleteTask: (String) -> Unit,
     onMoveTask: (String, TimeHorizon) -> Unit,
+    onLongPressTask: (Task) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     LazyColumn(
@@ -48,8 +51,9 @@ fun TaskList(
         ) { task ->
             TaskItem(
                 task = task,
-                onComplete = { onDeleteTask(task.id) },
+                onComplete = { onCompleteTask(task.id) },
                 onMoveTask = { newTimeHorizon -> onMoveTask(task.id, newTimeHorizon) },
+                onLongPress = { onLongPressTask(task) },
                 currentTimeHorizon = timeHorizon
             )
         }
@@ -61,22 +65,43 @@ private fun TaskItem(
     task: Task,
     onComplete: () -> Unit,
     onMoveTask: (TimeHorizon) -> Unit,
+    onLongPress: () -> Unit,
     currentTimeHorizon: TimeHorizon,
     modifier: Modifier = Modifier
 ) {
     var offsetX by remember { mutableStateOf(0f) }
     var isCompleted by remember { mutableStateOf(false) }
+    var isLongPressed by remember { mutableStateOf(false) }
+    var isZenModeStarting by remember { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
 
     val swipeThreshold = 100f
     val alpha by animateFloatAsState(
-        targetValue = if (abs(offsetX) > swipeThreshold) 0.5f else 1f,
+        targetValue = when {
+            isZenModeStarting -> 0.3f
+            abs(offsetX) > swipeThreshold -> 0.5f
+            else -> 1f
+        },
         label = "alpha"
     )
     
     val rotation by animateFloatAsState(
         targetValue = offsetX * 0.03f,
         label = "rotation"
+    )
+    
+    val scale by animateFloatAsState(
+        targetValue = when {
+            isZenModeStarting -> 1.1f
+            isLongPressed -> 0.95f
+            else -> 1f
+        },
+        label = "scale"
+    )
+    
+    val elevation by animateFloatAsState(
+        targetValue = if (isLongPressed || isZenModeStarting) 8f else 0f,
+        label = "elevation"
     )
 
     Surface(
@@ -85,15 +110,19 @@ private fun TaskItem(
             .graphicsLayer {
                 translationX = offsetX
                 rotationZ = rotation
+                scaleX = scale
+                scaleY = scale
             }
             .alpha(alpha)
             .draggable(
                 orientation = Orientation.Horizontal,
                 state = rememberDraggableState { delta ->
-                    offsetX = (offsetX + delta).coerceIn(-200f, 200f)
+                    if (!isZenModeStarting) {
+                        offsetX = (offsetX + delta).coerceIn(-200f, 200f)
+                    }
                 },
                 onDragStopped = {
-                    if (abs(offsetX) > swipeThreshold) {
+                    if (!isZenModeStarting && abs(offsetX) > swipeThreshold) {
                         // Determine the new time horizon based on swipe direction
                         val newTimeHorizon = if (offsetX > 0) {
                             // Right swipe - move to larger horizon
@@ -117,23 +146,44 @@ private fun TaskItem(
             ),
         color = MaterialTheme.colorScheme.background,
         border = BorderStroke(
-            width = 1.dp,
-            color = MaterialTheme.colorScheme.outline
+            width = if (isLongPressed || isZenModeStarting) 2.dp else 1.dp,
+            color = if (isLongPressed || isZenModeStarting) 
+                MaterialTheme.colorScheme.primary 
+            else 
+                MaterialTheme.colorScheme.outline
         ),
-        shape = MaterialTheme.shapes.small
+        shape = MaterialTheme.shapes.small,
+        shadowElevation = elevation.dp
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 12.dp)
-                .clickable {
-                    if (!isCompleted) {
-                        isCompleted = true
-                        coroutineScope.launch {
-                            delay(500)
-                            onComplete()
+                .pointerInput(Unit) {
+                    detectTapGestures(
+                        onTap = {
+                            if (!isCompleted && !isZenModeStarting) {
+                                isCompleted = true
+                                coroutineScope.launch {
+                                    delay(500)
+                                    onComplete()
+                                }
+                            }
+                        },
+                        onLongPress = {
+                            if (!isCompleted && !isZenModeStarting) {
+                                isLongPressed = true
+                                isZenModeStarting = true
+                                coroutineScope.launch {
+                                    delay(300) // Brief animation delay
+                                    onLongPress()
+                                    delay(100) // Brief delay before reset
+                                    isLongPressed = false
+                                    isZenModeStarting = false
+                                }
+                            }
                         }
-                    }
+                    )
                 },
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically

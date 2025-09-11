@@ -15,21 +15,34 @@ class TaskViewModel(application: Application) : AndroidViewModel(application) {
     private val database = TaskDatabase.getDatabase(application)
     private val taskDao = database.taskDao()
     
-    val tasks = taskDao.getAllTasks().map { entities ->
+    val tasks = taskDao.getPendingTasks().map { entities ->
         entities.map { it.toTask() }
     }
 
     fun addTask(title: String, timeHorizon: TimeHorizon) {
         viewModelScope.launch {
+            // Get the next auto-incrementing ID
+            val lastTask = taskDao.getLastTask()
+            val nextAutoId = (lastTask?.autoId ?: 0L) + 1L
+            
             val task = TaskEntity(
                 id = UUID.randomUUID().toString(),
                 title = title,
-                timeHorizon = timeHorizon
+                timeHorizon = timeHorizon,
+                autoId = nextAutoId,
+                createdAt = java.time.LocalDateTime.now(),
+                isCompleted = false
             )
             taskDao.insertTask(task)
         }
     }
 
+    fun completeTask(taskId: String) {
+        viewModelScope.launch {
+            taskDao.markTaskAsCompleted(taskId)
+        }
+    }
+    
     fun deleteTask(taskId: String) {
         viewModelScope.launch {
             taskDao.deleteTask(taskId)
@@ -40,9 +53,12 @@ class TaskViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             taskDao.getTaskById(taskId)?.let { taskEntity ->
                 val updatedTask = TaskEntity(
+                    autoId = taskEntity.autoId,
                     id = taskEntity.id,
                     title = taskEntity.title,
-                    timeHorizon = newTimeHorizon
+                    timeHorizon = newTimeHorizon,
+                    createdAt = taskEntity.createdAt ?: java.time.LocalDateTime.now(),
+                    isCompleted = taskEntity.isCompleted
                 )
                 taskDao.insertTask(updatedTask)
             }
@@ -51,12 +67,33 @@ class TaskViewModel(application: Application) : AndroidViewModel(application) {
     
     fun updateTask(taskId: String, newTitle: String, timeHorizon: TimeHorizon) {
         viewModelScope.launch {
-            val updatedTask = TaskEntity(
-                id = taskId,
-                title = newTitle,
-                timeHorizon = timeHorizon
-            )
-            taskDao.insertTask(updatedTask)
+            taskDao.getTaskById(taskId)?.let { taskEntity ->
+                val updatedTask = TaskEntity(
+                    autoId = taskEntity.autoId,
+                    id = taskId,
+                    title = newTitle,
+                    timeHorizon = timeHorizon,
+                    createdAt = taskEntity.createdAt ?: java.time.LocalDateTime.now(),
+                    isCompleted = taskEntity.isCompleted
+                )
+                taskDao.insertTask(updatedTask)
+            }
         }
+    }
+    
+    suspend fun getTotalTaskCount(): Int {
+        return taskDao.getTotalTaskCount()
+    }
+    
+    suspend fun getCompletedTaskCount(): Int {
+        return taskDao.getCompletedTaskCount()
+    }
+    
+    suspend fun getPendingTaskCount(): Int {
+        return taskDao.getPendingTaskCount()
+    }
+    
+    suspend fun getOldestTaskDate(): java.time.LocalDateTime? {
+        return taskDao.getOldestTaskDate()
     }
 } 

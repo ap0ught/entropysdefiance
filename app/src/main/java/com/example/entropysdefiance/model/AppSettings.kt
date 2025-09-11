@@ -14,5 +14,9 @@ data class AppSettings(
     val colorTheme: String = "Green", // Default to Green theme
     
     // Gesture settings
-    val enableDoubleTapForDialer: Boolean = true
+    val enableDoubleTapForDialer: Boolean = true,
+    
+    // Backup settings
+    val enableAutomaticBackup: Boolean = false,
+    val backupIntervalHours: Int = 24
 ) 
