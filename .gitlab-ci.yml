@@ -13,8 +13,8 @@ stages:
 build_apk:
   stage: build
   script:
-    - ls -la /builds/$CI_PROJECT_PATH/secure_files/
-    - cp /builds/$CI_PROJECT_PATH/secure_files/entropy.keystore $CI_PROJECT_DIR/release.keystore
+    - curl --silent "https://gitlab.com/gitlab-org/incubation-engineering/mobile-devops/download-secure-files/-/raw/main/installer" | bash
+    - cp .secure_files/entropy.keystore $CI_PROJECT_DIR/release.keystore
     - ./gradlew assembleRelease
   artifacts:
     paths:
