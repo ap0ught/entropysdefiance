@@ -109,7 +109,7 @@ import com.example.entropysdefiance.viewmodel.ZenModeViewModel
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalComposeUiApi::class)
 class MainActivity : ComponentActivity() {
-    override fun onCreate(savedInstanceState: Bundle?) {
+    override fun onCreate(_: Bundle?) {
         super.onCreate(savedInstanceState)
         
         enableEdgeToEdge()
@@ -202,7 +202,7 @@ fun TaskApp(
     // Permission launcher for calendar
     val calendarPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),
-        onResult = { isGranted ->
+        onResult = { _ ->
             calendarViewModel.updatePermissionState()
         }
     )
@@ -289,7 +289,7 @@ fun TaskApp(
     
     LaunchedEffect(Unit) {
         // Wait for settings to be loaded first - collect only the first item
-        settingsViewModel.settings.take(1).collect { settings ->
+        settingsViewModel.settings.take(1).collect { _ ->
             settingsLoaded = true
             // Check calendar permission and request if needed
             if (ContextCompat.checkSelfPermission(
@@ -336,7 +336,6 @@ fun TaskApp(
     val displayedTimeHorizon = if (isPeeking) nextTimeHorizon else currentTimeHorizon
 
     val configuration = LocalConfiguration.current
-    val screenHeight = configuration.screenHeightDp.dp.value
 
     Box(modifier = Modifier.fillMaxSize()) {
         // Only show scrim overlay when NOT in zen mode
@@ -523,7 +522,7 @@ fun TaskApp(
             ZenModeScreen(
                 currentTask = zenModeState.currentTask,
                 isActive = zenModeState.isActive,
-                onCompleteTask = { taskId ->
+                onCompleteTask = { _ ->
                     zenModeViewModel.completeCurrentTask()
                 },
                 modifier = Modifier.fillMaxSize()
@@ -731,13 +730,13 @@ fun TaskApp(
                         }
                         
                         // Get screen height for calculations
-                        val screenHeight = LocalConfiguration.current.screenHeightDp.dp
+                        val availableScreenHeight = LocalConfiguration.current.screenHeightDp.dp
                         
                         // Calculate the task list height based on number of tasks
                         // Give each task ~76dp (card + padding) and limit to 1/2 of screen height
                         val taskCount = currentTasks.size
                         val estimatedTaskHeight = 76.dp * taskCount + 48.dp // Add padding
-                        val maxTaskListHeight = screenHeight * 0.45f // Reduced to 45% to ensure space for whitespace
+                        val maxTaskListHeight = availableScreenHeight * 0.45f // Reduced to 45% to ensure space for whitespace
                         val taskListHeight = estimatedTaskHeight.coerceAtMost(maxTaskListHeight)
                                     
                         // TaskList with dynamic height based on content

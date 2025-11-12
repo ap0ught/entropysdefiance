@@ -11,6 +11,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.ripple.rememberRipple
 import androidx.compose.material3.*
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -158,7 +159,7 @@ fun CalendarAgendaWidget(
                     // Add a divider before each day except the first one
                     if (!isFirstDay) {
                         item {
-                            Divider(
+                            HorizontalDivider(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .padding(vertical = 8.dp),
@@ -219,195 +220,6 @@ fun CalendarAgendaWidget(
     }
 }
 
-@Composable
-private fun CalendarEventItem(
-    event: CalendarEvent,
-    currentDate: LocalDate,
-    currentDateTime: LocalDateTime,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val eventDate = event.startTime.toLocalDate()
-    val dayDifference = ChronoUnit.DAYS.between(currentDate, eventDate)
-    
-    // Format date based on how far in the future it is
-    val dateText = when {
-        dayDifference == 0L -> "Today"
-        dayDifference == 1L -> "Tomorrow"
-        dayDifference in 2..6 -> event.startTime.format(DateTimeFormatter.ofPattern("EEEE")) // Day name
-        else -> event.startTime.format(DateTimeFormatter.ofPattern("EEE, MMM d")) // Short format
-    }
-    
-    // Determine if the event is ongoing
-    val isEventOngoing = currentDateTime.isAfter(event.startTime) && currentDateTime.isBefore(event.endTime)
-    
-    // Calculate minutes until event start or end
-    val minutesUntilStart = ChronoUnit.MINUTES.between(currentDateTime, event.startTime)
-    val minutesUntilEnd = ChronoUnit.MINUTES.between(currentDateTime, event.endTime)
-    
-    // Calculate hours and minutes for display
-    val hoursUntilStart = minutesUntilStart / 60
-    val remainingMinutesUntilStart = minutesUntilStart % 60
-    
-    val hoursUntilEnd = minutesUntilEnd / 60
-    val remainingMinutesUntilEnd = minutesUntilEnd % 60
-    
-    // Format time components - dynamic for close events (< 6 hours), static for others
-    val (relativeTimeText, actualTimeText) = when {
-        // For all-day events - check first to avoid time calculations
-        event.isAllDay -> Pair("All day", null)
-        
-        // If event is ongoing, show "ends in X hours Y minutes" + actual times
-        isEventOngoing -> {
-            val relativeTime = when {
-                hoursUntilEnd > 0 -> "ends in ${hoursUntilEnd}h ${remainingMinutesUntilEnd}min"
-                else -> "ends in ${remainingMinutesUntilEnd}min"
-            }
-            val actualTimes = "${event.startTime.format(DateTimeFormatter.ofPattern("HH:mm"))} - ${event.endTime.format(DateTimeFormatter.ofPattern("HH:mm"))}"
-            Pair(relativeTime, actualTimes)
-        }
-        
-        // If event is within 6 hours, show "in X hours Y minutes" + actual times
-        minutesUntilStart in 1..360 -> {
-            val relativeTime = when {
-                hoursUntilStart > 0 -> "in ${hoursUntilStart}h ${remainingMinutesUntilStart}min"
-                else -> "in ${remainingMinutesUntilStart}min"
-            }
-            val actualTimes = "${event.startTime.format(DateTimeFormatter.ofPattern("HH:mm"))} - ${event.endTime.format(DateTimeFormatter.ofPattern("HH:mm"))}"
-            Pair(relativeTime, actualTimes)
-        }
-        
-        // For regular future events, show standard time with 24-hour format and include end time
-        else -> {
-            val startFormat = DateTimeFormatter.ofPattern("HH:mm")
-            val endFormat = DateTimeFormatter.ofPattern("HH:mm")
-            val timeText = "${event.startTime.format(startFormat)} - ${event.endTime.format(endFormat)}"
-            Pair(timeText, null)
-        }
-    }
-    
-    // Calculate event color or use a default
-    val eventColor = event.color?.let { Color(it) } ?: MaterialTheme.colorScheme.primary
-    
-    // For ongoing events, use a more prominent color, but keep event color for normal cases
-    val statusColor = when {
-        isEventOngoing -> MaterialTheme.colorScheme.tertiary
-        minutesUntilStart in 1..360 -> MaterialTheme.colorScheme.secondary
-        else -> eventColor
-    }
-    
-    // New minimal design - replaces the Surface with border approach
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .defaultMinSize(minHeight = 64.dp) // Ensure minimum height for better tap target
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = rememberRipple(bounded = true),
-                onClick = { 
-                    android.util.Log.d("CalendarEventItem", "Event clicked: ${event.title}")
-                    onClick()
-                }
-            )
-            .padding(vertical = 12.dp, horizontal = 6.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        // Vertical colored indicator bar - thin elegant line
-        Box(
-            modifier = Modifier
-                .width(3.dp)
-                .height(50.dp)
-                .background(
-                    color = statusColor.copy(alpha = 0.8f),
-                    shape = MaterialTheme.shapes.small
-                )
-        )
-        
-        // Event content
-        Column(
-            modifier = Modifier
-                .weight(1f)
-                .padding(start = 12.dp)
-        ) {
-            // Event title - slightly more prominent
-            Text(
-                text = event.title,
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onBackground,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            
-            // Spacer for visual separation
-            Spacer(modifier = Modifier.height(4.dp))
-            
-            // Time row with improved spacing
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                // Date pill - smaller and more subtle
-                Text(
-                    text = dateText,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = statusColor,
-                    fontWeight = FontWeight.Medium
-                )
-                
-                // Subtle dot separator
-                Box(
-                    modifier = Modifier
-                        .size(3.dp)
-                        .background(
-                            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.3f),
-                            shape = CircleShape
-                        )
-                )
-                
-                // Time text - unified style
-                Text(
-                    text = relativeTimeText,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
-                )
-                
-                // Show actual times with visual separator if available
-                actualTimeText?.let { actualTimes ->
-                    // Subtle dot separator
-                    Box(
-                        modifier = Modifier
-                            .size(3.dp)
-                            .background(
-                                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.3f),
-                                shape = CircleShape
-                            )
-                    )
-                    
-                    // Actual time text
-                    Text(
-                        text = actualTimes,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
-                    )
-                }
-            }
-            
-            // Event location if available - only show if location exists
-            event.location?.let { location ->
-                if (location.isNotBlank()) {
-                    Text(
-                        text = location,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.padding(top = 2.dp)
-                    )
-                }
-            }
-        }
-    }
-}
 
 @Composable
 private fun CalendarEventItemContent(

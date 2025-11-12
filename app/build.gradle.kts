@@ -53,6 +53,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
     composeOptions {
         kotlinCompilerExtensionVersion = "1.5.8"
@@ -63,6 +64,9 @@ android {
         unitTests {
             isIncludeAndroidResources = true
         }
+    }
+    packaging {
+        doNotStrip "**/libdatastore_shared_counter.so"
     }
 }
 

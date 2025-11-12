@@ -202,7 +202,7 @@ class TaskViewModel(application: Application) : AndroidViewModel(application) {
             entities.forEach { taskEntity ->
                 if (taskEntity.isDeadlineTask && taskEntity.doDate != null) {
                     val task = taskEntity.toTask()
-                    val doDate = taskEntity.doDate!! // Safe because we checked null above
+                    val doDate = taskEntity.doDate // Safe because we checked null above
                     val newHorizon = calculateTimeHorizonFromDate(doDate)
                     if (newHorizon != task.timeHorizon) {
                         val updatedTask = TaskEntity(

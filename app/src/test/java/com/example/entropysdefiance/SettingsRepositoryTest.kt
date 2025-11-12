@@ -24,7 +24,7 @@ import org.mockito.kotlin.whenever
 import org.robolectric.annotation.Config
 
 @RunWith(AndroidJUnit4::class)
-@Config(sdk = [30])
+@Config(sdk = [30], manifest = Config.NONE)
 class SettingsRepositoryTest {
 
     // Test keys that match the ones in SettingsRepository
@@ -41,10 +41,11 @@ class SettingsRepositoryTest {
     fun setup() {
         // Create mock context and DataStore
         mockContext = Mockito.mock(Context::class.java)
+        @Suppress("UNCHECKED_CAST")
         mockDataStore = Mockito.mock(DataStore::class.java) as DataStore<Preferences>
-        
-        // Use the real repository but with mock dependencies
-        repository = SettingsRepository(mockContext)
+
+        // Use the repository with mock DataStore
+        repository = SettingsRepository(mockDataStore)
     }
 
     @Test

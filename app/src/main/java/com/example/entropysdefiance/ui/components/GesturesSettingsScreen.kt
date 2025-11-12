@@ -39,7 +39,7 @@ fun GesturesSettingsScreen(
             ) {
                 IconButton(onClick = onBack) {
                     Icon(
-                        imageVector = Icons.Default.ArrowBack,
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                         contentDescription = "Back to Settings",
                         tint = MaterialTheme.colorScheme.onBackground
                     )

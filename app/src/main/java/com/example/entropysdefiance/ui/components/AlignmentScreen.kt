@@ -10,7 +10,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowForward
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.*
@@ -189,7 +189,7 @@ fun AlignmentScreen(
                     onClick = onNext,
                     containerColor = MaterialTheme.colorScheme.primary
                 ) {
-                    Icon(Icons.Default.ArrowForward, contentDescription = "Next Horizon")
+                    Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = "Next Horizon")
                 }
             }
         }
@@ -496,7 +496,7 @@ private fun AlignmentTaskItem(
                         onClick = { showMoveDialog = true }
                     ) {
                         Icon(
-                            Icons.Default.ArrowForward,
+                            Icons.AutoMirrored.Filled.ArrowForward,
                             contentDescription = "Move Task",
                             tint = MaterialTheme.colorScheme.primary
                         )

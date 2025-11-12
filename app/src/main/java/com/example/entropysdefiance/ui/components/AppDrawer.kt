@@ -7,6 +7,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.*
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.runtime.*
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
@@ -94,7 +95,7 @@ class GestureHandler {
                         totalDragY = 0f
                     },
                     onDrag = { change, dragAmount ->
-                        change.consumeAllChanges()
+                        change.consume()
                         
                         // Accumulate vertical drag amount
                         if (dragAmount.y > 0 && abs(dragAmount.y) > abs(dragAmount.x)) {
@@ -180,7 +181,7 @@ class GestureHandler {
                 onDrag = { change, dragAmount ->
                     // Only consume changes for vertical downward swipes
                     if (dragAmount.y > 0 && abs(dragAmount.y) > abs(dragAmount.x)) {
-                        change.consumeAllChanges()
+                        change.consume()
                         totalDragY += dragAmount.y
                         
                         // Check if we've exceeded the threshold and haven't triggered yet
@@ -304,7 +305,7 @@ fun AppDrawer(
                             }
                             
                             Spacer(modifier = Modifier.height(8.dp))
-                            Divider(
+                            HorizontalDivider(
                                 color = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
                                 thickness = 2.dp
                             )

@@ -13,8 +13,8 @@ import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.ArrowForward
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -190,7 +190,7 @@ private fun TaskItem(
         ) {
             // Left arrow indicator
             Icon(
-                Icons.Default.ArrowBack,
+                Icons.AutoMirrored.Filled.ArrowBack,
                 contentDescription = "Move to smaller horizon",
                 modifier = Modifier.alpha(if (offsetX < -20) abs(offsetX/200) else 0f),
                 tint = MaterialTheme.colorScheme.primary
@@ -211,7 +211,7 @@ private fun TaskItem(
             
             // Right arrow indicator
             Icon(
-                Icons.Default.ArrowForward,
+                Icons.AutoMirrored.Filled.ArrowForward,
                 contentDescription = "Move to larger horizon",
                 modifier = Modifier.alpha(if (offsetX > 20) offsetX/200 else 0f),
                 tint = MaterialTheme.colorScheme.primary

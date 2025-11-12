@@ -24,7 +24,10 @@ private val Context.settingsDataStore: DataStore<Preferences> by preferencesData
 /**
  * Repository for managing app settings persistence
  */
-class SettingsRepository(private val context: Context) {
+class SettingsRepository(private val dataStore: DataStore<Preferences>) {
+
+    // Secondary constructor for backward compatibility
+    constructor(context: Context) : this(dataStore)
 
     // Define the keys for preferences
     private object PreferencesKeys {
@@ -44,7 +47,7 @@ class SettingsRepository(private val context: Context) {
      * Flow of AppSettings from DataStore
      * This will emit a new value whenever the settings change
      */
-    val settingsFlow: Flow<AppSettings> = context.settingsDataStore.data
+    val settingsFlow: Flow<AppSettings> = dataStore.data
         .catch { exception ->
             // If an error occurs during reading settings
             if (exception is IOException) {
@@ -94,7 +97,7 @@ class SettingsRepository(private val context: Context) {
     suspend fun updateShowCalendarWidget(show: Boolean) {
         Log.d(TAG, "Saving showCalendarWidget: $show")
         try {
-            context.settingsDataStore.edit { preferences ->
+            dataStore.edit { preferences ->
                 preferences[PreferencesKeys.SHOW_CALENDAR_WIDGET] = show
             }
             Log.d(TAG, "Successfully saved showCalendarWidget")
@@ -110,7 +113,7 @@ class SettingsRepository(private val context: Context) {
     suspend fun updateCalendarDaysToShow(days: Int) {
         Log.d(TAG, "Saving calendarDaysToShow: $days")
         try {
-            context.settingsDataStore.edit { preferences ->
+            dataStore.edit { preferences ->
                 preferences[PreferencesKeys.CALENDAR_DAYS_TO_SHOW] = days
             }
             Log.d(TAG, "Successfully saved calendarDaysToShow")
@@ -126,7 +129,7 @@ class SettingsRepository(private val context: Context) {
     suspend fun updateUseDarkTheme(useDarkTheme: Boolean) {
         Log.d(TAG, "Saving useDarkTheme: $useDarkTheme")
         try {
-            context.settingsDataStore.edit { preferences ->
+            dataStore.edit { preferences ->
                 preferences[PreferencesKeys.USE_DARK_THEME] = useDarkTheme
             }
             Log.d(TAG, "Successfully saved useDarkTheme")
@@ -142,7 +145,7 @@ class SettingsRepository(private val context: Context) {
     suspend fun updateEnableDoubleTapDialer(enable: Boolean) {
         Log.d(TAG, "Saving enableDoubleTapDialer: $enable")
         try {
-            context.settingsDataStore.edit { preferences ->
+            dataStore.edit { preferences ->
                 preferences[PreferencesKeys.ENABLE_DOUBLE_TAP_DIALER] = enable
             }
             Log.d(TAG, "Successfully saved enableDoubleTapDialer")
@@ -158,7 +161,7 @@ class SettingsRepository(private val context: Context) {
     suspend fun updateColorTheme(theme: String) {
         Log.d(TAG, "Saving colorTheme: $theme")
         try {
-            context.settingsDataStore.edit { preferences ->
+            dataStore.edit { preferences ->
                 preferences[PreferencesKeys.COLOR_THEME] = theme
             }
             Log.d(TAG, "Successfully saved colorTheme")
@@ -177,7 +180,7 @@ class SettingsRepository(private val context: Context) {
             // Convert Long IDs to strings for storage
             val calendarIdStrings = calendarIds.map { it.toString() }.toSet()
             
-            context.settingsDataStore.edit { preferences ->
+            dataStore.edit { preferences ->
                 preferences[PreferencesKeys.SELECTED_CALENDAR_IDS] = calendarIdStrings
             }
             Log.d(TAG, "Successfully saved selectedCalendarIds")
@@ -196,7 +199,7 @@ class SettingsRepository(private val context: Context) {
             // Convert Long IDs to strings for storage
             val calendarIdStrings = settings.selectedCalendarIds.map { it.toString() }.toSet()
             
-            context.settingsDataStore.edit { preferences ->
+            dataStore.edit { preferences ->
                 preferences[PreferencesKeys.SHOW_CALENDAR_WIDGET] = settings.showCalendarWidget
                 preferences[PreferencesKeys.CALENDAR_DAYS_TO_SHOW] = settings.calendarDaysToShow
                 preferences[PreferencesKeys.USE_DARK_THEME] = settings.useDarkTheme
@@ -218,7 +221,7 @@ class SettingsRepository(private val context: Context) {
      */
     suspend fun updateAutomaticBackup(enabled: Boolean) {
         try {
-            context.settingsDataStore.edit { preferences ->
+            dataStore.edit { preferences ->
                 preferences[PreferencesKeys.ENABLE_AUTOMATIC_BACKUP] = enabled
             }
             Log.d(TAG, "Updated automatic backup setting: $enabled")
@@ -232,7 +235,7 @@ class SettingsRepository(private val context: Context) {
      */
     suspend fun updateBackupInterval(hours: Int) {
         try {
-            context.settingsDataStore.edit { preferences ->
+            dataStore.edit { preferences ->
                 preferences[PreferencesKeys.BACKUP_INTERVAL_HOURS] = hours
             }
             Log.d(TAG, "Updated backup interval setting: $hours hours")
@@ -246,7 +249,7 @@ class SettingsRepository(private val context: Context) {
      */
     suspend fun dumpDataStoreContents() {
         try {
-            val preferences = context.settingsDataStore.data.first()
+            val preferences = dataStore.data.first()
             Log.d(TAG, "DataStore Contents:")
             Log.d(TAG, "----------------")
             
