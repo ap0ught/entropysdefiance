@@ -13,7 +13,7 @@ stages:
 build_apk:
   stage: build
   script:
-    - cp /builds/$CI_PROJECT_PATH/secure_files/entropy.keystore $CI_PROJECT_DIR/
+    - cp /builds/$CI_PROJECT_PATH/secure_files/entropy.keystore $CI_PROJECT_DIR/release.keystore
     - ./gradlew assembleRelease
   artifacts:
     paths:
