@@ -66,7 +66,9 @@ android {
         }
     }
     packaging {
-        doNotStrip "**/libdatastore_shared_counter.so"
+        jniLibs {
+            keepDebugSymbols.add("**/libdatastore_shared_counter.so")
+        }
     }
 }
 
