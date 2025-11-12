@@ -265,6 +265,28 @@ fun TaskApp(
     )
     
     // Initialize calendar events when the app starts
+    // Check and update deadline task horizons on app startup (only if it's a new day)
+    LaunchedEffect(Unit) {
+        taskViewModel.checkAndUpdateDeadlineTaskHorizons()
+    }
+    
+    // Combined lifecycle observer: check deadline task horizons and refresh calendar events when app comes to foreground
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                // Check and update deadline task horizons when app comes to foreground (in case app was in background at midnight)
+                taskViewModel.checkAndUpdateDeadlineTaskHorizons()
+                // Refresh calendar events when app comes to foreground
+                calendarViewModel.loadEvents()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+    
     LaunchedEffect(Unit) {
         // Wait for settings to be loaded first - collect only the first item
         settingsViewModel.settings.take(1).collect { settings ->
@@ -279,25 +301,6 @@ fun TaskApp(
             } else {
                 calendarViewModel.initialize()
             }
-        }
-    }
-    
-    // Lifecycle observer to refresh calendar events when app becomes active
-    val lifecycleOwner = LocalLifecycleOwner.current
-    DisposableEffect(lifecycleOwner) {
-        val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME) {
-                // Refresh calendar events when app comes to foreground
-                calendarViewModel.loadEvents()
-            }
-        }
-        
-        // Register the observer
-        lifecycleOwner.lifecycle.addObserver(observer)
-        
-        // Cleanup when leaving the composition
-        onDispose {
-            lifecycleOwner.lifecycle.removeObserver(observer)
         }
     }
     
@@ -351,6 +354,10 @@ fun TaskApp(
             AddTaskScreen(
                 onAddTask = { title, timeHorizon ->
                     taskViewModel.addTask(title, timeHorizon)
+                    showAddScreen = false
+                },
+                onAddDeadlineTask = { title, deadline, daysNeeded ->
+                    taskViewModel.addDeadlineTask(title, deadline, daysNeeded)
                     showAddScreen = false
                 },
                 onDismiss = { showAddScreen = false }
@@ -545,6 +552,9 @@ fun TaskApp(
                 },
                 onAddTask = { title, timeHorizon ->
                     taskViewModel.addTask(title, timeHorizon)
+                },
+                onAddDeadlineTask = { title, deadline, daysNeeded ->
+                    taskViewModel.addDeadlineTask(title, deadline, daysNeeded)
                 },
                 onDeleteTask = { taskId ->
                     taskViewModel.deleteTask(taskId)

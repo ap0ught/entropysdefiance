@@ -27,6 +27,12 @@ import androidx.compose.ui.window.DialogProperties
 import com.example.entropysdefiance.model.Task
 import com.example.entropysdefiance.model.TimeHorizon
 import androidx.compose.foundation.clickable
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.heightIn
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 
 /**
  * Custom dialog with strong dimming effect
@@ -54,7 +60,7 @@ private fun StrongDimDialog(
                 modifier = Modifier
                     .fillMaxSize()
                     .clickable(onClick = onDismissRequest),
-                color = Color.Black.copy(alpha = 0.75f) // Even stronger dimming
+                color = Color.Black.copy(alpha = 0.9f) // Very dark dimming to hide background
             ) {}
             
             // Dialog content
@@ -76,6 +82,7 @@ fun AlignmentScreen(
     onNext: () -> Unit,
     onClose: () -> Unit,
     onAddTask: (String, TimeHorizon) -> Unit,
+    onAddDeadlineTask: (String, LocalDate, Int) -> Unit = { _, _, _ -> },
     onDeleteTask: (String) -> Unit,
     onMoveTask: (String, TimeHorizon) -> Unit,
     onUpdateTask: (String, String, TimeHorizon) -> Unit = { id, title, horizon -> 
@@ -90,6 +97,10 @@ fun AlignmentScreen(
     var taskTitle by remember { mutableStateOf("") }
     var isEditMode by remember { mutableStateOf(false) }
     var currentEditTaskId by remember { mutableStateOf("") }
+    var isDeadlineTask by remember { mutableStateOf(false) }
+    var selectedDeadline by remember { mutableStateOf<LocalDate?>(null) }
+    var daysNeeded by remember { mutableStateOf("") }
+    var showDatePicker by remember { mutableStateOf(false) }
     
     // Create guidance message based on current horizon
     val guidanceMessage = when (currentHorizon) {
@@ -163,6 +174,9 @@ fun AlignmentScreen(
                     onClick = { 
                         taskTitle = ""
                         isEditMode = false
+                        isDeadlineTask = false
+                        selectedDeadline = null
+                        daysNeeded = ""
                         showTaskDialog = true 
                     },
                     containerColor = MaterialTheme.colorScheme.secondary
@@ -238,6 +252,9 @@ fun AlignmentScreen(
                                 currentEditTaskId = task.id
                                 taskTitle = task.title
                                 isEditMode = true
+                                isDeadlineTask = task.isDeadlineTask
+                                selectedDeadline = task.deadline
+                                daysNeeded = ""
                                 showTaskDialog = true
                             },
                             currentHorizon = currentHorizon
@@ -253,15 +270,81 @@ fun AlignmentScreen(
         StrongDimDialog(onDismissRequest = { showTaskDialog = false }) {
             AlertDialog(
                 onDismissRequest = { showTaskDialog = false },
-                title = { Text(if (isEditMode) "Edit Task" else "Add Task to ${currentHorizon.title}") },
+                title = { Text(if (isEditMode) "Edit Task" else "Add Task") },
                 text = {
-                    OutlinedTextField(
-                        value = taskTitle,
-                        onValueChange = { taskTitle = it },
-                        label = { Text("Task") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        OutlinedTextField(
+                            value = taskTitle,
+                            onValueChange = { taskTitle = it },
+                            label = { Text("Task") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        
+                        if (!isEditMode) {
+                            // Task type selection - compact design using FilterChip
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                FilterChip(
+                                    selected = !isDeadlineTask,
+                                    onClick = { isDeadlineTask = false },
+                                    label = { Text("Time Horizon") },
+                                    modifier = Modifier.weight(1f)
+                                )
+                                FilterChip(
+                                    selected = isDeadlineTask,
+                                    onClick = { isDeadlineTask = true },
+                                    label = { Text("Deadline") },
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
+                            
+                            if (isDeadlineTask) {
+                                // Deadline task fields
+                                OutlinedButton(
+                                    onClick = { showDatePicker = true },
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            text = selectedDeadline?.format(DateTimeFormatter.ISO_LOCAL_DATE) ?: "Select Deadline",
+                                            style = MaterialTheme.typography.bodyLarge
+                                        )
+                                        Icon(Icons.Default.Edit, contentDescription = "Select Date")
+                                    }
+                                }
+                                
+                                OutlinedTextField(
+                                    value = daysNeeded,
+                                    onValueChange = { daysNeeded = it },
+                                    label = { Text("Days Needed") },
+                                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = KeyboardType.Number),
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                            }
+                        }
+                        
+                        if (isEditMode) {
+                            val editingTask = tasks.find { it.id == currentEditTaskId }
+                            if (editingTask?.isDeadlineTask == true) {
+                                // Show deadline info for deadline tasks being edited
+                                Text(
+                                    text = "Deadline: ${editingTask.deadline?.format(DateTimeFormatter.ISO_LOCAL_DATE) ?: "N/A"}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                                )
+                            }
+                        }
+                    }
                 },
                 confirmButton = {
                     Button(
@@ -271,14 +354,25 @@ fun AlignmentScreen(
                                     // Use the update task method
                                     onUpdateTask(currentEditTaskId, taskTitle, currentHorizon)
                                 } else {
-                                    // For add, just add new task
-                                    onAddTask(taskTitle, currentHorizon)
+                                    if (isDeadlineTask) {
+                                        val deadline = selectedDeadline
+                                        val days = daysNeeded.toIntOrNull()
+                                        if (deadline != null && days != null && days > 0) {
+                                            onAddDeadlineTask(taskTitle, deadline, days)
+                                        }
+                                    } else {
+                                        // For add, just add new task
+                                        onAddTask(taskTitle, currentHorizon)
+                                    }
                                 }
                                 taskTitle = ""
+                                isDeadlineTask = false
+                                selectedDeadline = null
+                                daysNeeded = ""
                                 showTaskDialog = false
                             }
                         },
-                        enabled = taskTitle.isNotBlank()
+                        enabled = taskTitle.isNotBlank() && (!isDeadlineTask || (selectedDeadline != null && daysNeeded.toIntOrNull() != null && daysNeeded.toIntOrNull()!! > 0))
                     ) {
                         Text(if (isEditMode) "Update" else "Add")
                     }
@@ -289,6 +383,65 @@ fun AlignmentScreen(
                     }
                 }
             )
+        }
+    }
+    
+    // Date picker dialog
+    if (showDatePicker) {
+        val datePickerState = androidx.compose.material3.rememberDatePickerState(
+            initialSelectedDateMillis = selectedDeadline?.let {
+                it.atStartOfDay(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
+            },
+            yearRange = (java.time.Year.now().value)..(java.time.Year.now().value + 10),
+            initialDisplayedMonthMillis = null
+        )
+        
+        StrongDimDialog(onDismissRequest = { showDatePicker = false }) {
+            Surface(
+                modifier = Modifier.fillMaxWidth(0.95f),
+                shape = MaterialTheme.shapes.large,
+                color = MaterialTheme.colorScheme.surface
+            ) {
+                Column(
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 16.dp)
+                ) {
+                    // Scrollable date picker
+                    val scrollState = androidx.compose.foundation.rememberScrollState()
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 500.dp)
+                            .verticalScroll(scrollState)
+                    ) {
+                        androidx.compose.material3.DatePicker(state = datePickerState)
+                    }
+                    
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.End,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        TextButton(onClick = { showDatePicker = false }) {
+                            Text("Cancel")
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Button(
+                            onClick = {
+                                datePickerState.selectedDateMillis?.let { millis ->
+                                    selectedDeadline = java.time.Instant.ofEpochMilli(millis)
+                                        .atZone(java.time.ZoneId.systemDefault())
+                                        .toLocalDate()
+                                }
+                                showDatePicker = false
+                            }
+                        ) {
+                            Text("OK")
+                        }
+                    }
+                }
+            }
         }
     }
 }
@@ -320,9 +473,13 @@ private fun AlignmentTaskItem(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Task title
+            // Task title with deadline if applicable
             Text(
-                text = task.title,
+                text = if (task.isDeadlineTask && task.deadline != null) {
+                    "${task.deadline.format(DateTimeFormatter.ofPattern("dd.MM.yyyy"))} | ${task.title}"
+                } else {
+                    task.title
+                },
                 style = MaterialTheme.typography.bodyLarge,
                 modifier = Modifier.weight(1f),
                 maxLines = 2,
@@ -333,15 +490,17 @@ private fun AlignmentTaskItem(
             Row(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                // Move button
-                IconButton(
-                    onClick = { showMoveDialog = true }
-                ) {
-                    Icon(
-                        Icons.Default.ArrowForward,
-                        contentDescription = "Move Task",
-                        tint = MaterialTheme.colorScheme.primary
-                    )
+                // Move button - hidden for deadline tasks
+                if (!task.isDeadlineTask) {
+                    IconButton(
+                        onClick = { showMoveDialog = true }
+                    ) {
+                        Icon(
+                            Icons.Default.ArrowForward,
+                            contentDescription = "Move Task",
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
                 }
                 
                 // Delete button

@@ -11,6 +11,7 @@ import com.example.entropysdefiance.model.CalendarEvent
 import com.example.entropysdefiance.model.DeviceCalendar
 import java.time.Instant
 import java.time.LocalDateTime
+import java.time.LocalTime
 import java.time.ZoneId
 import java.util.TimeZone
 import kotlinx.coroutines.Dispatchers
@@ -155,16 +156,35 @@ class CalendarRepository(private val context: Context) {
         val eventId = cursor.getLong(PROJECTION_EVENT_ID_INDEX)
         val calendarId = cursor.getLong(PROJECTION_CALENDAR_ID_INDEX)
         
-        // Convert milliseconds to LocalDateTime
-        val startTime = LocalDateTime.ofInstant(
-            Instant.ofEpochMilli(beginMillis),
-            ZoneId.systemDefault()
-        )
+        // For all-day events, Android stores them in UTC at midnight
+        // We need to extract the date in UTC and then create LocalDateTime at midnight local time
+        // For regular events, convert normally using system default timezone
+        val startTime = if (allDay) {
+            // Extract date from UTC timestamp and create LocalDateTime at midnight local time
+            val utcDate = Instant.ofEpochMilli(beginMillis)
+                .atZone(ZoneId.of("UTC"))
+                .toLocalDate()
+            LocalDateTime.of(utcDate, LocalTime.MIDNIGHT)
+        } else {
+            LocalDateTime.ofInstant(
+                Instant.ofEpochMilli(beginMillis),
+                ZoneId.systemDefault()
+            )
+        }
         
-        val endTime = LocalDateTime.ofInstant(
-            Instant.ofEpochMilli(endMillis),
-            ZoneId.systemDefault()
-        )
+        val endTime = if (allDay) {
+            // For all-day events, end is exclusive (next day at midnight)
+            // Extract date from UTC timestamp and create LocalDateTime at midnight local time
+            val utcDate = Instant.ofEpochMilli(endMillis)
+                .atZone(ZoneId.of("UTC"))
+                .toLocalDate()
+            LocalDateTime.of(utcDate, LocalTime.MIDNIGHT)
+        } else {
+            LocalDateTime.ofInstant(
+                Instant.ofEpochMilli(endMillis),
+                ZoneId.systemDefault()
+            )
+        }
         
         return CalendarEvent(
             id = id,

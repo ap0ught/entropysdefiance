@@ -1,9 +1,14 @@
 package com.example.entropysdefiance.model
 
+import java.time.LocalDate
+
 data class Task(
     val id: String,
     val title: String,
-    val timeHorizon: TimeHorizon
+    val timeHorizon: TimeHorizon,
+    val isDeadlineTask: Boolean = false,
+    val deadline: LocalDate? = null,
+    val doDate: LocalDate? = null
 )
 
 enum class TimeHorizon(val title: String) {

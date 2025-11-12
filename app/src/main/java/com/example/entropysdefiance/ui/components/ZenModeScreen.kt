@@ -172,7 +172,11 @@ private fun ZenTaskCard(
         
         // Task title
         Text(
-            text = task.title,
+            text = if (task.isDeadlineTask && task.deadline != null) {
+                "${task.deadline.format(java.time.format.DateTimeFormatter.ofPattern("dd.MM.yyyy"))} | ${task.title}"
+            } else {
+                task.title
+            },
             style = MaterialTheme.typography.headlineMedium,
             color = MaterialTheme.colorScheme.onSurface,
             textAlign = TextAlign.Center,
@@ -324,7 +328,11 @@ fun ZenModeDurationDialog(
                     // Task info if available
                     selectedTask?.let { task ->
                         Text(
-                            text = task.title,
+                            text = if (task.isDeadlineTask && task.deadline != null) {
+                                "${task.deadline.format(java.time.format.DateTimeFormatter.ofPattern("dd.MM.yyyy"))} | ${task.title}"
+                            } else {
+                                task.title
+                            },
                             style = MaterialTheme.typography.headlineSmall,
                             color = MaterialTheme.colorScheme.onSurface,
                             textAlign = TextAlign.Center

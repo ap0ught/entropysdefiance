@@ -254,6 +254,9 @@ private fun CalendarEventItem(
     
     // Format time components - dynamic for close events (< 6 hours), static for others
     val (relativeTimeText, actualTimeText) = when {
+        // For all-day events - check first to avoid time calculations
+        event.isAllDay -> Pair("All day", null)
+        
         // If event is ongoing, show "ends in X hours Y minutes" + actual times
         isEventOngoing -> {
             val relativeTime = when {
@@ -273,9 +276,6 @@ private fun CalendarEventItem(
             val actualTimes = "${event.startTime.format(DateTimeFormatter.ofPattern("HH:mm"))} - ${event.endTime.format(DateTimeFormatter.ofPattern("HH:mm"))}"
             Pair(relativeTime, actualTimes)
         }
-        
-        // For all-day events
-        event.isAllDay -> Pair("All day", null)
         
         // For regular future events, show standard time with 24-hour format and include end time
         else -> {
@@ -444,6 +444,9 @@ private fun CalendarEventItemContent(
     
     // Format time components - dynamic for close events (< 6 hours), static for others
     val (relativeTimeText, actualTimeText) = when {
+        // For all-day events - check first to avoid time calculations
+        event.isAllDay -> Pair("All day", null)
+        
         // If event is ongoing, show "ends in X hours Y minutes" + actual times
         isEventOngoing -> {
             val relativeTime = when {
@@ -463,9 +466,6 @@ private fun CalendarEventItemContent(
             val actualTimes = "${event.startTime.format(DateTimeFormatter.ofPattern("HH:mm"))} - ${event.endTime.format(DateTimeFormatter.ofPattern("HH:mm"))}"
             Pair(relativeTime, actualTimes)
         }
-        
-        // For all-day events
-        event.isAllDay -> Pair("All day", null)
         
         // For regular future events, show standard time with 24-hour format and include end time
         else -> {

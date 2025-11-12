@@ -198,7 +198,11 @@ private fun TaskItem(
             
             // Task text
             Text(
-                text = task.title,
+                text = if (task.isDeadlineTask && task.deadline != null) {
+                    "${task.deadline.format(java.time.format.DateTimeFormatter.ofPattern("dd.MM.yyyy"))} | ${task.title}"
+                } else {
+                    task.title
+                },
                 modifier = Modifier.weight(1f),
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onBackground,
