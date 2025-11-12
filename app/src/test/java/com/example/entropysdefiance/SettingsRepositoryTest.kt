@@ -1,30 +1,33 @@
 package com.example.entropysdefiance
 
-import android.content.Context
 import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
-import androidx.datastore.preferences.core.preferencesOf
-import androidx.datastore.preferences.preferencesDataStore
-import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.example.entropysdefiance.data.SettingsRepository
 import com.example.entropysdefiance.model.AppSettings
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.flowOf
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.runTest
+import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Before
+import org.junit.Rule
 import org.junit.Test
+import org.junit.rules.TemporaryFolder
 import org.junit.runner.RunWith
-import org.mockito.Mockito
-import org.mockito.kotlin.whenever
 import org.robolectric.annotation.Config
+import java.io.File
 
+@OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(AndroidJUnit4::class)
-@Config(sdk = [30], manifest = Config.NONE)
+@Config(sdk = [33])
 class SettingsRepositoryTest {
 
     // Test keys that match the ones in SettingsRepository
@@ -33,95 +36,109 @@ class SettingsRepositoryTest {
     private val USE_DARK_THEME = booleanPreferencesKey("use_dark_theme")
     private val ENABLE_DOUBLE_TAP_DIALER = booleanPreferencesKey("enable_double_tap_dialer")
 
-    private lateinit var mockContext: Context
-    private lateinit var mockDataStore: DataStore<Preferences>
-    private lateinit var repository: SettingsRepository
-
-    @Before
-    fun setup() {
-        // Create mock context and DataStore
-        mockContext = Mockito.mock(Context::class.java)
-        @Suppress("UNCHECKED_CAST")
-        mockDataStore = Mockito.mock(DataStore::class.java) as DataStore<Preferences>
-
-        // Use the repository with mock DataStore
-        repository = SettingsRepository(mockDataStore)
+    @get:Rule
+    val tmpFolder: TemporaryFolder = TemporaryFolder()
+    
+    private fun createTestDataStore(scope: TestScope): DataStore<Preferences> {
+        val testFile = tmpFolder.newFile("test_settings.preferences_pb")
+        return PreferenceDataStoreFactory.create(
+            scope = scope.backgroundScope,
+            produceFile = { testFile }
+        )
     }
 
     @Test
-    fun `test settings flow emits correct defaults when preferences are empty`() = runBlocking {
-        // Given an empty preferences
-        val emptyPreferences = preferencesOf()
-        whenever(mockDataStore.data).thenReturn(kotlinx.coroutines.flow.flowOf(emptyPreferences))
+    fun `test settings flow emits correct defaults when preferences are empty`() = runTest {
+        // Given a test DataStore and repository
+        val dataStore = createTestDataStore(this)
+        val repository = SettingsRepository(dataStore)
         
-        // When we collect from settingsFlow
+        // When we collect from settingsFlow with an empty DataStore
         val result = repository.settingsFlow.first()
         
-        // Then we should get default values
+        // Then we should get default values (matching SettingsRepository defaults)
         val expected = AppSettings(
-            showCalendarWidget = false,
+            showCalendarWidget = true,  // default is true in SettingsRepository
             calendarDaysToShow = 7,
             useDarkTheme = false,
-            enableDoubleTapForDialer = false
+            enableDoubleTapForDialer = true,  // default is true in SettingsRepository
+            colorTheme = "Green",
+            selectedCalendarIds = emptySet(),
+            enableAutomaticBackup = false,
+            backupIntervalHours = 24
         )
         assertEquals(expected, result)
     }
 
     @Test
-    fun `test settings flow emits correct values from preferences`() = runBlocking {
-        // Given preferences with custom values
-        val customPreferences = preferencesOf(
-            SHOW_CALENDAR_WIDGET to true,
-            CALENDAR_DAYS_TO_SHOW to 14,
-            USE_DARK_THEME to true,
-            ENABLE_DOUBLE_TAP_DIALER to true
-        )
-        whenever(mockDataStore.data).thenReturn(kotlinx.coroutines.flow.flowOf(customPreferences))
+    fun `test settings flow emits correct values from preferences`() = runTest {
+        // Given a test DataStore and repository with custom values
+        val dataStore = createTestDataStore(this)
+        val repository = SettingsRepository(dataStore)
+        
+        dataStore.edit { preferences ->
+            preferences[SHOW_CALENDAR_WIDGET] = false
+            preferences[CALENDAR_DAYS_TO_SHOW] = 14
+            preferences[USE_DARK_THEME] = true
+            preferences[ENABLE_DOUBLE_TAP_DIALER] = false
+        }
         
         // When we collect from settingsFlow
         val result = repository.settingsFlow.first()
         
-        // Then we should get our custom values
+        // Then we should get our custom values (with defaults for other fields)
         val expected = AppSettings(
-            showCalendarWidget = true,
+            showCalendarWidget = false,
             calendarDaysToShow = 14,
             useDarkTheme = true,
-            enableDoubleTapForDialer = true
+            enableDoubleTapForDialer = false,
+            colorTheme = "Green",  // default value
+            selectedCalendarIds = emptySet(),  // default value
+            enableAutomaticBackup = false,  // default value
+            backupIntervalHours = 24  // default value
         )
         assertEquals(expected, result)
     }
 
     @Test
-    fun `test updateShowCalendarWidget updates the correct preference`() = runBlocking {
-        // Given
-        val initialPreferences = preferencesOf()
-        whenever(mockDataStore.data).thenReturn(kotlinx.coroutines.flow.flowOf(initialPreferences))
+    fun `test updateShowCalendarWidget updates the correct preference`() = runTest {
+        // Given a test DataStore and repository
+        val dataStore = createTestDataStore(this)
+        val repository = SettingsRepository(dataStore)
         
-        // When
-        repository.updateShowCalendarWidget(true)
+        // Initial state with default value (true)
+        val initialSettings = repository.settingsFlow.first()
+        assertEquals(true, initialSettings.showCalendarWidget)
         
-        // Then verify that edit was called with the correct transformation
-        // Note: This is a simplified test. In a real test, you'd need to use ArgumentCaptor
-        // to capture the lambda passed to edit() and verify it transforms the preferences correctly.
+        // When - update to false
+        repository.updateShowCalendarWidget(false)
+        
+        // Then - verify the preference was updated
+        val updatedSettings = repository.settingsFlow.first()
+        assertEquals(false, updatedSettings.showCalendarWidget)
     }
 
     @Test
-    fun `test updateAllSettings updates all preferences correctly`() = runBlocking {
-        // Given
-        val initialPreferences = preferencesOf()
-        whenever(mockDataStore.data).thenReturn(kotlinx.coroutines.flow.flowOf(initialPreferences))
+    fun `test updateAllSettings updates all preferences correctly`() = runTest {
+        // Given a test DataStore and repository
+        val dataStore = createTestDataStore(this)
+        val repository = SettingsRepository(dataStore)
         
-        // When
+        // When - update all settings
         val newSettings = AppSettings(
-            showCalendarWidget = true,
+            showCalendarWidget = false,
             calendarDaysToShow = 10,
             useDarkTheme = true,
-            enableDoubleTapForDialer = true
+            enableDoubleTapForDialer = false,
+            colorTheme = "Blue",
+            selectedCalendarIds = setOf(1L, 2L),
+            enableAutomaticBackup = true,
+            backupIntervalHours = 12
         )
         repository.updateAllSettings(newSettings)
         
-        // Then verify that edit was called with the correct transformation
-        // Note: This is a simplified test. In a real test, you'd need to use ArgumentCaptor
-        // to capture the lambda passed to edit() and verify it transforms the preferences correctly.
+        // Then - verify all preferences were updated
+        val updatedSettings = repository.settingsFlow.first()
+        assertEquals(newSettings, updatedSettings)
     }
 } 
