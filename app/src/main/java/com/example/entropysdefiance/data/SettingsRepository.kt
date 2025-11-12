@@ -27,7 +27,7 @@ private val Context.settingsDataStore: DataStore<Preferences> by preferencesData
 class SettingsRepository(private val dataStore: DataStore<Preferences>) {
 
     // Secondary constructor for backward compatibility
-    constructor(context: Context) : this(dataStore)
+    constructor(context: Context) : this(context.settingsDataStore)
 
     // Define the keys for preferences
     private object PreferencesKeys {

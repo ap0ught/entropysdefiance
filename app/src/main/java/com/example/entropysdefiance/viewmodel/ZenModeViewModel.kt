@@ -68,7 +68,7 @@ class ZenModeViewModel(
         )
     }
     
-    fun startZenMode(_: Int = 0) { // Duration parameter kept for compatibility but not used
+    fun startZenMode(duration: Int = 0) { // Duration parameter kept for compatibility but not used
         val selectedTask = _selectedTask.value ?: findNextTask()
         if (selectedTask != null) {
             _zenModeState.value = ZenModeState(

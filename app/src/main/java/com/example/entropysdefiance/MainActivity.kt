@@ -109,7 +109,7 @@ import com.example.entropysdefiance.viewmodel.ZenModeViewModel
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalComposeUiApi::class)
 class MainActivity : ComponentActivity() {
-    override fun onCreate(_: Bundle?) {
+    override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
         enableEdgeToEdge()
