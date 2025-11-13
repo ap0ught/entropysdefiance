@@ -16,9 +16,12 @@ build_apk:
     - curl --silent "https://gitlab.com/gitlab-org/incubation-engineering/mobile-devops/download-secure-files/-/raw/main/installer" | bash
     - cp .secure_files/entropy.keystore $CI_PROJECT_DIR/release.keystore
     - ./gradlew assembleRelease
+    - echo "APK built successfully"
+    - ls -lh app/build/outputs/apk/release/
   artifacts:
     paths:
-      - app/build/outputs/apk/release/*.apk
+      - app/build/outputs/apk/release/app-release.apk
+    name: "entropysdefiance-${CI_COMMIT_TAG}"
     expire_in: 1 week
 
 test:
@@ -27,27 +30,41 @@ test:
     - ./gradlew compileDebugKotlin
     - ./gradlew test
 
+upload_package:
+  stage: release
+  image: curlimages/curl:latest
+  needs:
+    - job: build_apk
+      artifacts: true
+  script:
+    - |
+      curl --header "JOB-TOKEN: $CI_JOB_TOKEN" \
+           --upload-file app/build/outputs/apk/release/app-release.apk \
+           "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/entropysdefiance/${CI_COMMIT_TAG}/app-release.apk"
+  only:
+    - tags
+
 release_job:
   stage: release
   image: registry.gitlab.com/gitlab-org/release-cli:latest
   needs:
     - job: build_apk
       artifacts: true
+    - job: upload_package
   script:
     - echo "Creating release for $CI_COMMIT_TAG"
-    - echo "APK file:" $(ls -lh app/build/outputs/apk/release/)
   release:
     name: 'Release $CI_COMMIT_TAG'
     description: |
       Android APK release for version $CI_COMMIT_TAG
       
       ## Download
-      Download the APK from the [build_apk job artifacts]($CI_PROJECT_URL/-/jobs/artifacts/$CI_COMMIT_TAG/browse/app/build/outputs/apk/release?job=build_apk)
+      Click the link below to download the APK
     tag_name: '$CI_COMMIT_TAG'
     assets:
       links:
         - name: 'app-release.apk'
-          url: '$CI_PROJECT_URL/-/jobs/artifacts/$CI_COMMIT_TAG/raw/app/build/outputs/apk/release/app-release.apk?job=build_apk'
+          url: '${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/entropysdefiance/${CI_COMMIT_TAG}/app-release.apk'
           link_type: 'package'
   only:
     - tags
