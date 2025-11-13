@@ -97,7 +97,9 @@ import androidx.compose.ui.graphics.graphicsLayer
 import com.example.entropysdefiance.ui.theme.*
 import com.example.entropysdefiance.ui.components.ColorPaletteSelectionDialog
 import com.example.entropysdefiance.model.AppSettings
+import java.time.LocalDate
 import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
 import java.time.LocalTime
 import java.time.temporal.ChronoUnit
 import com.example.entropysdefiance.ui.components.AlignmentScreen
@@ -573,9 +575,14 @@ fun TaskApp(
                 topBar = {
                     Column {
                         TopAppBar(
-                            title = { 
+                            title = {
+                                val title = if (displayedTimeHorizon == TimeHorizon.Today) {
+                                    "Today | ${LocalDate.now().format(DateTimeFormatter.ofPattern("d. MMM."))}"
+                                } else {
+                                    displayedTimeHorizon.title
+                                }
                                 Text(
-                                    text = displayedTimeHorizon.title,
+                                    text = title,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis,
                                     modifier = Modifier
