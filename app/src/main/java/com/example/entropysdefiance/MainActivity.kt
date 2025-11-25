@@ -41,6 +41,7 @@ import com.example.entropysdefiance.ui.components.CalendarSettingsScreen
 import com.example.entropysdefiance.ui.components.AppearanceSettingsScreen
 import com.example.entropysdefiance.ui.components.GesturesSettingsScreen
 import com.example.entropysdefiance.ui.components.BackupSettingsScreen
+import com.example.entropysdefiance.ui.components.FreeTimeSettingsScreen
 import com.example.entropysdefiance.ui.components.TimeHorizonProgressBar
 import com.example.entropysdefiance.viewmodel.TaskViewModel
 import com.example.entropysdefiance.viewmodel.LauncherViewModel
@@ -319,6 +320,8 @@ fun TaskApp(
     val showAppearanceSettings by settingsViewModel.showAppearanceSettings.collectAsState()
     val showGesturesSettings by settingsViewModel.showGesturesSettings.collectAsState()
     val showBackupSettings by settingsViewModel.showBackupSettings.collectAsState()
+    val showFreeTimeSettings by settingsViewModel.showFreeTimeSettings.collectAsState()
+    val showCalculationCalendarSelection by settingsViewModel.showCalculationCalendarSelection.collectAsState()
     
     // Define our bottom sheet state for the app drawer
     val bottomSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -336,6 +339,12 @@ fun TaskApp(
     }
 
     val displayedTimeHorizon = if (isPeeking) nextTimeHorizon else currentTimeHorizon
+    
+    // Update calendar view model with DISPLAYED time horizon for free time calculation
+    // This ensures the calculation updates when peeking into the next horizon
+    LaunchedEffect(displayedTimeHorizon) {
+        calendarViewModel.updateTimeHorizon(displayedTimeHorizon)
+    }
 
     val configuration = LocalConfiguration.current
 
@@ -403,6 +412,7 @@ fun TaskApp(
                 onAppearanceSettingsClick = { settingsViewModel.showAppearanceSettings() },
                 onGesturesSettingsClick = { settingsViewModel.showGesturesSettings() },
                 onBackupSettingsClick = { settingsViewModel.showBackupSettings() },
+                onFreeTimeSettingsClick = { settingsViewModel.showFreeTimeSettings() },
                 onStatisticsClick = { settingsViewModel.showStatisticsScreen() }
             )
         } else if (showCalendarSelection) {
@@ -512,6 +522,58 @@ fun TaskApp(
                 },
                 onImportClick = { 
                     importCsvLauncher.launch("text/*")
+                }
+            )
+        } else if (showFreeTimeSettings) {
+            // Handle back press for free time settings
+            BackHandler {
+                settingsViewModel.hideFreeTimeSettings()
+            }
+            
+            // Show free time settings screen
+            FreeTimeSettingsScreen(
+                appSettings = appSettings,
+                onBack = { settingsViewModel.hideFreeTimeSettings() },
+                onProductivityRatioChange = { ratio ->
+                    settingsViewModel.updateProductivityRatio(ratio)
+                },
+                onCalculationCalendarSelectionClick = { 
+                    settingsViewModel.showCalculationCalendarSelection()
+                }
+            )
+        } else if (showCalculationCalendarSelection) {
+            // Handle back press for calculation calendar selection
+            BackHandler {
+                settingsViewModel.hideCalculationCalendarSelection()
+            }
+            
+            // Map calendars with calculation selection state
+            val calendarsWithCalculationSelection = availableCalendars.map { calendar ->
+                calendar.copy(selected = calendar.id in appSettings.calculationCalendarIds)
+            }
+            
+            // Show calculation calendar selection (reuse CalendarSelectionDialog)
+            CalendarSelectionDialog(
+                availableCalendars = calendarsWithCalculationSelection,
+                onCalendarToggle = { calendarId ->
+                    // Toggle in calculation calendar IDs
+                    val currentIds = appSettings.calculationCalendarIds.toMutableSet()
+                    if (calendarId in currentIds) {
+                        currentIds.remove(calendarId)
+                    } else {
+                        currentIds.add(calendarId)
+                    }
+                    settingsViewModel.updateCalculationCalendarIds(currentIds)
+                },
+                onDismiss = {
+                    settingsViewModel.hideCalculationCalendarSelection()
+                },
+                onSelectAll = {
+                    val allIds = availableCalendars.map { it.id }.toSet()
+                    settingsViewModel.updateCalculationCalendarIds(allIds)
+                },
+                onSelectNone = {
+                    settingsViewModel.updateCalculationCalendarIds(emptySet())
                 }
             )
         } else if (zenModeState.isActive) {
@@ -649,6 +711,20 @@ fun TaskApp(
                                         .background(MaterialTheme.colorScheme.primary, shape = MaterialTheme.shapes.small)
                                 )
                             }
+                        }
+                        
+                        // Free time metric display (Option 2 - below progress bar)
+                        val freeTimeMetric by calendarViewModel.freeTimeMetric.collectAsState()
+                        freeTimeMetric?.let { metric ->
+                            Text(
+                                text = "${metric.productiveHoursAvailable.toInt()}h available",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 32.dp, vertical = 4.dp),
+                                textAlign = TextAlign.Center
+                            )
                         }
                     }
                 },

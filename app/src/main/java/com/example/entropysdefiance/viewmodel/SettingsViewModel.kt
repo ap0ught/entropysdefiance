@@ -57,6 +57,12 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     private val _showBackupSettings = MutableStateFlow(false)
     val showBackupSettings: StateFlow<Boolean> = _showBackupSettings.asStateFlow()
     
+    private val _showFreeTimeSettings = MutableStateFlow(false)
+    val showFreeTimeSettings: StateFlow<Boolean> = _showFreeTimeSettings.asStateFlow()
+    
+    private val _showCalculationCalendarSelection = MutableStateFlow(false)
+    val showCalculationCalendarSelection: StateFlow<Boolean> = _showCalculationCalendarSelection.asStateFlow()
+    
     init {
         Log.d(TAG, "Initializing SettingsViewModel")
         loadSettings()
@@ -285,6 +291,52 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         Log.d(TAG, "Hiding backup settings")
         _showBackupSettings.value = false
         _showSettingsDialog.value = true
+    }
+    
+    // Free Time Settings Navigation
+    fun showFreeTimeSettings() {
+        Log.d(TAG, "Showing free time settings")
+        _showSettingsDialog.value = false
+        _showFreeTimeSettings.value = true
+    }
+    
+    fun hideFreeTimeSettings() {
+        Log.d(TAG, "Hiding free time settings")
+        _showFreeTimeSettings.value = false
+        _showSettingsDialog.value = true
+    }
+    
+    // Calculation Calendar Selection Navigation
+    fun showCalculationCalendarSelection() {
+        Log.d(TAG, "Showing calculation calendar selection")
+        _showFreeTimeSettings.value = false
+        _showCalculationCalendarSelection.value = true
+    }
+    
+    fun hideCalculationCalendarSelection() {
+        Log.d(TAG, "Hiding calculation calendar selection")
+        _showCalculationCalendarSelection.value = false
+        _showFreeTimeSettings.value = true
+    }
+    
+    /**
+     * Update productivity ratio
+     */
+    fun updateProductivityRatio(ratio: Float) {
+        Log.d(TAG, "Updating productivity ratio to: $ratio")
+        viewModelScope.launch {
+            repository.updateProductivityRatio(ratio)
+        }
+    }
+    
+    /**
+     * Update calculation calendar IDs
+     */
+    fun updateCalculationCalendarIds(calendarIds: Set<Long>) {
+        Log.d(TAG, "Updating calculation calendar IDs: $calendarIds")
+        viewModelScope.launch {
+            repository.updateCalculationCalendarIds(calendarIds)
+        }
     }
     
 } 

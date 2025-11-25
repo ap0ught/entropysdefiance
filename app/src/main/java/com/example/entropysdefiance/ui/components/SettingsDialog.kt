@@ -34,6 +34,7 @@ fun SettingsDialog(
     onAppearanceSettingsClick: () -> Unit,
     onGesturesSettingsClick: () -> Unit,
     onBackupSettingsClick: () -> Unit,
+    onFreeTimeSettingsClick: () -> Unit,
     onStatisticsClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -116,6 +117,16 @@ fun SettingsDialog(
                     description = "Automatic backup settings and intervals",
                     icon = Icons.Default.Settings,
                     onClick = onBackupSettingsClick
+                )
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                // Free Time Settings Section
+                SettingsSectionButton(
+                    title = "Free Time Calculation",
+                    description = "Productivity ratio, calculation calendars",
+                    icon = Icons.Default.DateRange,
+                    onClick = onFreeTimeSettingsClick
                 )
                 
                 Spacer(modifier = Modifier.height(16.dp))

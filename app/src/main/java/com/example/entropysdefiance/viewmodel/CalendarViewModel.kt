@@ -20,6 +20,9 @@ import com.example.entropysdefiance.data.CalendarRepository
 import com.example.entropysdefiance.data.SettingsRepository
 import com.example.entropysdefiance.model.CalendarEvent
 import com.example.entropysdefiance.model.DeviceCalendar
+import com.example.entropysdefiance.model.FreeTimeMetric
+import com.example.entropysdefiance.model.TimeHorizon
+import com.example.entropysdefiance.utils.CalendarTimeCalculator
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -59,6 +62,14 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
     // State for calendar selection dialog visibility
     private val _showCalendarSelection = MutableStateFlow(false)
     val showCalendarSelection: StateFlow<Boolean> = _showCalendarSelection.asStateFlow()
+    
+    // State for free time metric
+    private val _freeTimeMetric = MutableStateFlow<FreeTimeMetric?>(null)
+    val freeTimeMetric: StateFlow<FreeTimeMetric?> = _freeTimeMetric.asStateFlow()
+    
+    // Current time horizon for free time calculation
+    private val _currentTimeHorizon = MutableStateFlow<TimeHorizon>(TimeHorizon.Today)
+    val currentTimeHorizon: StateFlow<TimeHorizon> = _currentTimeHorizon.asStateFlow()
     
     // For managing update jobs
     private var periodicUpdateJob: Job? = null
@@ -291,15 +302,79 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
                 )
                 _events.value = calendarEvents
                 
+                // Calculate free time metric after loading events
+                calculateFreeTimeMetric()
+                
                 // Schedule next update based on closest event start/end time
                 scheduleNextUpdateForEventTimes(calendarEvents)
             } catch (e: Exception) {
                 Log.e(TAG, "Error loading events", e)
                 // Clear events in case of error to avoid showing stale data
                 _events.value = emptyList()
+                _freeTimeMetric.value = null
             } finally {
                 _isLoading.value = false
             }
+        }
+    }
+    
+    /**
+     * Calculate free time metric based on current events and settings
+     */
+    private fun calculateFreeTimeMetric() {
+        viewModelScope.launch {
+            try {
+                val settings = settingsRepository.settingsFlow.first()
+                val calculationCalendarIds = settings.calculationCalendarIds
+                val productivityRatio = settings.productivityRatio
+                
+                // If no calculation calendars are selected, use all selected calendars
+                val idsToUse = if (calculationCalendarIds.isEmpty()) {
+                    Log.d(TAG, "No calculation calendars set, using display calendars")
+                    settings.selectedCalendarIds
+                } else {
+                    calculationCalendarIds
+                }
+                
+                // Filter events by calculation calendar IDs
+                val eventsForCalculation = if (idsToUse.isNotEmpty()) {
+                    _events.value.filter { event ->
+                        event.calendarId in idsToUse
+                    }
+                } else {
+                    // If no calendars selected at all, use all events
+                    _events.value
+                }
+                
+                Log.d(TAG, "Calculating free time with ${eventsForCalculation.size} events " +
+                           "from ${idsToUse.size} calendars, " +
+                           "productivity ratio: $productivityRatio, " +
+                           "time horizon: ${_currentTimeHorizon.value}")
+                
+                val metric = CalendarTimeCalculator.calculateFreeTime(
+                    events = eventsForCalculation,
+                    timeHorizon = _currentTimeHorizon.value,
+                    productivityRatio = productivityRatio
+                )
+                
+                _freeTimeMetric.value = metric
+                
+                Log.d(TAG, "Free time calculated: ${metric.productiveHoursAvailable} productive hours available")
+            } catch (e: Exception) {
+                Log.e(TAG, "Error calculating free time metric", e)
+                _freeTimeMetric.value = null
+            }
+        }
+    }
+    
+    /**
+     * Update the current time horizon for free time calculation
+     */
+    fun updateTimeHorizon(timeHorizon: TimeHorizon) {
+        if (_currentTimeHorizon.value != timeHorizon) {
+            _currentTimeHorizon.value = timeHorizon
+            // Recalculate free time metric with new time horizon
+            calculateFreeTimeMetric()
         }
     }
     

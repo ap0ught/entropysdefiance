@@ -41,6 +41,10 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
         
         // Use a string set to store the selected calendar IDs
         val SELECTED_CALENDAR_IDS = stringSetPreferencesKey("selected_calendar_ids")
+        val CALCULATION_CALENDAR_IDS = stringSetPreferencesKey("calculation_calendar_ids")
+        
+        // Free time calculation settings
+        val PRODUCTIVITY_RATIO = floatPreferencesKey("productivity_ratio")
     }
 
     /**
@@ -67,6 +71,7 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
             val colorTheme = preferences[PreferencesKeys.COLOR_THEME] ?: "Green"
             val enableAutomaticBackup = preferences[PreferencesKeys.ENABLE_AUTOMATIC_BACKUP] ?: false
             val backupIntervalHours = preferences[PreferencesKeys.BACKUP_INTERVAL_HOURS] ?: 24
+            val productivityRatio = preferences[PreferencesKeys.PRODUCTIVITY_RATIO] ?: 0.5f
             
             // Extract selected calendar IDs from the string set
             val selectedCalendarIdStrings = preferences[PreferencesKeys.SELECTED_CALENDAR_IDS] ?: emptySet()
@@ -74,10 +79,18 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
                 .mapNotNull { it.toLongOrNull() }
                 .toSet()
             
+            // Extract calculation calendar IDs from the string set
+            val calculationCalendarIdStrings = preferences[PreferencesKeys.CALCULATION_CALENDAR_IDS] ?: emptySet()
+            val calculationCalendarIds = calculationCalendarIdStrings
+                .mapNotNull { it.toLongOrNull() }
+                .toSet()
+            
             Log.d(TAG, "Loading settings: showCalendar=$showCalendarWidget, days=$calendarDaysToShow, " +
                        "darkTheme=$useDarkTheme, doubleTap=$enableDoubleTapForDialer, " +
                        "colorTheme=$colorTheme, backup=$enableAutomaticBackup, " +
-                       "selectedCalendars=${selectedCalendarIds.size}")
+                       "selectedCalendars=${selectedCalendarIds.size}, " +
+                       "calculationCalendars=${calculationCalendarIds.size}, " +
+                       "productivityRatio=$productivityRatio")
             
             AppSettings(
                 showCalendarWidget = showCalendarWidget,
@@ -86,6 +99,8 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
                 enableDoubleTapForDialer = enableDoubleTapForDialer,
                 colorTheme = colorTheme,
                 selectedCalendarIds = selectedCalendarIds,
+                calculationCalendarIds = calculationCalendarIds,
+                productivityRatio = productivityRatio,
                 enableAutomaticBackup = enableAutomaticBackup,
                 backupIntervalHours = backupIntervalHours
             )
@@ -191,6 +206,41 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
     }
     
     /**
+     * Update calculation calendar IDs (for free time calculation)
+     */
+    suspend fun updateCalculationCalendarIds(calendarIds: Set<Long>) {
+        Log.d(TAG, "Saving calculationCalendarIds: $calendarIds")
+        try {
+            // Convert Long IDs to strings for storage
+            val calendarIdStrings = calendarIds.map { it.toString() }.toSet()
+            
+            dataStore.edit { preferences ->
+                preferences[PreferencesKeys.CALCULATION_CALENDAR_IDS] = calendarIdStrings
+            }
+            Log.d(TAG, "Successfully saved calculationCalendarIds")
+            dumpDataStoreContents() // Debug - dump contents after updating
+        } catch (e: Exception) {
+            Log.e(TAG, "Error saving calculationCalendarIds: ${e.message}", e)
+        }
+    }
+    
+    /**
+     * Update productivity ratio (for free time calculation)
+     */
+    suspend fun updateProductivityRatio(ratio: Float) {
+        Log.d(TAG, "Saving productivityRatio: $ratio")
+        try {
+            dataStore.edit { preferences ->
+                preferences[PreferencesKeys.PRODUCTIVITY_RATIO] = ratio.coerceIn(0f, 1f)
+            }
+            Log.d(TAG, "Successfully saved productivityRatio")
+            dumpDataStoreContents() // Debug - dump contents after updating
+        } catch (e: Exception) {
+            Log.e(TAG, "Error saving productivityRatio: ${e.message}", e)
+        }
+    }
+    
+    /**
      * Update all settings at once
      */
     suspend fun updateAllSettings(settings: AppSettings) {
@@ -198,6 +248,7 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
         try {
             // Convert Long IDs to strings for storage
             val calendarIdStrings = settings.selectedCalendarIds.map { it.toString() }.toSet()
+            val calculationCalendarIdStrings = settings.calculationCalendarIds.map { it.toString() }.toSet()
             
             dataStore.edit { preferences ->
                 preferences[PreferencesKeys.SHOW_CALENDAR_WIDGET] = settings.showCalendarWidget
@@ -208,6 +259,8 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
                 preferences[PreferencesKeys.ENABLE_AUTOMATIC_BACKUP] = settings.enableAutomaticBackup
                 preferences[PreferencesKeys.BACKUP_INTERVAL_HOURS] = settings.backupIntervalHours
                 preferences[PreferencesKeys.SELECTED_CALENDAR_IDS] = calendarIdStrings
+                preferences[PreferencesKeys.CALCULATION_CALENDAR_IDS] = calculationCalendarIdStrings
+                preferences[PreferencesKeys.PRODUCTIVITY_RATIO] = settings.productivityRatio
             }
             Log.d(TAG, "Successfully saved all settings")
             dumpDataStoreContents() // Debug - dump contents after updating

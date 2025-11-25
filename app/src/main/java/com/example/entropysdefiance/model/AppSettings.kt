@@ -8,6 +8,10 @@ data class AppSettings(
     val showCalendarWidget: Boolean = true,
     val calendarDaysToShow: Int = 7,
     val selectedCalendarIds: Set<Long> = emptySet(),
+    val calculationCalendarIds: Set<Long> = emptySet(), // Calendars used for free time calculation
+    
+    // Free time calculation settings
+    val productivityRatio: Float = 0.5f, // How much of time is productive (0.0 to 1.0)
     
     // Appearance settings
     val useDarkTheme: Boolean = false,
