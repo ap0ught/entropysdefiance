@@ -33,8 +33,6 @@ fun SettingsDialog(
     onDismiss: () -> Unit,
     onCalendarSettingsClick: () -> Unit,
     onAppearanceSettingsClick: () -> Unit,
-    onGesturesSettingsClick: () -> Unit,
-    onBackupSettingsClick: () -> Unit,
     onFreeTimeSettingsClick: () -> Unit,
     onFileSyncSettingsClick: () -> Unit,
     onPermissionsSettingsClick: () -> Unit,
@@ -97,29 +95,9 @@ fun SettingsDialog(
                 // Appearance Settings Section
                 SettingsSectionButton(
                     title = "Appearance",
-                    description = "Dark theme, color themes, visual customization",
+                    description = "Color themes and visual customization",
                     icon = Icons.Default.Settings,
                     onClick = onAppearanceSettingsClick
-                )
-                
-                Spacer(modifier = Modifier.height(16.dp))
-                
-                // Gestures Settings Section
-                SettingsSectionButton(
-                    title = "Gestures",
-                    description = "Double tap actions, touch interactions",
-                    icon = Icons.Default.Settings,
-                    onClick = onGesturesSettingsClick
-                )
-                
-                Spacer(modifier = Modifier.height(16.dp))
-                
-                // Backup Settings Section
-                SettingsSectionButton(
-                    title = "Backup",
-                    description = "Automatic backup settings and intervals",
-                    icon = Icons.Default.Settings,
-                    onClick = onBackupSettingsClick
                 )
                 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -147,7 +125,7 @@ fun SettingsDialog(
                 // Permissions Settings Section
                 SettingsSectionButton(
                     title = "Permissions",
-                    description = "Manage app permissions for calendar and storage access",
+                    description = "Manage calendar permission",
                     icon = Icons.Default.Lock,
                     onClick = onPermissionsSettingsClick
                 )

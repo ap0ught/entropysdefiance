@@ -36,7 +36,6 @@ fun PermissionsSettingsScreen(
 
     // Permission states - reactive to permission changes
     var calendarPermissionGranted by remember { mutableStateOf(false) }
-    var storagePermissionGranted by remember { mutableStateOf(false) }
 
     // Function to refresh permission states
     fun refreshPermissions() {
@@ -44,26 +43,6 @@ fun PermissionsSettingsScreen(
             context,
             Manifest.permission.READ_CALENDAR
         ) == PackageManager.PERMISSION_GRANTED
-
-        // For storage permissions, check based on Android version
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            // Android 13+: Check if we have MANAGE_EXTERNAL_STORAGE
-            // Note: This permission is very restricted and most apps cannot get it
-            storagePermissionGranted = android.os.Environment.isExternalStorageManager()
-        } else {
-            // Android 12 and below: Check traditional storage permissions
-            val hasReadPermission = ContextCompat.checkSelfPermission(
-                context,
-                Manifest.permission.READ_EXTERNAL_STORAGE
-            ) == PackageManager.PERMISSION_GRANTED
-
-            val hasWritePermission = ContextCompat.checkSelfPermission(
-                context,
-                Manifest.permission.WRITE_EXTERNAL_STORAGE
-            ) == PackageManager.PERMISSION_GRANTED
-
-            storagePermissionGranted = hasReadPermission && hasWritePermission
-        }
     }
 
     // Initialize permission states on first load
@@ -78,45 +57,6 @@ fun PermissionsSettingsScreen(
             calendarPermissionGranted = granted
         }
     )
-
-    val storagePermissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission(),
-        onResult = { granted ->
-            // Refresh permission state after user response
-            refreshPermissions()
-        }
-    )
-
-    // Function to request storage permission based on Android version
-    fun requestStoragePermission() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            // Android 13+: MANAGE_EXTERNAL_STORAGE is restricted to special apps only
-            // For regular apps, we need to use Storage Access Framework
-            // Since the user wants to sync with Syncthing, we'll guide them to use SAF
-            // But for now, let's try the settings approach and see if it works
-            try {
-                val intent = Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION).apply {
-                    data = Uri.parse("package:${context.packageName}")
-                }
-                context.startActivity(intent)
-            } catch (e: Exception) {
-                // If MANAGE_EXTERNAL_STORAGE settings don't work, open app details
-                try {
-                    val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                        data = Uri.parse("package:${context.packageName}")
-                    }
-                    context.startActivity(intent)
-                } catch (e: Exception) {
-                    // Last resort: Open main settings
-                    val intent = Intent(Settings.ACTION_SETTINGS)
-                    context.startActivity(intent)
-                }
-            }
-        } else {
-            // Android 12 and below: Request traditional permissions
-            storagePermissionLauncher.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
-        }
-    }
 
     Surface(
         modifier = Modifier.fillMaxSize(),
@@ -224,57 +164,6 @@ fun PermissionsSettingsScreen(
                         calendarPermissionLauncher.launch(Manifest.permission.READ_CALENDAR)
                     }
                 )
-
-                // Storage permission
-                PermissionItem(
-                    title = "Storage Access",
-                    description = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                        "File access for syncing task files. Use 'Browse for File' in File Sync settings to select location (Android 13+)"
-                    } else {
-                        "Read and write task files for syncing with external tools like Syncthing"
-                    },
-                    isGranted = storagePermissionGranted,
-                    onRequestPermission = {
-                        requestStoragePermission()
-                    }
-                )
-
-                // Help text
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant
-                    )
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp)
-                    ) {
-                        Text(
-                            text = "About Storage Permissions",
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                                "On Android 13+, \"All files access\" is restricted to special apps. For file sync, use the file browser in File Sync settings to select your tasks.json location instead."
-                            } else {
-                                "On older Android versions, storage permissions are requested normally through the app."
-                            },
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = "To change permissions later: Settings → Apps → Entropy's Defiance → Permissions",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
             }
         }
     }

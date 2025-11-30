@@ -39,8 +39,6 @@ import com.example.entropysdefiance.ui.components.CalendarSelectionDialog
 import com.example.entropysdefiance.ui.components.SettingsDialog
 import com.example.entropysdefiance.ui.components.CalendarSettingsScreen
 import com.example.entropysdefiance.ui.components.AppearanceSettingsScreen
-import com.example.entropysdefiance.ui.components.GesturesSettingsScreen
-import com.example.entropysdefiance.ui.components.BackupSettingsScreen
 import com.example.entropysdefiance.ui.components.FreeTimeSettingsScreen
 import com.example.entropysdefiance.ui.components.FileSyncSettingsScreen
 import com.example.entropysdefiance.ui.components.PermissionsSettingsScreen
@@ -215,17 +213,7 @@ fun TaskApp(
         }
     )
     
-    // Permission launcher for storage (for file sync)
-    val storagePermissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission(),
-        onResult = { granted ->
-            if (granted) {
-                Toast.makeText(context, "Storage permission granted", Toast.LENGTH_SHORT).show()
-            } else {
-                Toast.makeText(context, "Storage permission denied. File sync may not work.", Toast.LENGTH_LONG).show()
-            }
-        }
-    )
+
     val backupRepository = remember { BackupRepository(context) }
     val coroutineScope = rememberCoroutineScope()
     
@@ -281,44 +269,42 @@ fun TaskApp(
         }
     )
     
-    // File picker for selecting tasks.json location
-    val tasksFilePickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocument(),
+    // Folder picker for setting up file sync
+    val folderPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocumentTree(),
         onResult = { uri ->
             if (uri != null) {
-                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
-                    // Android 13+: Store the URI directly for SAF access
+                try {
                     // Take persistable URI permission for long-term access
-                    try {
-                        context.contentResolver.takePersistableUriPermission(
-                            uri,
-                            Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
-                        )
-                        taskViewModel.updateFilePath(uri.toString())
-                        Toast.makeText(context, "File location updated (Android 13+)", Toast.LENGTH_SHORT).show()
-                    } catch (e: Exception) {
-                        Toast.makeText(context, "Failed to get persistent access: ${e.message}", Toast.LENGTH_SHORT).show()
-                    }
-                } else {
-                    // Android 12 and below: Convert URI to file path
-                    val path = uri.path
-                    if (path != null) {
-                        val actualPath = if (path.contains(":")) {
-                            val parts = path.split(":")
-                            if (parts.size > 1) {
-                                "/storage/emulated/0/" + parts[1]
-                            } else {
-                                path
-                            }
-                        } else {
-                            path
+                    context.contentResolver.takePersistableUriPermission(
+                        uri,
+                        Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                    )
+                    
+                    // Create tasks.json file in the selected folder
+                    val docTree = androidx.documentfile.provider.DocumentFile.fromTreeUri(context, uri)
+                    if (docTree != null && docTree.canWrite()) {
+                        // Check if tasks.json already exists
+                        var tasksFile = docTree.findFile("tasks.json")
+                        
+                        if (tasksFile == null) {
+                            // Create new tasks.json file
+                            tasksFile = docTree.createFile("application/json", "tasks.json")
                         }
-
-                        taskViewModel.updateFilePath(actualPath)
-                        Toast.makeText(context, "File location updated: $actualPath", Toast.LENGTH_SHORT).show()
+                        
+                        if (tasksFile != null) {
+                            // Update the file path with the URI of tasks.json
+                            taskViewModel.updateFilePath(tasksFile.uri.toString())
+                            Toast.makeText(context, "File sync configured successfully", Toast.LENGTH_SHORT).show()
+                        } else {
+                            Toast.makeText(context, "Failed to create tasks.json file", Toast.LENGTH_LONG).show()
+                        }
                     } else {
-                        Toast.makeText(context, "Could not determine file path", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, "Cannot write to selected folder", Toast.LENGTH_LONG).show()
                     }
+                } catch (e: Exception) {
+                    Toast.makeText(context, "Setup failed: ${e.message}", Toast.LENGTH_LONG).show()
+                    Log.e("MainActivity", "Error setting up file sync", e)
                 }
             }
         }
@@ -361,15 +347,6 @@ fun TaskApp(
             } else {
                 calendarViewModel.initialize()
             }
-            
-            // Check storage permission for file sync
-            if (ContextCompat.checkSelfPermission(
-                    context,
-                    Manifest.permission.WRITE_EXTERNAL_STORAGE
-                ) != PackageManager.PERMISSION_GRANTED
-            ) {
-                storagePermissionLauncher.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
-            }
         }
     }
     
@@ -384,8 +361,6 @@ fun TaskApp(
     val showStatisticsScreen by settingsViewModel.showStatisticsScreen.collectAsState()
     val showCalendarSettings by settingsViewModel.showCalendarSettings.collectAsState()
     val showAppearanceSettings by settingsViewModel.showAppearanceSettings.collectAsState()
-    val showGesturesSettings by settingsViewModel.showGesturesSettings.collectAsState()
-    val showBackupSettings by settingsViewModel.showBackupSettings.collectAsState()
     val showFreeTimeSettings by settingsViewModel.showFreeTimeSettings.collectAsState()
     val showFileSyncSettings by settingsViewModel.showFileSyncSettings.collectAsState()
     val showPermissionsSettings by settingsViewModel.showPermissionsSettings.collectAsState()
@@ -478,8 +453,6 @@ fun TaskApp(
                 onDismiss = { settingsViewModel.hideSettingsDialog() },
                 onCalendarSettingsClick = { settingsViewModel.showCalendarSettings() },
                 onAppearanceSettingsClick = { settingsViewModel.showAppearanceSettings() },
-                onGesturesSettingsClick = { settingsViewModel.showGesturesSettings() },
-                onBackupSettingsClick = { settingsViewModel.showBackupSettings() },
                 onFreeTimeSettingsClick = { settingsViewModel.showFreeTimeSettings() },
                 onFileSyncSettingsClick = { settingsViewModel.showFileSyncSettings() },
                 onPermissionsSettingsClick = { settingsViewModel.showPermissionsSettings() },
@@ -565,35 +538,6 @@ fun TaskApp(
                 onToggleDarkTheme = { settingsViewModel.toggleDarkTheme() },
                 onColorPaletteClick = { settingsViewModel.showColorPaletteSelection() }
             )
-        } else if (showGesturesSettings) {
-            // Handle back press for gestures settings
-            BackHandler {
-                settingsViewModel.hideGesturesSettings()
-            }
-            
-            // Show gestures settings screen
-            GesturesSettingsScreen(
-                appSettings = appSettings,
-                onBack = { settingsViewModel.hideGesturesSettings() },
-                onToggleDoubleTapDialer = { settingsViewModel.toggleDoubleTapForDialer() }
-            )
-        } else if (showBackupSettings) {
-            // Handle back press for backup settings
-            BackHandler {
-                settingsViewModel.hideBackupSettings()
-            }
-            
-            // Show backup settings screen
-            BackupSettingsScreen(
-                appSettings = appSettings,
-                onBack = { settingsViewModel.hideBackupSettings() },
-                onExportClick = { 
-                    exportCsvLauncher.launch("tasks_export_${System.currentTimeMillis()}.csv")
-                },
-                onImportClick = { 
-                    importCsvLauncher.launch("text/*")
-                }
-            )
         } else if (showFreeTimeSettings) {
             // Handle back press for free time settings
             BackHandler {
@@ -624,8 +568,8 @@ fun TaskApp(
                 onUpdateFilePath = { path ->
                     taskViewModel.updateFilePath(path)
                 },
-                onBrowseForFile = {
-                    tasksFilePickerLauncher.launch(arrayOf("application/json", "*/*"))
+                onSetupFileSync = {
+                    folderPickerLauncher.launch(null)
                 },
                 onSyncFromFile = {
                     taskViewModel.syncFromFile()
