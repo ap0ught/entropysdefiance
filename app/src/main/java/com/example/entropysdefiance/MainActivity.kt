@@ -42,6 +42,8 @@ import com.example.entropysdefiance.ui.components.AppearanceSettingsScreen
 import com.example.entropysdefiance.ui.components.GesturesSettingsScreen
 import com.example.entropysdefiance.ui.components.BackupSettingsScreen
 import com.example.entropysdefiance.ui.components.FreeTimeSettingsScreen
+import com.example.entropysdefiance.ui.components.FileSyncSettingsScreen
+import com.example.entropysdefiance.ui.components.PermissionsSettingsScreen
 import com.example.entropysdefiance.ui.components.TimeHorizonProgressBar
 import com.example.entropysdefiance.viewmodel.TaskViewModel
 import com.example.entropysdefiance.viewmodel.LauncherViewModel
@@ -202,6 +204,9 @@ fun TaskApp(
     // Track whether settings have been loaded
     var settingsLoaded by remember { mutableStateOf(false) }
     
+    // Backup repository
+    val context = LocalContext.current
+    
     // Permission launcher for calendar
     val calendarPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),
@@ -210,8 +215,17 @@ fun TaskApp(
         }
     )
     
-    // Backup repository
-    val context = LocalContext.current
+    // Permission launcher for storage (for file sync)
+    val storagePermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission(),
+        onResult = { granted ->
+            if (granted) {
+                Toast.makeText(context, "Storage permission granted", Toast.LENGTH_SHORT).show()
+            } else {
+                Toast.makeText(context, "Storage permission denied. File sync may not work.", Toast.LENGTH_LONG).show()
+            }
+        }
+    )
     val backupRepository = remember { BackupRepository(context) }
     val coroutineScope = rememberCoroutineScope()
     
@@ -267,6 +281,49 @@ fun TaskApp(
         }
     )
     
+    // File picker for selecting tasks.json location
+    val tasksFilePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument(),
+        onResult = { uri ->
+            if (uri != null) {
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                    // Android 13+: Store the URI directly for SAF access
+                    // Take persistable URI permission for long-term access
+                    try {
+                        context.contentResolver.takePersistableUriPermission(
+                            uri,
+                            Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                        )
+                        taskViewModel.updateFilePath(uri.toString())
+                        Toast.makeText(context, "File location updated (Android 13+)", Toast.LENGTH_SHORT).show()
+                    } catch (e: Exception) {
+                        Toast.makeText(context, "Failed to get persistent access: ${e.message}", Toast.LENGTH_SHORT).show()
+                    }
+                } else {
+                    // Android 12 and below: Convert URI to file path
+                    val path = uri.path
+                    if (path != null) {
+                        val actualPath = if (path.contains(":")) {
+                            val parts = path.split(":")
+                            if (parts.size > 1) {
+                                "/storage/emulated/0/" + parts[1]
+                            } else {
+                                path
+                            }
+                        } else {
+                            path
+                        }
+
+                        taskViewModel.updateFilePath(actualPath)
+                        Toast.makeText(context, "File location updated: $actualPath", Toast.LENGTH_SHORT).show()
+                    } else {
+                        Toast.makeText(context, "Could not determine file path", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
+        }
+    )
+    
     // Initialize calendar events when the app starts
     // Check and update deadline task horizons on app startup (only if it's a new day)
     LaunchedEffect(Unit) {
@@ -304,6 +361,15 @@ fun TaskApp(
             } else {
                 calendarViewModel.initialize()
             }
+            
+            // Check storage permission for file sync
+            if (ContextCompat.checkSelfPermission(
+                    context,
+                    Manifest.permission.WRITE_EXTERNAL_STORAGE
+                ) != PackageManager.PERMISSION_GRANTED
+            ) {
+                storagePermissionLauncher.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+            }
         }
     }
     
@@ -321,6 +387,8 @@ fun TaskApp(
     val showGesturesSettings by settingsViewModel.showGesturesSettings.collectAsState()
     val showBackupSettings by settingsViewModel.showBackupSettings.collectAsState()
     val showFreeTimeSettings by settingsViewModel.showFreeTimeSettings.collectAsState()
+    val showFileSyncSettings by settingsViewModel.showFileSyncSettings.collectAsState()
+    val showPermissionsSettings by settingsViewModel.showPermissionsSettings.collectAsState()
     val showCalculationCalendarSelection by settingsViewModel.showCalculationCalendarSelection.collectAsState()
     
     // Define our bottom sheet state for the app drawer
@@ -413,6 +481,8 @@ fun TaskApp(
                 onGesturesSettingsClick = { settingsViewModel.showGesturesSettings() },
                 onBackupSettingsClick = { settingsViewModel.showBackupSettings() },
                 onFreeTimeSettingsClick = { settingsViewModel.showFreeTimeSettings() },
+                onFileSyncSettingsClick = { settingsViewModel.showFileSyncSettings() },
+                onPermissionsSettingsClick = { settingsViewModel.showPermissionsSettings() },
                 onStatisticsClick = { settingsViewModel.showStatisticsScreen() }
             )
         } else if (showCalendarSelection) {
@@ -540,6 +610,39 @@ fun TaskApp(
                 onCalculationCalendarSelectionClick = { 
                     settingsViewModel.showCalculationCalendarSelection()
                 }
+            )
+        } else if (showFileSyncSettings) {
+            // Handle back press for file sync settings
+            BackHandler {
+                settingsViewModel.hideFileSyncSettings()
+            }
+            
+            // Show file sync settings screen
+            FileSyncSettingsScreen(
+                appSettings = appSettings,
+                onBack = { settingsViewModel.hideFileSyncSettings() },
+                onUpdateFilePath = { path ->
+                    taskViewModel.updateFilePath(path)
+                },
+                onBrowseForFile = {
+                    tasksFilePickerLauncher.launch(arrayOf("application/json", "*/*"))
+                },
+                onSyncFromFile = {
+                    taskViewModel.syncFromFile()
+                },
+                onSyncToFile = {
+                    taskViewModel.syncToFile()
+                }
+            )
+        } else if (showPermissionsSettings) {
+            // Handle back press for permissions settings
+            BackHandler {
+                settingsViewModel.hidePermissionsSettings()
+            }
+
+            // Show permissions settings screen
+            PermissionsSettingsScreen(
+                onBack = { settingsViewModel.hidePermissionsSettings() }
             )
         } else if (showCalculationCalendarSelection) {
             // Handle back press for calculation calendar selection

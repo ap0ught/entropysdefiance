@@ -105,6 +105,9 @@ dependencies {
 
     // JSON Serialization
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.0")
+
+    // DocumentFile for Storage Access Framework
+    implementation("androidx.documentfile:documentfile:1.0.1")
     
     // Testing dependencies
     testImplementation("org.mockito:mockito-core:5.10.0")

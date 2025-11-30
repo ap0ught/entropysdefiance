@@ -12,7 +12,8 @@ import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -35,6 +36,8 @@ fun SettingsDialog(
     onGesturesSettingsClick: () -> Unit,
     onBackupSettingsClick: () -> Unit,
     onFreeTimeSettingsClick: () -> Unit,
+    onFileSyncSettingsClick: () -> Unit,
+    onPermissionsSettingsClick: () -> Unit,
     onStatisticsClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -131,6 +134,26 @@ fun SettingsDialog(
                 
                 Spacer(modifier = Modifier.height(16.dp))
                 
+                // File Sync Settings Section
+                SettingsSectionButton(
+                    title = "File Sync",
+                    description = "Sync tasks with external file for laptop editing",
+                    icon = Icons.Default.Refresh,
+                    onClick = onFileSyncSettingsClick
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Permissions Settings Section
+                SettingsSectionButton(
+                    title = "Permissions",
+                    description = "Manage app permissions for calendar and storage access",
+                    icon = Icons.Default.Lock,
+                    onClick = onPermissionsSettingsClick
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
                 // Statistics Section
                 SettingsSectionButton(
                     title = "Statistics",

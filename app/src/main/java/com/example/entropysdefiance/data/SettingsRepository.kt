@@ -45,6 +45,9 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
         
         // Free time calculation settings
         val PRODUCTIVITY_RATIO = floatPreferencesKey("productivity_ratio")
+        
+        // Task file sync settings
+        val TASK_FILE_PATH = stringPreferencesKey("task_file_path")
     }
 
     /**
@@ -72,6 +75,7 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
             val enableAutomaticBackup = preferences[PreferencesKeys.ENABLE_AUTOMATIC_BACKUP] ?: false
             val backupIntervalHours = preferences[PreferencesKeys.BACKUP_INTERVAL_HOURS] ?: 24
             val productivityRatio = preferences[PreferencesKeys.PRODUCTIVITY_RATIO] ?: 0.5f
+            val taskFilePath = preferences[PreferencesKeys.TASK_FILE_PATH] ?: ""
             
             // Extract selected calendar IDs from the string set
             val selectedCalendarIdStrings = preferences[PreferencesKeys.SELECTED_CALENDAR_IDS] ?: emptySet()
@@ -102,7 +106,8 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
                 calculationCalendarIds = calculationCalendarIds,
                 productivityRatio = productivityRatio,
                 enableAutomaticBackup = enableAutomaticBackup,
-                backupIntervalHours = backupIntervalHours
+                backupIntervalHours = backupIntervalHours,
+                taskFilePath = taskFilePath
             )
         }
 
@@ -261,6 +266,7 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
                 preferences[PreferencesKeys.SELECTED_CALENDAR_IDS] = calendarIdStrings
                 preferences[PreferencesKeys.CALCULATION_CALENDAR_IDS] = calculationCalendarIdStrings
                 preferences[PreferencesKeys.PRODUCTIVITY_RATIO] = settings.productivityRatio
+                preferences[PreferencesKeys.TASK_FILE_PATH] = settings.taskFilePath
             }
             Log.d(TAG, "Successfully saved all settings")
             dumpDataStoreContents() // Debug - dump contents after updating
@@ -294,6 +300,22 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
             Log.d(TAG, "Updated backup interval setting: $hours hours")
         } catch (e: Exception) {
             Log.e(TAG, "Error updating backup interval setting: ${e.message}", e)
+        }
+    }
+    
+    /**
+     * Update task file path setting
+     */
+    suspend fun updateTaskFilePath(path: String) {
+        Log.d(TAG, "Saving taskFilePath: $path")
+        try {
+            dataStore.edit { preferences ->
+                preferences[PreferencesKeys.TASK_FILE_PATH] = path
+            }
+            Log.d(TAG, "Successfully saved taskFilePath")
+            dumpDataStoreContents()
+        } catch (e: Exception) {
+            Log.e(TAG, "Error saving taskFilePath: ${e.message}", e)
         }
     }
     
