@@ -15,7 +15,7 @@ class BackupRepository(private val context: Context) {
         private const val TAG = "BackupRepository"
     }
     
-    suspend fun exportTasksToCsv(tasks: List<TaskEntity>, outputStream: android.os.ParcelFileDescriptor) {
+    suspend fun exportTasksToCsv(tasks: List<TaskData>, outputStream: android.os.ParcelFileDescriptor) {
         withContext(Dispatchers.IO) {
             try {
                 val writer = OutputStreamWriter(outputStream.fileDescriptor.let { 
@@ -30,7 +30,7 @@ class BackupRepository(private val context: Context) {
                     val createdAt = task.createdAt?.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME) ?: ""
                     val autoId = task.autoId ?: 0L
                     val isCompleted = task.isCompleted
-                    writer.write("$autoId,\"${task.title}\",${task.timeHorizon.name},$createdAt,${if (isCompleted) "1" else "0"}\n")
+                    writer.write("$autoId,\"${task.title}\",${task.timeHorizon},$createdAt,${if (isCompleted) "1" else "0"}\n")
                 }
                 
                 writer.close()
@@ -42,10 +42,10 @@ class BackupRepository(private val context: Context) {
         }
     }
     
-    suspend fun importTasksFromCsv(inputStream: java.io.InputStream): List<TaskEntity> {
+    suspend fun importTasksFromCsv(inputStream: java.io.InputStream): List<TaskData> {
         return withContext(Dispatchers.IO) {
             try {
-                val tasks = mutableListOf<TaskEntity>()
+                val tasks = mutableListOf<TaskData>()
                 val reader = inputStream.bufferedReader()
                 val lines = reader.readLines()
                 
@@ -55,11 +55,11 @@ class BackupRepository(private val context: Context) {
                     val parts = parseCsvLine(line)
                     
                     if (parts.size >= 5) {
-                        val task = TaskEntity(
+                        val task = TaskData(
                             id = java.util.UUID.randomUUID().toString(),
                             title = parts[1],
-                            timeHorizon = com.example.entropysdefiance.model.TimeHorizon.valueOf(parts[2]),
-                            autoId = null, // Let the database auto-generate this
+                            timeHorizon = parts[2],
+                            autoId = null,
                             createdAt = if (parts[3].isNotEmpty()) {
                                 LocalDateTime.parse(parts[3], DateTimeFormatter.ISO_LOCAL_DATE_TIME)
                             } else LocalDateTime.now(),

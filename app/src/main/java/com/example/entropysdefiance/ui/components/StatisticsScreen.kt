@@ -14,10 +14,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.entropysdefiance.data.BackupRepository
-import com.example.entropysdefiance.data.TaskDatabase
-import com.example.entropysdefiance.data.TaskEntity
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.entropysdefiance.model.TimeHorizon
+import com.example.entropysdefiance.viewmodel.TaskViewModel
 import kotlinx.coroutines.launch
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
@@ -30,6 +29,7 @@ fun StatisticsScreen(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val taskViewModel: TaskViewModel = viewModel()
     
     var totalTasks by remember { mutableStateOf(0) }
     var completedTasks by remember { mutableStateOf(0) }
@@ -41,25 +41,14 @@ fun StatisticsScreen(
     var isLoading by remember { mutableStateOf(true) }
     
     LaunchedEffect(Unit) {
-        val database = TaskDatabase.getDatabase(context)
-        val taskDao = database.taskDao()
-        
-        totalTasks = taskDao.getTotalTaskCount()
-        completedTasks = taskDao.getCompletedTaskCount()
-        pendingTasks = taskDao.getPendingTaskCount()
-        oldestTaskDate = taskDao.getOldestTaskDate()
-        
-        // Get tasks by horizon
-        val allTasks = taskDao.getAllTasks()
-        allTasks.collect { taskList ->
-            tasksByHorizon = taskList.groupBy { it.timeHorizon }
-                .mapValues { it.value.size }
-            completedTasksByHorizon = taskList.filter { it.isCompleted }
-                .groupBy { it.timeHorizon }
-                .mapValues { it.value.size }
-            pendingTasksByHorizon = taskList.filter { !it.isCompleted }
-                .groupBy { it.timeHorizon }
-                .mapValues { it.value.size }
+        scope.launch {
+            totalTasks = taskViewModel.getTotalTaskCount()
+            completedTasks = taskViewModel.getCompletedTaskCount()
+            pendingTasks = taskViewModel.getPendingTaskCount()
+            oldestTaskDate = taskViewModel.getOldestTaskDate()
+            
+            // Note: We don't have tasks by horizon statistics yet in the new file-based implementation
+            // This would require reading and processing the full task list
             isLoading = false
         }
     }

@@ -39,9 +39,10 @@ import com.example.entropysdefiance.ui.components.CalendarSelectionDialog
 import com.example.entropysdefiance.ui.components.SettingsDialog
 import com.example.entropysdefiance.ui.components.CalendarSettingsScreen
 import com.example.entropysdefiance.ui.components.AppearanceSettingsScreen
-import com.example.entropysdefiance.ui.components.GesturesSettingsScreen
-import com.example.entropysdefiance.ui.components.BackupSettingsScreen
 import com.example.entropysdefiance.ui.components.FreeTimeSettingsScreen
+import com.example.entropysdefiance.ui.components.FileSyncSettingsScreen
+import com.example.entropysdefiance.ui.components.PermissionsSettingsScreen
+import com.example.entropysdefiance.ui.components.BackupSettingsScreen
 import com.example.entropysdefiance.ui.components.TimeHorizonProgressBar
 import com.example.entropysdefiance.viewmodel.TaskViewModel
 import com.example.entropysdefiance.viewmodel.LauncherViewModel
@@ -80,6 +81,7 @@ import android.util.Log
 import com.example.entropysdefiance.viewmodel.CalendarViewModel
 import androidx.compose.runtime.collectAsState
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.first
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.lifecycle.Lifecycle
@@ -147,6 +149,12 @@ class MainActivity : ComponentActivity() {
                     val taskViewModel: TaskViewModel = viewModel(factory = viewModelFactory)
                     val launcherViewModel: LauncherViewModel = viewModel(factory = viewModelFactory)
                     val calendarViewModel: CalendarViewModel = viewModel(factory = viewModelFactory)
+                    val zenModeViewModel: ZenModeViewModel = viewModel(factory = viewModelFactory)
+                    
+                    // Set TaskViewModel in ZenModeViewModel for task completion
+                    LaunchedEffect(Unit) {
+                        zenModeViewModel.setTaskViewModel(taskViewModel)
+                    }
                     
                     // Use the TaskApp composable with Calendar integration
                     TaskApp(
@@ -154,7 +162,8 @@ class MainActivity : ComponentActivity() {
                         launcherViewModel = launcherViewModel,
                         calendarViewModel = calendarViewModel,
                         settingsViewModel = settingsViewModel,
-                        viewModelFactory = viewModelFactory
+                        viewModelFactory = viewModelFactory,
+                        zenModeViewModel = zenModeViewModel
                     )
                 }
             }
@@ -169,7 +178,8 @@ fun TaskApp(
     launcherViewModel: LauncherViewModel,
     calendarViewModel: CalendarViewModel,
     settingsViewModel: SettingsViewModel,
-    viewModelFactory: ViewModelProvider.AndroidViewModelFactory
+    viewModelFactory: ViewModelProvider.AndroidViewModelFactory,
+    zenModeViewModel: ZenModeViewModel
 ) {
     var showAddScreen by remember { mutableStateOf(false) }
     val tasks by taskViewModel.tasks.collectAsStateWithLifecycle(initialValue = emptyList())
@@ -186,8 +196,7 @@ fun TaskApp(
     val isAlignmentActive by alignmentViewModel.isAlignmentActive.collectAsState()
     val currentAlignmentHorizon by alignmentViewModel.currentAlignmentHorizon.collectAsState()
     
-    // Create ZenModeViewModel
-    val zenModeViewModel: ZenModeViewModel = viewModel(factory = viewModelFactory)
+    // Get ZenModeViewModel state
     val zenModeState by zenModeViewModel.zenModeState.collectAsState()
     val showZenDurationDialog by zenModeViewModel.showDurationDialog.collectAsState()
     val selectedTask by zenModeViewModel.selectedTask.collectAsState()
@@ -202,6 +211,9 @@ fun TaskApp(
     // Track whether settings have been loaded
     var settingsLoaded by remember { mutableStateOf(false) }
     
+    // Backup repository
+    val context = LocalContext.current
+    
     // Permission launcher for calendar
     val calendarPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),
@@ -210,8 +222,7 @@ fun TaskApp(
         }
     )
     
-    // Backup repository
-    val context = LocalContext.current
+
     val backupRepository = remember { BackupRepository(context) }
     val coroutineScope = rememberCoroutineScope()
     
@@ -222,16 +233,22 @@ fun TaskApp(
             if (uri != null) {
                 coroutineScope.launch {
                     try {
-                        val database = com.example.entropysdefiance.data.TaskDatabase.getDatabase(context)
-                        val taskDao = database.taskDao()
-                        val allTasks = taskDao.getAllTasks()
-                        allTasks.collect { taskEntities ->
-                            val parcelFileDescriptor = context.contentResolver.openFileDescriptor(uri, "w")
-                            if (parcelFileDescriptor != null) {
-                                backupRepository.exportTasksToCsv(taskEntities, parcelFileDescriptor)
-                                parcelFileDescriptor.close()
-                                Toast.makeText(context, "Tasks exported successfully", Toast.LENGTH_SHORT).show()
-                            }
+                        // Export current tasks to CSV
+                        val settings = settingsViewModel.settings.first()
+                        val filePath = settings.taskFilePath
+                        if (filePath.isEmpty()) {
+                            Toast.makeText(context, "No task file configured", Toast.LENGTH_LONG).show()
+                            return@launch
+                        }
+                        
+                        val fileRepo = com.example.entropysdefiance.data.TaskFileRepository(context)
+                        val allTasks = fileRepo.readTasksFromFile(filePath)
+                        
+                        val parcelFileDescriptor = context.contentResolver.openFileDescriptor(uri, "w")
+                        if (parcelFileDescriptor != null) {
+                            backupRepository.exportTasksToCsv(allTasks, parcelFileDescriptor)
+                            parcelFileDescriptor.close()
+                            Toast.makeText(context, "Tasks exported successfully", Toast.LENGTH_SHORT).show()
                         }
                     } catch (e: Exception) {
                         Toast.makeText(context, "Export failed: ${e.message}", Toast.LENGTH_LONG).show()
@@ -242,7 +259,7 @@ fun TaskApp(
     )
     
     val importCsvLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent(),
+        contract = ActivityResultContracts.OpenDocument(),
         onResult = { uri ->
             if (uri != null) {
                 coroutineScope.launch {
@@ -250,14 +267,18 @@ fun TaskApp(
                         val inputStream = context.contentResolver.openInputStream(uri)
                         if (inputStream != null) {
                             val importedTasks = backupRepository.importTasksFromCsv(inputStream)
-                            // Add imported tasks to the database
-                            val database = com.example.entropysdefiance.data.TaskDatabase.getDatabase(context)
-                            val taskDao = database.taskDao()
-                            importedTasks.forEach { taskEntity ->
-                                taskDao.insertTask(taskEntity)
-                            }
                             inputStream.close()
-                            Toast.makeText(context, "Tasks imported successfully", Toast.LENGTH_SHORT).show()
+                            
+                            // Import tasks into the file-based system
+                            val result = taskViewModel.importTasksFromCsv(importedTasks)
+                            result.fold(
+                                onSuccess = { count ->
+                                    Toast.makeText(context, "Successfully imported $count tasks", Toast.LENGTH_SHORT).show()
+                                },
+                                onFailure = { error ->
+                                    Toast.makeText(context, "Import failed: ${error.message}", Toast.LENGTH_LONG).show()
+                                }
+                            )
                         }
                     } catch (e: Exception) {
                         Toast.makeText(context, "Import failed: ${e.message}", Toast.LENGTH_LONG).show()
@@ -267,10 +288,52 @@ fun TaskApp(
         }
     )
     
+    // Folder picker for setting up file sync
+    val folderPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocumentTree(),
+        onResult = { uri ->
+            if (uri != null) {
+                try {
+                    // Take persistable URI permission for long-term access
+                    context.contentResolver.takePersistableUriPermission(
+                        uri,
+                        Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                    )
+                    
+                    // Create tasks.json file in the selected folder
+                    val docTree = androidx.documentfile.provider.DocumentFile.fromTreeUri(context, uri)
+                    if (docTree != null && docTree.canWrite()) {
+                        // Check if tasks.json already exists
+                        var tasksFile = docTree.findFile("tasks.json")
+                        
+                        if (tasksFile == null) {
+                            // Create new tasks.json file
+                            tasksFile = docTree.createFile("application/json", "tasks.json")
+                        }
+                        
+                        if (tasksFile != null) {
+                            // Update the file path with the URI of tasks.json
+                            taskViewModel.updateFilePath(tasksFile.uri.toString())
+                            Toast.makeText(context, "File sync configured successfully", Toast.LENGTH_SHORT).show()
+                        } else {
+                            Toast.makeText(context, "Failed to create tasks.json file", Toast.LENGTH_LONG).show()
+                        }
+                    } else {
+                        Toast.makeText(context, "Cannot write to selected folder", Toast.LENGTH_LONG).show()
+                    }
+                } catch (e: Exception) {
+                    Toast.makeText(context, "Setup failed: ${e.message}", Toast.LENGTH_LONG).show()
+                    Log.e("MainActivity", "Error setting up file sync", e)
+                }
+            }
+        }
+    )
+    
     // Initialize calendar events when the app starts
     // Check and update deadline task horizons on app startup (only if it's a new day)
     LaunchedEffect(Unit) {
         taskViewModel.checkAndUpdateDeadlineTaskHorizons()
+        taskViewModel.checkForExternalFileChanges()
     }
     
     // Combined lifecycle observer: check deadline task horizons and refresh calendar events when app comes to foreground
@@ -280,6 +343,8 @@ fun TaskApp(
             if (event == Lifecycle.Event.ON_RESUME) {
                 // Check and update deadline task horizons when app comes to foreground (in case app was in background at midnight)
                 taskViewModel.checkAndUpdateDeadlineTaskHorizons()
+                // Check for external file changes when app comes to foreground
+                taskViewModel.checkForExternalFileChanges()
                 // Refresh calendar events when app comes to foreground
                 calendarViewModel.loadEvents()
             }
@@ -318,9 +383,10 @@ fun TaskApp(
     val showStatisticsScreen by settingsViewModel.showStatisticsScreen.collectAsState()
     val showCalendarSettings by settingsViewModel.showCalendarSettings.collectAsState()
     val showAppearanceSettings by settingsViewModel.showAppearanceSettings.collectAsState()
-    val showGesturesSettings by settingsViewModel.showGesturesSettings.collectAsState()
-    val showBackupSettings by settingsViewModel.showBackupSettings.collectAsState()
     val showFreeTimeSettings by settingsViewModel.showFreeTimeSettings.collectAsState()
+    val showFileSyncSettings by settingsViewModel.showFileSyncSettings.collectAsState()
+    val showPermissionsSettings by settingsViewModel.showPermissionsSettings.collectAsState()
+    val showBackupSettings by settingsViewModel.showBackupSettings.collectAsState()
     val showCalculationCalendarSelection by settingsViewModel.showCalculationCalendarSelection.collectAsState()
     
     // Define our bottom sheet state for the app drawer
@@ -395,6 +461,15 @@ fun TaskApp(
                             showAppDrawer = false
                             // Add additional actions for notification panel if needed
                         }
+                    },
+                    onAppSettings = { app ->
+                        launcherViewModel.openAppSettings(app.packageName)
+                    },
+                    onAppUninstall = { app ->
+                        launcherViewModel.uninstallApp(app.packageName)
+                    },
+                    onResetAppCounter = { app ->
+                        launcherViewModel.resetAppCounter(app.packageName)
                     }
                 )
             }
@@ -410,9 +485,10 @@ fun TaskApp(
                 onDismiss = { settingsViewModel.hideSettingsDialog() },
                 onCalendarSettingsClick = { settingsViewModel.showCalendarSettings() },
                 onAppearanceSettingsClick = { settingsViewModel.showAppearanceSettings() },
-                onGesturesSettingsClick = { settingsViewModel.showGesturesSettings() },
-                onBackupSettingsClick = { settingsViewModel.showBackupSettings() },
                 onFreeTimeSettingsClick = { settingsViewModel.showFreeTimeSettings() },
+                onFileSyncSettingsClick = { settingsViewModel.showFileSyncSettings() },
+                onPermissionsSettingsClick = { settingsViewModel.showPermissionsSettings() },
+                onBackupSettingsClick = { settingsViewModel.showBackupSettings() },
                 onStatisticsClick = { settingsViewModel.showStatisticsScreen() }
             )
         } else if (showCalendarSelection) {
@@ -495,35 +571,6 @@ fun TaskApp(
                 onToggleDarkTheme = { settingsViewModel.toggleDarkTheme() },
                 onColorPaletteClick = { settingsViewModel.showColorPaletteSelection() }
             )
-        } else if (showGesturesSettings) {
-            // Handle back press for gestures settings
-            BackHandler {
-                settingsViewModel.hideGesturesSettings()
-            }
-            
-            // Show gestures settings screen
-            GesturesSettingsScreen(
-                appSettings = appSettings,
-                onBack = { settingsViewModel.hideGesturesSettings() },
-                onToggleDoubleTapDialer = { settingsViewModel.toggleDoubleTapForDialer() }
-            )
-        } else if (showBackupSettings) {
-            // Handle back press for backup settings
-            BackHandler {
-                settingsViewModel.hideBackupSettings()
-            }
-            
-            // Show backup settings screen
-            BackupSettingsScreen(
-                appSettings = appSettings,
-                onBack = { settingsViewModel.hideBackupSettings() },
-                onExportClick = { 
-                    exportCsvLauncher.launch("tasks_export_${System.currentTimeMillis()}.csv")
-                },
-                onImportClick = { 
-                    importCsvLauncher.launch("text/*")
-                }
-            )
         } else if (showFreeTimeSettings) {
             // Handle back press for free time settings
             BackHandler {
@@ -539,6 +586,57 @@ fun TaskApp(
                 },
                 onCalculationCalendarSelectionClick = { 
                     settingsViewModel.showCalculationCalendarSelection()
+                }
+            )
+        } else if (showFileSyncSettings) {
+            // Handle back press for file sync settings
+            BackHandler {
+                settingsViewModel.hideFileSyncSettings()
+            }
+            
+            // Show file sync settings screen
+            FileSyncSettingsScreen(
+                appSettings = appSettings,
+                onBack = { settingsViewModel.hideFileSyncSettings() },
+                onUpdateFilePath = { path ->
+                    taskViewModel.updateFilePath(path)
+                },
+                onSetupFileSync = {
+                    folderPickerLauncher.launch(null)
+                },
+                onSyncFromFile = {
+                    taskViewModel.syncFromFile()
+                },
+                onSyncToFile = {
+                    taskViewModel.syncToFile()
+                }
+            )
+        } else if (showPermissionsSettings) {
+            // Handle back press for permissions settings
+            BackHandler {
+                settingsViewModel.hidePermissionsSettings()
+            }
+
+            // Show permissions settings screen
+            PermissionsSettingsScreen(
+                onBack = { settingsViewModel.hidePermissionsSettings() }
+            )
+        } else if (showBackupSettings) {
+            // Handle back press for backup settings
+            BackHandler {
+                settingsViewModel.hideBackupSettings()
+            }
+
+            // Show backup settings screen
+            BackupSettingsScreen(
+                appSettings = appSettings,
+                onBack = { settingsViewModel.hideBackupSettings() },
+                onExportClick = {
+                    exportCsvLauncher.launch("tasks_backup.csv")
+                },
+                onImportClick = {
+                    // OpenDocument accepts an array of MIME types
+                    importCsvLauncher.launch(arrayOf("text/csv", "text/comma-separated-values", "application/csv", "*/*"))
                 }
             )
         } else if (showCalculationCalendarSelection) {

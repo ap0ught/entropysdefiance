@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "tasks": [
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440000",
+      "title": "Implement file sync feature",
+      "timeHorizon": "Today",
+      "autoId": 1,
+      "createdAt": "2025-11-30T10:00:00",
+      "isCompleted": false,
+      "isDeadlineTask": false,
+      "deadline": null,
+      "daysNeeded": null,
+      "doDate": null
+    },
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440001",
+      "title": "Test with Syncthing",
+      "timeHorizon": "ThisWeek",
+      "autoId": 2,
+      "createdAt": "2025-11-30T11:00:00",
+      "isCompleted": false,
+      "isDeadlineTask": false,
+      "deadline": null,
+      "daysNeeded": null,
+      "doDate": null
+    },
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440002",
+      "title": "Write documentation",
+      "timeHorizon": "Today",
+      "autoId": 3,
+      "createdAt": "2025-11-30T12:00:00",
+      "isCompleted": false,
+      "isDeadlineTask": true,
+      "deadline": "2025-12-05",
+      "daysNeeded": 3,
+      "doDate": "2025-12-02"
+    }
+  ]
+}

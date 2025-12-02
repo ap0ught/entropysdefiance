@@ -1,7 +1,6 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
-    id("com.google.devtools.ksp")
     id("org.jetbrains.kotlin.plugin.serialization") version "1.9.22"
 }
 
@@ -17,10 +16,6 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-
-        ksp {
-            arg("room.schemaLocation", "$projectDir/schemas")
-        }
         
         resValue("bool", "enable_auto_backup", "true")
     }
@@ -93,18 +88,15 @@ dependencies {
     debugImplementation(libs.androidx.ui.test.manifest)
     implementation("androidx.compose.ui:ui-text-google-fonts:1.6.3")
 
-    // Room
-    val roomVersion = "2.6.1"
-    implementation("androidx.room:room-runtime:$roomVersion")
-    implementation("androidx.room:room-ktx:$roomVersion")
-    ksp("androidx.room:room-compiler:$roomVersion")
-    
     // DataStore
     implementation("androidx.datastore:datastore-preferences:1.1.0-beta02")
     implementation("androidx.datastore:datastore:1.1.0-beta02")
 
     // JSON Serialization
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.0")
+
+    // DocumentFile for Storage Access Framework
+    implementation("androidx.documentfile:documentfile:1.0.1")
     
     // Testing dependencies
     testImplementation("org.mockito:mockito-core:5.10.0")

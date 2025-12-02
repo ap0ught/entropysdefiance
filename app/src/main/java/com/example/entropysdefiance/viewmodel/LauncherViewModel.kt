@@ -235,4 +235,48 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
             launchCalendarApp()
         }
     }
+
+    /**
+     * Reset the open counter for a specific app
+     * @param packageName The package name of the app
+     */
+    fun resetAppCounter(packageName: String) {
+        appUsagePrefs.edit().remove(packageName).apply()
+        // Refresh the app list to reflect the new sorting
+        loadApps()
+    }
+
+    /**
+     * Open the system settings page for a specific app
+     * @param packageName The package name of the app
+     */
+    fun openAppSettings(packageName: String) {
+        val context = getApplication<Application>()
+        try {
+            val intent = Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                data = android.net.Uri.parse("package:$packageName")
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(intent)
+        } catch (e: Exception) {
+            android.util.Log.e("LauncherViewModel", "Failed to open app settings: ${e.message}", e)
+        }
+    }
+
+    /**
+     * Uninstall an app by launching the system uninstall dialog
+     * @param packageName The package name of the app
+     */
+    fun uninstallApp(packageName: String) {
+        val context = getApplication<Application>()
+        try {
+            val intent = Intent(Intent.ACTION_DELETE).apply {
+                data = android.net.Uri.parse("package:$packageName")
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(intent)
+        } catch (e: Exception) {
+            android.util.Log.e("LauncherViewModel", "Failed to launch uninstall dialog: ${e.message}", e)
+        }
+    }
 } 

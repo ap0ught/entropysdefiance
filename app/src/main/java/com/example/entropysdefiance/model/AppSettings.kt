@@ -22,5 +22,8 @@ data class AppSettings(
     
     // Backup settings
     val enableAutomaticBackup: Boolean = false,
-    val backupIntervalHours: Int = 24
+    val backupIntervalHours: Int = 24,
+    
+    // Task file sync settings
+    val taskFilePath: String = "" // Empty means use default location (file path or URI depending on Android version)
 ) 

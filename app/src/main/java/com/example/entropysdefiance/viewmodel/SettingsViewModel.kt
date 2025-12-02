@@ -60,6 +60,12 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     private val _showFreeTimeSettings = MutableStateFlow(false)
     val showFreeTimeSettings: StateFlow<Boolean> = _showFreeTimeSettings.asStateFlow()
     
+    private val _showFileSyncSettings = MutableStateFlow(false)
+    val showFileSyncSettings: StateFlow<Boolean> = _showFileSyncSettings.asStateFlow()
+
+    private val _showPermissionsSettings = MutableStateFlow(false)
+    val showPermissionsSettings: StateFlow<Boolean> = _showPermissionsSettings.asStateFlow()
+
     private val _showCalculationCalendarSelection = MutableStateFlow(false)
     val showCalculationCalendarSelection: StateFlow<Boolean> = _showCalculationCalendarSelection.asStateFlow()
     
@@ -303,6 +309,32 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun hideFreeTimeSettings() {
         Log.d(TAG, "Hiding free time settings")
         _showFreeTimeSettings.value = false
+        _showSettingsDialog.value = true
+    }
+    
+    // File Sync Settings Navigation
+    fun showFileSyncSettings() {
+        Log.d(TAG, "Showing file sync settings")
+        _showSettingsDialog.value = false
+        _showFileSyncSettings.value = true
+    }
+
+    fun hideFileSyncSettings() {
+        Log.d(TAG, "Hiding file sync settings")
+        _showFileSyncSettings.value = false
+        _showSettingsDialog.value = true
+    }
+
+    // Permissions Settings Navigation
+    fun showPermissionsSettings() {
+        Log.d(TAG, "Showing permissions settings")
+        _showSettingsDialog.value = false
+        _showPermissionsSettings.value = true
+    }
+
+    fun hidePermissionsSettings() {
+        Log.d(TAG, "Hiding permissions settings")
+        _showPermissionsSettings.value = false
         _showSettingsDialog.value = true
     }
     
