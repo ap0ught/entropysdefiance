@@ -3,8 +3,7 @@ package com.example.entropysdefiance.viewmodel
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.entropysdefiance.data.TaskDao
-import com.example.entropysdefiance.data.TaskDatabase
+import com.example.entropysdefiance.EntropysDefianceApplication
 import com.example.entropysdefiance.model.Task
 import com.example.entropysdefiance.model.TimeHorizon
 import kotlinx.coroutines.flow.*
@@ -22,7 +21,8 @@ class ZenModeViewModel(
     application: Application
 ) : AndroidViewModel(application) {
     
-    private val taskDao: TaskDao = TaskDatabase.getDatabase(application).taskDao()
+    // Get TaskViewModel to access tasks
+    private val app = application as EntropysDefianceApplication
     
     private val _zenModeState = MutableStateFlow(ZenModeState())
     val zenModeState: StateFlow<ZenModeState> = _zenModeState.asStateFlow()
@@ -36,11 +36,15 @@ class ZenModeViewModel(
     private val _tasks = MutableStateFlow<List<Task>>(emptyList())
     val tasks: StateFlow<List<Task>> = _tasks.asStateFlow()
     
-    init {
-        // Load pending tasks from database
+    // We need a reference to TaskViewModel to complete tasks
+    private var taskViewModel: TaskViewModel? = null
+    
+    fun setTaskViewModel(viewModel: TaskViewModel) {
+        taskViewModel = viewModel
+        // Observe tasks from TaskViewModel
         viewModelScope.launch {
-            taskDao.getPendingTasks().collect { taskEntities ->
-                _tasks.value = taskEntities.map { it.toTask() }
+            viewModel.tasks.collect { tasks ->
+                _tasks.value = tasks
                 updateCurrentTask()
             }
         }
@@ -88,11 +92,9 @@ class ZenModeViewModel(
         val currentState = _zenModeState.value
         val currentTask = currentState.currentTask
         
-        if (currentTask != null) {
-            // Mark the task as completed instead of deleting it
-            viewModelScope.launch {
-                taskDao.markTaskAsCompleted(currentTask.id)
-            }
+        if (currentTask != null && taskViewModel != null) {
+            // Mark the task as completed using TaskViewModel
+            taskViewModel?.completeTask(currentTask.id)
             
             // Exit zen mode after completing the task
             exitZenMode()

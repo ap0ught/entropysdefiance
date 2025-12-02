@@ -102,10 +102,14 @@ fun PermissionsSettingsScreen(
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 // Info card
-                Card(
+                OutlinedCard(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer
+                    border = androidx.compose.foundation.BorderStroke(
+                        1.dp,
+                        MaterialTheme.colorScheme.primary
+                    ),
+                    colors = CardDefaults.outlinedCardColors(
+                        containerColor = MaterialTheme.colorScheme.background
                     )
                 ) {
                     Column(
@@ -120,21 +124,21 @@ fun PermissionsSettingsScreen(
                             Icon(
                                 imageVector = Icons.Default.Info,
                                 contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onPrimaryContainer
+                                tint = MaterialTheme.colorScheme.primary
                             )
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
                                     text = "App Permissions",
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                                    color = MaterialTheme.colorScheme.onBackground
                                 )
                                 Spacer(modifier = Modifier.height(4.dp))
                                 Text(
                                     text = "Grant permissions to enable full app functionality. " +
                                             "You can change these in your device settings anytime.",
                                     style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                                    color = MaterialTheme.colorScheme.onBackground
                                 )
                             }
                         }

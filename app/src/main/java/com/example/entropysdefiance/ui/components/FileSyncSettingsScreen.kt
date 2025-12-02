@@ -75,10 +75,14 @@ fun FileSyncSettingsScreen(
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 // Info card
-                Card(
+                OutlinedCard(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer
+                    border = androidx.compose.foundation.BorderStroke(
+                        1.dp,
+                        MaterialTheme.colorScheme.primary
+                    ),
+                    colors = CardDefaults.outlinedCardColors(
+                        containerColor = MaterialTheme.colorScheme.background
                     )
                 ) {
                     Row(
@@ -90,14 +94,14 @@ fun FileSyncSettingsScreen(
                         Icon(
                             imageVector = Icons.Default.Info,
                             contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onPrimaryContainer
+                            tint = MaterialTheme.colorScheme.primary
                         )
                         Column {
                             Text(
                                 text = "Sync tasks with external file",
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                                color = MaterialTheme.colorScheme.onBackground
                             )
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
@@ -105,7 +109,7 @@ fun FileSyncSettingsScreen(
                                         "This enables editing tasks on your laptop and syncing " +
                                         "with tools like Syncthing.",
                                 style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                                color = MaterialTheme.colorScheme.onBackground
                             )
                         }
                     }

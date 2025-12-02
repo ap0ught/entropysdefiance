@@ -7,38 +7,43 @@ import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.entropysdefiance.EntropysDefianceApplication
-import com.example.entropysdefiance.data.TaskDatabase
-import com.example.entropysdefiance.data.TaskEntity
+import com.example.entropysdefiance.data.DatabaseMigrationHelper
+import com.example.entropysdefiance.data.TaskData
 import com.example.entropysdefiance.data.TaskFileRepository
 import com.example.entropysdefiance.model.Task
 import com.example.entropysdefiance.model.TimeHorizon
-import com.example.entropysdefiance.utils.TaskFileObserver
 import com.example.entropysdefiance.utils.calculateTimeHorizonFromDate
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.time.LocalDate
+import java.time.LocalDateTime
 import java.util.UUID
 
 private const val TASK_VM_TAG = "TaskViewModel"
+private const val POLLING_INTERVAL_MS = 2000L // Check every 2 seconds
 
 class TaskViewModel(application: Application) : AndroidViewModel(application) {
-    private val database = TaskDatabase.getDatabase(application)
-    private val taskDao = database.taskDao()
     
-    // File repository for JSON sync
+    // File repository for JSON storage
     private val fileRepository = TaskFileRepository(application)
     
     // Settings repository to get file path
     private val settingsRepository = (application as EntropysDefianceApplication).settingsRepository
     
-    // File observer for detecting external changes
-    private var fileObserver: TaskFileObserver? = null
+    // In-memory task list with reactive state flow
+    private val _tasks = MutableStateFlow<List<Task>>(emptyList())
+    val tasks: StateFlow<List<Task>> = _tasks.asStateFlow()
     
-    // Track if we're currently syncing to prevent infinite loops
-    private var isSyncing = false
+    // Track last file modification time for change detection
+    private var lastFileHash = 0
+    
+    // Track if we're currently writing to prevent reload loops
+    private var isWriting = false
     
     // SharedPreferences to track last update date
     private val prefs: SharedPreferences = application.getSharedPreferences(
@@ -46,35 +51,137 @@ class TaskViewModel(application: Application) : AndroidViewModel(application) {
     )
     private val LAST_UPDATE_DATE_KEY = "last_deadline_update_date"
     
+    // Internal storage for full task data (includes metadata like autoId, createdAt, isCompleted, daysNeeded)
+    private val _taskDataList = MutableStateFlow<List<TaskData>>(emptyList())
+    
     init {
-        // Initialize file sync
+        // Initialize by loading tasks from file
         viewModelScope.launch {
-            initializeFileSync()
+            // Check for old database and migrate if needed
+            checkAndMigrateFromOldDatabase()
+            
+            loadTasksFromFile()
+            
+            // Start periodic file polling
+            startFilePolling()
         }
     }
     
-    val tasks = taskDao.getPendingTasks().map { entities ->
-        // Convert to tasks and sort: deadline tasks first (sorted by deadline ascending - earliest first), then regular tasks by horizon priority
-        entities.map { it.toTask() }
-            .sortedWith(
-                compareBy<Task> { !it.isDeadlineTask } // Deadline tasks first
-                    .thenBy { 
-                        // For deadline tasks: sort by deadline ascending (earliest deadlines first)
-                        // For non-deadline tasks: this will be null, so they'll be sorted by the next comparator
-                        it.deadline
-                    }
-                    .thenBy { 
-                        // For non-deadline tasks: sort by horizon priority (Today -> ThisWeek -> ThisMonth -> ThisYear -> ThisLife)
-                        if (!it.isDeadlineTask) {
-                            when (it.timeHorizon) {
-                                TimeHorizon.Today -> 0
-                                TimeHorizon.ThisWeek -> 1
-                                TimeHorizon.ThisMonth -> 2
-                                TimeHorizon.ThisYear -> 3
-                                TimeHorizon.ThisLife -> 4
-                            }
+    /**
+     * Check if old Room database exists and migrate automatically
+     */
+    private suspend fun checkAndMigrateFromOldDatabase() {
+        try {
+            if (DatabaseMigrationHelper.hasOldDatabase(getApplication())) {
+                Log.d(TASK_VM_TAG, "Old database found, starting automatic migration")
+                
+                val migratedTasks = DatabaseMigrationHelper.migrateFromOldDatabase(getApplication())
+                
+                if (migratedTasks != null && migratedTasks.isNotEmpty()) {
+                    Log.d(TASK_VM_TAG, "Migrated ${migratedTasks.size} tasks from old database")
+                    
+                    // Get current file path
+                    val settings = settingsRepository.settingsFlow.first()
+                    val filePath = settings.taskFilePath
+                    
+                    if (filePath.isNotEmpty()) {
+                        // Write migrated tasks to file
+                        val success = fileRepository.writeTasksToFile(migratedTasks, filePath)
+                        
+                        if (success) {
+                            Log.d(TASK_VM_TAG, "Successfully wrote migrated tasks to file")
+                            // Delete old database after successful migration
+                            DatabaseMigrationHelper.deleteOldDatabase(getApplication())
                         } else {
-                            // For deadline tasks that have the same deadline, maintain horizon priority
+                            Log.e(TASK_VM_TAG, "Failed to write migrated tasks to file")
+                        }
+                    } else {
+                        Log.w(TASK_VM_TAG, "No file path configured, cannot complete migration")
+                    }
+                } else {
+                    Log.d(TASK_VM_TAG, "No tasks found in old database or migration failed")
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TASK_VM_TAG, "Error during database migration: ${e.message}", e)
+        }
+    }
+    
+    /**
+     * Start polling the file for external changes
+     */
+    private fun startFilePolling() {
+        viewModelScope.launch {
+            while (true) {
+                kotlinx.coroutines.delay(POLLING_INTERVAL_MS)
+                checkForExternalChanges()
+            }
+        }
+    }
+    
+    /**
+     * Check if the file has changed externally
+     */
+    private suspend fun checkForExternalChanges() {
+        if (isWriting) return // Don't check while we're writing
+        
+        try {
+            val settings = settingsRepository.settingsFlow.first()
+            val filePath = settings.taskFilePath
+            
+            if (filePath.isEmpty()) return
+            
+            // Read the file and compute a simple hash
+            val tasksFromFile = fileRepository.readTasksFromFile(filePath)
+            val currentHash = computeTaskListHash(tasksFromFile)
+            
+            // If hash changed, reload tasks
+            if (currentHash != lastFileHash && lastFileHash != 0) {
+                Log.d(TASK_VM_TAG, "External file change detected, reloading tasks")
+                loadTasksFromFile()
+            }
+            
+            lastFileHash = currentHash
+        } catch (e: Exception) {
+            Log.e(TASK_VM_TAG, "Error checking for external changes: ${e.message}", e)
+        }
+    }
+    
+    /**
+     * Compute a simple hash of the task list for change detection
+     */
+    private fun computeTaskListHash(tasks: List<TaskData>): Int {
+        return tasks.sortedBy { it.id }.joinToString { "${it.id}:${it.title}:${it.isCompleted}" }.hashCode()
+    }
+    
+    /**
+     * Load tasks from JSON file
+     */
+    private suspend fun loadTasksFromFile() {
+        try {
+            val settings = settingsRepository.settingsFlow.first()
+            val filePath = settings.taskFilePath
+            
+            if (filePath.isEmpty()) {
+                Log.d(TASK_VM_TAG, "No file path configured, using empty task list")
+                _taskDataList.value = emptyList()
+                _tasks.value = emptyList()
+                return
+            }
+            
+            Log.d(TASK_VM_TAG, "Loading tasks from file: $filePath")
+            
+            val tasksFromFile = fileRepository.readTasksFromFile(filePath)
+            _taskDataList.value = tasksFromFile
+            
+            // Convert to Task models and filter out completed tasks, then sort
+            val pendingTasks = tasksFromFile
+                .filter { !it.isCompleted }
+                .map { it.toTask() }
+                .sortedWith(
+                    compareBy<Task> { !it.isDeadlineTask } // Deadline tasks first
+                        .thenBy { it.deadline } // Sort by deadline ascending
+                        .thenBy { 
                             when (it.timeHorizon) {
                                 TimeHorizon.Today -> 0
                                 TimeHorizon.ThisWeek -> 1
@@ -83,33 +190,68 @@ class TaskViewModel(application: Application) : AndroidViewModel(application) {
                                 TimeHorizon.ThisLife -> 4
                             }
                         }
-                    }
-            )
+                )
+            
+            _tasks.value = pendingTasks
+            lastFileHash = computeTaskListHash(tasksFromFile)
+            
+            Log.d(TASK_VM_TAG, "Loaded ${tasksFromFile.size} total tasks, ${pendingTasks.size} pending")
+        } catch (e: Exception) {
+            Log.e(TASK_VM_TAG, "Error loading tasks from file: ${e.message}", e)
+            _taskDataList.value = emptyList()
+            _tasks.value = emptyList()
+        }
+    }
+    
+    /**
+     * Write current tasks to JSON file
+     */
+    private suspend fun writeTasksToFile() {
+        try {
+            isWriting = true
+            
+            val settings = settingsRepository.settingsFlow.first()
+            val filePath = settings.taskFilePath
+            
+            if (filePath.isEmpty()) {
+                Log.d(TASK_VM_TAG, "No file path configured, skipping write")
+                return
+            }
+            
+            val tasks = _taskDataList.value
+            Log.d(TASK_VM_TAG, "Writing ${tasks.size} tasks to file: $filePath")
+            
+            fileRepository.writeTasksToFile(tasks, filePath)
+            lastFileHash = computeTaskListHash(tasks)
+        } catch (e: Exception) {
+            Log.e(TASK_VM_TAG, "Error writing tasks to file: ${e.message}", e)
+        } finally {
+            isWriting = false
+        }
     }
 
     fun addTask(title: String, timeHorizon: TimeHorizon) {
         viewModelScope.launch {
             // Get the next auto-incrementing ID
-            val lastTask = taskDao.getLastTask()
-            val nextAutoId = (lastTask?.autoId ?: 0L) + 1L
+            val lastAutoId = _taskDataList.value.maxOfOrNull { it.autoId ?: 0L } ?: 0L
+            val nextAutoId = lastAutoId + 1L
             
-            val task = TaskEntity(
+            val taskData = TaskData(
                 id = UUID.randomUUID().toString(),
                 title = title,
-                timeHorizon = timeHorizon,
+                timeHorizon = timeHorizon.name,
                 autoId = nextAutoId,
-                createdAt = java.time.LocalDateTime.now(),
+                createdAt = LocalDateTime.now(),
                 isCompleted = false,
                 isDeadlineTask = false,
                 deadline = null,
                 daysNeeded = null,
                 doDate = null
             )
-            taskDao.insertTask(task)
             
-            // Sync to file
-            val settings = settingsRepository.settingsFlow.first()
-            writeTasksToFile(settings.taskFilePath)
+            _taskDataList.value = _taskDataList.value + taskData
+            writeTasksToFile()
+            loadTasksFromFile() // Reload to update UI
         }
     }
     
@@ -122,99 +264,75 @@ class TaskViewModel(application: Application) : AndroidViewModel(application) {
             val timeHorizon = calculateTimeHorizonFromDate(doDate)
             
             // Get the next auto-incrementing ID
-            val lastTask = taskDao.getLastTask()
-            val nextAutoId = (lastTask?.autoId ?: 0L) + 1L
+            val lastAutoId = _taskDataList.value.maxOfOrNull { it.autoId ?: 0L } ?: 0L
+            val nextAutoId = lastAutoId + 1L
             
-            val task = TaskEntity(
+            val taskData = TaskData(
                 id = UUID.randomUUID().toString(),
                 title = title,
-                timeHorizon = timeHorizon,
+                timeHorizon = timeHorizon.name,
                 autoId = nextAutoId,
-                createdAt = java.time.LocalDateTime.now(),
+                createdAt = LocalDateTime.now(),
                 isCompleted = false,
                 isDeadlineTask = true,
                 deadline = deadline,
                 daysNeeded = daysNeeded,
                 doDate = doDate
             )
-            taskDao.insertTask(task)
             
-            // Sync to file
-            val settings = settingsRepository.settingsFlow.first()
-            writeTasksToFile(settings.taskFilePath)
+            _taskDataList.value = _taskDataList.value + taskData
+            writeTasksToFile()
+            loadTasksFromFile() // Reload to update UI
         }
     }
 
     fun completeTask(taskId: String) {
         viewModelScope.launch {
-            taskDao.markTaskAsCompleted(taskId)
-            
-            // Sync to file
-            val settings = settingsRepository.settingsFlow.first()
-            writeTasksToFile(settings.taskFilePath)
+            _taskDataList.value = _taskDataList.value.map { task ->
+                if (task.id == taskId) {
+                    task.copy(isCompleted = true)
+                } else {
+                    task
+                }
+            }
+            writeTasksToFile()
+            loadTasksFromFile() // Reload to update UI
         }
     }
     
     fun deleteTask(taskId: String) {
         viewModelScope.launch {
-            taskDao.deleteTask(taskId)
-            
-            // Sync to file
-            val settings = settingsRepository.settingsFlow.first()
-            writeTasksToFile(settings.taskFilePath)
+            _taskDataList.value = _taskDataList.value.filter { it.id != taskId }
+            writeTasksToFile()
+            loadTasksFromFile() // Reload to update UI
         }
     }
 
     fun moveTask(taskId: String, newTimeHorizon: TimeHorizon) {
         viewModelScope.launch {
-            taskDao.getTaskById(taskId)?.let { taskEntity ->
-                // Prevent moving deadline tasks
-                if (taskEntity.isDeadlineTask) {
-                    return@launch
+            _taskDataList.value = _taskDataList.value.map { task ->
+                if (task.id == taskId && !task.isDeadlineTask) {
+                    task.copy(timeHorizon = newTimeHorizon.name)
+                } else {
+                    task
                 }
-                
-                val updatedTask = TaskEntity(
-                    autoId = taskEntity.autoId,
-                    id = taskEntity.id,
-                    title = taskEntity.title,
-                    timeHorizon = newTimeHorizon,
-                    createdAt = taskEntity.createdAt ?: java.time.LocalDateTime.now(),
-                    isCompleted = taskEntity.isCompleted,
-                    isDeadlineTask = taskEntity.isDeadlineTask,
-                    deadline = taskEntity.deadline,
-                    daysNeeded = taskEntity.daysNeeded,
-                    doDate = taskEntity.doDate
-                )
-                taskDao.insertTask(updatedTask)
-                
-                // Sync to file
-                val settings = settingsRepository.settingsFlow.first()
-                writeTasksToFile(settings.taskFilePath)
             }
+            writeTasksToFile()
+            loadTasksFromFile() // Reload to update UI
         }
     }
     
     fun updateTask(taskId: String, newTitle: String, timeHorizon: TimeHorizon) {
         viewModelScope.launch {
-            taskDao.getTaskById(taskId)?.let { taskEntity ->
-                val updatedTask = TaskEntity(
-                    autoId = taskEntity.autoId,
-                    id = taskId,
-                    title = newTitle,
-                    timeHorizon = timeHorizon,
-                    createdAt = taskEntity.createdAt ?: java.time.LocalDateTime.now(),
-                    isCompleted = taskEntity.isCompleted,
-                    isDeadlineTask = taskEntity.isDeadlineTask,
-                    deadline = taskEntity.deadline,
-                    daysNeeded = taskEntity.daysNeeded,
-                    doDate = taskEntity.doDate
-                )
-                taskDao.insertTask(updatedTask)
-                
-                // Sync to file
-                val settings = settingsRepository.settingsFlow.first()
-                writeTasksToFile(settings.taskFilePath)
+            _taskDataList.value = _taskDataList.value.map { task ->
+                if (task.id == taskId) {
+                    task.copy(title = newTitle, timeHorizon = timeHorizon.name)
+                } else {
+                    task
+                }
             }
+            writeTasksToFile()
+            loadTasksFromFile() // Reload to update UI
         }
     }
     
@@ -249,161 +367,43 @@ class TaskViewModel(application: Application) : AndroidViewModel(application) {
      */
     fun updateDeadlineTaskHorizons() {
         viewModelScope.launch {
-            val entities = taskDao.getAllTasks().first()
-            var hasChanges = false
-            entities.forEach { taskEntity ->
-                if (taskEntity.isDeadlineTask && taskEntity.doDate != null) {
-                    val task = taskEntity.toTask()
-                    val doDate = taskEntity.doDate // Safe because we checked null above
-                    val newHorizon = calculateTimeHorizonFromDate(doDate)
-                    if (newHorizon != task.timeHorizon) {
-                        val updatedTask = TaskEntity(
-                            autoId = taskEntity.autoId,
-                            id = taskEntity.id,
-                            title = taskEntity.title,
-                            timeHorizon = newHorizon,
-                            createdAt = taskEntity.createdAt ?: java.time.LocalDateTime.now(),
-                            isCompleted = taskEntity.isCompleted,
-                            isDeadlineTask = true,
-                            deadline = taskEntity.deadline,
-                            daysNeeded = taskEntity.daysNeeded,
-                            doDate = taskEntity.doDate
-                        )
-                        taskDao.insertTask(updatedTask)
-                        hasChanges = true
+            var updated = false
+            
+            _taskDataList.value = _taskDataList.value.map { task ->
+                if (task.isDeadlineTask && task.doDate != null) {
+                    val newHorizon = calculateTimeHorizonFromDate(task.doDate)
+                    if (newHorizon.name != task.timeHorizon) {
+                        updated = true
+                        task.copy(timeHorizon = newHorizon.name)
+                    } else {
+                        task
                     }
+                } else {
+                    task
                 }
             }
             
-            // Sync to file if there were changes
-            if (hasChanges) {
-                val settings = settingsRepository.settingsFlow.first()
-                writeTasksToFile(settings.taskFilePath)
+            if (updated) {
+                writeTasksToFile()
+                loadTasksFromFile() // Reload to update UI
             }
         }
     }
     
     suspend fun getTotalTaskCount(): Int {
-        return taskDao.getTotalTaskCount()
+        return _taskDataList.value.size
     }
     
     suspend fun getCompletedTaskCount(): Int {
-        return taskDao.getCompletedTaskCount()
+        return _taskDataList.value.count { it.isCompleted }
     }
     
     suspend fun getPendingTaskCount(): Int {
-        return taskDao.getPendingTaskCount()
+        return _taskDataList.value.count { !it.isCompleted }
     }
     
-    suspend fun getOldestTaskDate(): java.time.LocalDateTime? {
-        return taskDao.getOldestTaskDate()
-    }
-    
-    /**
-     * Initialize file sync: load from file and set up file observer
-     */
-    private suspend fun initializeFileSync() {
-        try {
-            val settings = settingsRepository.settingsFlow.first()
-            val filePath = settings.taskFilePath
-            
-            Log.d(TASK_VM_TAG, "Initializing file sync with path: $filePath")
-            
-            // Load tasks from file to Room on first launch
-            loadTasksFromFile(filePath)
-            
-            // Set up file observer
-            setupFileObserver(filePath)
-        } catch (e: Exception) {
-            Log.e(TASK_VM_TAG, "Error initializing file sync: ${e.message}", e)
-        }
-    }
-    
-    /**
-     * Load tasks from JSON file into Room database
-     */
-    private suspend fun loadTasksFromFile(filePath: String) {
-        if (isSyncing) return
-        
-        try {
-            isSyncing = true
-            Log.d(TASK_VM_TAG, "Loading tasks from file: $filePath")
-            
-            val tasksFromFile = fileRepository.readTasksFromFile(filePath)
-            
-            if (tasksFromFile.isEmpty()) {
-                Log.d(TASK_VM_TAG, "No tasks in file, syncing current Room tasks to file")
-                // If file is empty, write current Room tasks to it
-                val currentTasks = taskDao.getAllTasks().first()
-                if (currentTasks.isNotEmpty()) {
-                    fileRepository.writeTasksToFile(currentTasks, filePath)
-                }
-            } else {
-                Log.d(TASK_VM_TAG, "Loaded ${tasksFromFile.size} tasks from file, updating Room")
-                // Clear Room and insert tasks from file
-                withContext(Dispatchers.IO) {
-                    // Delete all current tasks
-                    val currentTasks = taskDao.getAllTasks().first()
-                    currentTasks.forEach { taskDao.deleteTask(it.id) }
-                    
-                    // Insert tasks from file
-                    tasksFromFile.forEach { taskDao.insertTask(it) }
-                }
-            }
-        } catch (e: Exception) {
-            Log.e(TASK_VM_TAG, "Error loading tasks from file: ${e.message}", e)
-        } finally {
-            isSyncing = false
-        }
-    }
-    
-    /**
-     * Write current Room tasks to JSON file
-     */
-    private suspend fun writeTasksToFile(filePath: String) {
-        if (isSyncing) return
-        
-        try {
-            isSyncing = true
-            val tasks = taskDao.getAllTasks().first()
-            Log.d(TASK_VM_TAG, "Writing ${tasks.size} tasks to file: $filePath")
-            fileRepository.writeTasksToFile(tasks, filePath)
-        } catch (e: Exception) {
-            Log.e(TASK_VM_TAG, "Error writing tasks to file: ${e.message}", e)
-        } finally {
-            isSyncing = false
-        }
-    }
-    
-    /**
-     * Set up file observer to watch for external changes
-     */
-    private fun setupFileObserver(filePath: String) {
-        try {
-            // Stop existing observer
-            fileObserver?.stopWatchingFile()
-            
-            val file = fileRepository.getTaskFile(filePath)
-            if (!file.exists()) {
-                // Create empty file if it doesn't exist
-                viewModelScope.launch {
-                    fileRepository.createEmptyFileIfNeeded(filePath)
-                }
-            }
-            
-            fileObserver = TaskFileObserver(file) {
-                // File changed externally, reload tasks
-                viewModelScope.launch {
-                    Log.d(TASK_VM_TAG, "External file change detected, reloading tasks")
-                    loadTasksFromFile(filePath)
-                }
-            }
-            
-            fileObserver?.startWatching(file)
-            Log.d(TASK_VM_TAG, "File observer set up for: ${file.absolutePath}")
-        } catch (e: Exception) {
-            Log.e(TASK_VM_TAG, "Error setting up file observer: ${e.message}", e)
-        }
+    suspend fun getOldestTaskDate(): LocalDateTime? {
+        return _taskDataList.value.mapNotNull { it.createdAt }.minOrNull()
     }
     
     /**
@@ -411,8 +411,7 @@ class TaskViewModel(application: Application) : AndroidViewModel(application) {
      */
     fun syncFromFile() {
         viewModelScope.launch {
-            val settings = settingsRepository.settingsFlow.first()
-            loadTasksFromFile(settings.taskFilePath)
+            loadTasksFromFile()
         }
     }
     
@@ -421,23 +420,64 @@ class TaskViewModel(application: Application) : AndroidViewModel(application) {
      */
     fun syncToFile() {
         viewModelScope.launch {
-            val settings = settingsRepository.settingsFlow.first()
-            writeTasksToFile(settings.taskFilePath)
+            writeTasksToFile()
+        }
+    }
+
+    /**
+     * Check for external file changes (called from MainActivity)
+     */
+    fun checkForExternalFileChanges() {
+        viewModelScope.launch {
+            checkForExternalChanges()
         }
     }
     
     /**
-     * Update file path and reinitialize sync
+     * Update file path and reload tasks
      */
     fun updateFilePath(newPath: String) {
         viewModelScope.launch {
             settingsRepository.updateTaskFilePath(newPath)
-            initializeFileSync()
+            loadTasksFromFile()
         }
     }
     
-    override fun onCleared() {
-        super.onCleared()
-        fileObserver?.stopWatchingFile()
+    /**
+     * Import tasks from CSV file and merge with existing tasks
+     */
+    suspend fun importTasksFromCsv(tasks: List<TaskData>): Result<Int> {
+        return try {
+            // Merge with existing tasks (avoid duplicates by ID)
+            val existingIds = _taskDataList.value.map { it.id }.toSet()
+            val newTasks = tasks.filter { it.id !in existingIds }
+            
+            if (newTasks.isEmpty()) {
+                Result.success(0)
+            } else {
+                _taskDataList.value = _taskDataList.value + newTasks
+                writeTasksToFile()
+                loadTasksFromFile()
+                Result.success(newTasks.size)
+            }
+        } catch (e: Exception) {
+            Log.e(TASK_VM_TAG, "Error importing tasks from CSV: ${e.message}", e)
+            Result.failure(e)
+        }
     }
-} 
+    
+    /**
+     * Replace all tasks with imported tasks (for full restore)
+     */
+    suspend fun replaceAllTasks(tasks: List<TaskData>): Result<Int> {
+        return try {
+            _taskDataList.value = tasks
+            writeTasksToFile()
+            loadTasksFromFile()
+            Result.success(tasks.size)
+        } catch (e: Exception) {
+            Log.e(TASK_VM_TAG, "Error replacing tasks: ${e.message}", e)
+            Result.failure(e)
+        }
+    }
+}

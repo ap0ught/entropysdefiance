@@ -54,7 +54,7 @@ class TaskFileRepository(private val context: Context) {
      * Supports both file paths (older Android) and URIs (Android 13+)
      * Returns empty list if file doesn't exist or is corrupted
      */
-    suspend fun readTasksFromFile(filePathOrUri: String): List<TaskEntity> = withContext(Dispatchers.IO) {
+    suspend fun readTasksFromFile(filePathOrUri: String): List<TaskData> = withContext(Dispatchers.IO) {
         try {
             if (filePathOrUri.startsWith("content://")) {
                 // Android 13+: Handle as URI using SAF
@@ -69,7 +69,7 @@ class TaskFileRepository(private val context: Context) {
         }
     }
 
-    private suspend fun readTasksFromFilePath(filePath: String): List<TaskEntity> = withContext(Dispatchers.IO) {
+    private suspend fun readTasksFromFilePath(filePath: String): List<TaskData> = withContext(Dispatchers.IO) {
         try {
             val file = getTaskFile(filePath)
 
@@ -87,14 +87,14 @@ class TaskFileRepository(private val context: Context) {
             val tasksFile = json.decodeFromString<TasksFileJson>(jsonString)
             Log.d(TAG, "Successfully read ${tasksFile.tasks.size} tasks from ${file.absolutePath}")
 
-            tasksFile.tasks.map { it.toEntity() }
+            tasksFile.tasks
         } catch (e: Exception) {
             Log.e(TAG, "Error reading tasks from file path: ${e.message}", e)
             emptyList()
         }
     }
 
-    private suspend fun readTasksFromUri(uri: Uri): List<TaskEntity> = withContext(Dispatchers.IO) {
+    private suspend fun readTasksFromUri(uri: Uri): List<TaskData> = withContext(Dispatchers.IO) {
         try {
             val documentFile = DocumentFile.fromSingleUri(context, uri)
             if (documentFile == null || !documentFile.exists()) {
@@ -119,7 +119,7 @@ class TaskFileRepository(private val context: Context) {
             val tasksFile = json.decodeFromString<TasksFileJson>(jsonString)
             Log.d(TAG, "Successfully read ${tasksFile.tasks.size} tasks from URI: $uri")
 
-            tasksFile.tasks.map { it.toEntity() }
+            tasksFile.tasks
         } catch (e: Exception) {
             Log.e(TAG, "Error reading tasks from URI: ${e.message}", e)
             emptyList()
@@ -130,7 +130,7 @@ class TaskFileRepository(private val context: Context) {
      * Write tasks to JSON file
      * Supports both file paths (older Android) and URIs (Android 13+)
      */
-    suspend fun writeTasksToFile(tasks: List<TaskEntity>, filePathOrUri: String): Boolean = withContext(Dispatchers.IO) {
+    suspend fun writeTasksToFile(tasks: List<TaskData>, filePathOrUri: String): Boolean = withContext(Dispatchers.IO) {
         try {
             if (filePathOrUri.startsWith("content://")) {
                 // Android 13+: Handle as URI using SAF
@@ -145,17 +145,16 @@ class TaskFileRepository(private val context: Context) {
         }
     }
 
-    private suspend fun writeTasksToFilePath(tasks: List<TaskEntity>, filePath: String): Boolean = withContext(Dispatchers.IO) {
+    private suspend fun writeTasksToFilePath(tasks: List<TaskData>, filePath: String): Boolean = withContext(Dispatchers.IO) {
         try {
             val file = getTaskFile(filePath)
 
             // Create parent directories if they don't exist
             file.parentFile?.mkdirs()
 
-            val taskJsons = tasks.map { TaskJson.fromEntity(it) }
             val tasksFile = TasksFileJson(
                 version = 1,
-                tasks = taskJsons
+                tasks = tasks
             )
 
             val jsonString = json.encodeToString(tasksFile)
@@ -182,12 +181,11 @@ class TaskFileRepository(private val context: Context) {
         }
     }
 
-    private suspend fun writeTasksToUri(tasks: List<TaskEntity>, uri: Uri): Boolean = withContext(Dispatchers.IO) {
+    private suspend fun writeTasksToUri(tasks: List<TaskData>, uri: Uri): Boolean = withContext(Dispatchers.IO) {
         try {
-            val taskJsons = tasks.map { TaskJson.fromEntity(it) }
             val tasksFile = TasksFileJson(
                 version = 1,
-                tasks = taskJsons
+                tasks = tasks
             )
 
             val jsonString = json.encodeToString(tasksFile)

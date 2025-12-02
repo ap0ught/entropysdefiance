@@ -19,6 +19,12 @@ This project was created entirely through "vibe-coding" - a development approach
 
 Entropy's Defiance represents an exploration of how software can be created when human creativity is augmented by AI capabilities, without requiring extensive traditional coding knowledge.
 
+## Platforms
+
+- **📱 Android App**: Minimalist launcher + task manager (primary platform)
+- **💻 Terminal UI**: Optional Linux interface for synced tasks
+- **🔄 File Sync**: Two-way sync via Syncthing
+
 ## Features
 
 ### ⏰ Time Horizon Based Task Management
@@ -43,17 +49,11 @@ Entropy's Defiance represents an exploration of how software can be created when
 - Select which calendars to display
 - Configure double-tap for dialer option
 
-## Screenshots
-
-As this project was born through vibe-coding, it remains a work in progress with the visual interface evolving organically. The screenshots directory contains placeholders for future visual documentation. Current design emphasizes:
-
-- Minimalist interface with focus on essential information
-- Dark theme with subtle transparency effects
-- Time horizon-based task organization
-- Seamless calendar integration
-- Gesture-based navigation
-
-Actual screenshots will be added as the interface stabilizes through use and iteration.
+### 🔄 File Sync & Laptop Integration
+- Tasks automatically sync to a JSON file
+- Edit tasks from your laptop using Syncthing
+- Terminal UI for laptop task management
+- Two-way sync between phone and computer
 
 ## Getting Started
 
@@ -68,11 +68,34 @@ Actual screenshots will be added as the interface stabilizes through use and ite
 
 ## Usage
 
+### On Android
 - **Add a task**: Tap the + button and enter task details
 - **Complete a task**: Tap on a task to mark it as complete
 - **Move a task**: Swipe task left/right to change its time horizon
 - **Access apps**: Swipe up from the bottom of the screen
 - **View settings**: Long press on an empty area of the screen
+
+### On Laptop (Terminal UI - Linux Only)
+
+For users who sync tasks to a Linux computer via Syncthing, a minimal terminal interface is available.
+
+**Installation:**
+```bash
+pip install -e .
+entropysdefiance  # or: ed-tui
+```
+
+**Features:**
+- Vim-style keybindings (j/k for navigation, a to add, d to mark done)
+- Command palette (Ctrl+p) for themes and settings
+- Auto-saves theme and preferences to `~/.config/entropysdefiance/config.json`
+- Override tasks path: `entropysdefiance /path/to/tasks.json`
+
+**Syncthing Setup:**
+1. Install Syncthing on phone and laptop
+2. Share folder: `~/tasks/`
+3. Android app: Settings → File Sync → point to Syncthing folder
+4. Tasks sync automatically between devices
 
 ## Building From Source
 

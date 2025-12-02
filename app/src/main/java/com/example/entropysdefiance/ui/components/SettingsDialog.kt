@@ -36,6 +36,7 @@ fun SettingsDialog(
     onFreeTimeSettingsClick: () -> Unit,
     onFileSyncSettingsClick: () -> Unit,
     onPermissionsSettingsClick: () -> Unit,
+    onBackupSettingsClick: () -> Unit,
     onStatisticsClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -128,6 +129,16 @@ fun SettingsDialog(
                     description = "Manage calendar permission",
                     icon = Icons.Default.Lock,
                     onClick = onPermissionsSettingsClick
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Backup & Import Settings Section
+                SettingsSectionButton(
+                    title = "Backup & Import",
+                    description = "Export/import tasks from CSV files",
+                    icon = Icons.Default.Refresh,
+                    onClick = onBackupSettingsClick
                 )
 
                 Spacer(modifier = Modifier.height(16.dp))

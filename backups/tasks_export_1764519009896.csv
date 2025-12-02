@@ -1,0 +1,129 @@
+ID,Title,TimeHorizon,CreatedAt,IsCompleted
+3,"l",Today,2025-09-11T18:50:38.543072,1
+4,"task",Today,2025-09-11T18:56:04.328282,1
+5,"cool",Today,2025-09-11T18:58:01.787986,1
+6,"l",Today,2025-09-11T18:50:38.543072,1
+7,"task",Today,2025-09-11T18:56:04.328282,1
+8,"l",Today,2025-09-11T18:50:38.543072,1
+9,"task",Today,2025-09-11T18:56:04.328282,1
+10,"l",Today,2025-09-11T18:50:38.543072,1
+11,"task",Today,2025-09-11T18:56:04.328282,1
+12,"l",Today,2025-09-11T18:50:38.543072,1
+13,"task",Today,2025-09-11T18:56:04.328282,1
+14,"unikurse",Today,2025-09-12T09:15:00.49785,1
+15,"studienblatt",ThisWeek,2025-09-12T10:54:58.453737,1
+16,"bewerbung tu graz",ThisWeek,2025-09-12T19:34:14.405406,1
+17,"gipfelkarte dieter",ThisMonth,2025-09-13T08:35:43.814294,0
+19,"vorurteilsfreier datensatz für ki",ThisYear,2025-09-13T08:36:37.219788,0
+20,"tanzkurs?",ThisYear,2025-09-13T08:37:02.182934,0
+21,"gesundenuntersuchung & gesundenhunderter",ThisWeek,2025-09-13T08:37:26.985274,1
+22,"drybag flicken",ThisYear,2025-09-13T08:37:40.825596,0
+23,"ohrring aus stein",ThisYear,2025-09-13T08:38:00.307745,0
+24,"balkonmöbel",Today,2025-09-13T08:38:18.755162,1
+28,"termin mit georg",ThisYear,2025-09-13T08:40:58.272851,0
+29,"concentric circle clock",ThisLife,2025-09-13T08:41:23.210451,0
+30,"Township Economy, Charman",ThisLife,2025-09-13T08:42:02.097048,0
+31,"bartperle schnitzen",ThisLife,2025-09-13T08:43:56.728702,0
+32,"geschirrspüler grundreinigung",Today,2025-09-13T08:44:37.904862,1
+33,"mapping of public bookshelves",ThisLife,2025-09-13T08:45:45.540331,0
+34,"baumhaus",ThisLife,2025-09-13T08:46:02.966598,0
+35,"apothekerschrank für sämereien",ThisLife,2025-09-13T08:46:14.139044,0
+38,"schindelmacher",ThisLife,2025-09-13T08:47:51.951088,0
+39,"co-working space à la google",ThisLife,2025-09-13T08:48:16.462664,0
+40,"gemeinschaftsgarten gründen",ThisLife,2025-09-13T08:48:25.709451,0
+41,"qfield für marktgärten",ThisLife,2025-09-13T08:48:49.41175,0
+43,"wanderwege freischneiden",ThisYear,2025-09-13T08:49:20.773355,0
+44,"MA: human presence through sound in space",ThisMonth,2025-09-13T08:50:10.065561,1
+45,"die allmende",ThisLife,2025-09-13T08:50:23.018262,0
+46,"freiraumplanung",ThisLife,2025-09-13T08:50:39.553376,0
+47,"low economy zoning (after high impact)",ThisLife,2025-09-13T08:51:00.468755,0
+48,"gitignore",Today,2025-09-13T08:52:56.310828,1
+49,"gnocchi",ThisMonth,2025-09-13T10:50:45.459581,1
+50,"chaga aufhacken",ThisWeek,2025-09-13T11:51:59.690986,1
+51,"stan pickn",ThisWeek,2025-09-13T12:26:01.235166,1
+52,"anmeldung tu",Today,2025-09-16T15:00:15.90065,1
+53,"kurse tu",Today,2025-09-17T07:18:08.963316,1
+54,"sami",Today,2025-09-17T09:59:05.371408,1
+55,"essen",Today,2025-09-20T17:12:23.41838,1
+56,"j",ThisWeek,2025-09-20T17:15:39.837153,1
+58,"classification of human activities in (semi-)natural habitats from mobile data",ThisYear,2025-09-23T13:41:42.716902,0
+59,"which test to apply in order to verify a basehole of a tree?",Today,2025-09-23T17:43:37.035402,1
+60,"where is the oldest university of the german speaking world?",Today,2025-09-23T18:11:42.792629,1
+61,"what is a good test to assess a basehole of a tree?",Today,2025-09-23T18:44:33.728566,1
+63,"iris",ThisWeek,2025-09-25T15:09:21.191252,1
+64,"repair café",ThisLife,2025-09-27T13:05:38.318711,0
+65,"kugellager",Today,2025-09-27T13:06:02.306114,1
+66,"gemisch",Today,2025-09-28T14:14:07.034521,1
+67,"geschenke mädls",ThisWeek,2025-09-28T15:05:06.757513,1
+68,"musterweinstube nach grassnitzberg, sowie der trummer",Today,2025-09-29T11:58:33.58072,1
+69,"steinkleber",ThisWeek,2025-09-30T17:48:16.795125,1
+70,"fotos iris",Today,2025-10-01T07:34:18.297646,1
+71,"spritzdecke",ThisWeek,2025-10-01T07:50:24.082716,1
+72,"warmwasser",ThisWeek,2025-10-06T21:10:00.613661,1
+73,"sturzplatz",ThisWeek,2025-10-07T15:09:31.872358,1
+74,"termin gesundenuntersuchung",Today,2025-10-07T19:06:24.303678,1
+75,"air dolomiti",Today,2025-10-08T11:08:30.75201,1
+76,"öh druckservice",ThisWeek,2025-10-08T23:02:53.680674,1
+77,"fotos drucken",Today,2025-10-09T10:28:33.863944,1
+78,"gnocchi",Today,2025-10-10T21:13:31.972468,1
+79,"heiligengeistklamm",ThisMonth,2025-10-13T12:28:39.832159,1
+80,"mail manuela",Today,2025-10-14T06:42:50.431739,1
+81,"philemon anrufen",Today,2025-10-14T10:54:53.078486,1
+82,"steinplatte",ThisMonth,2025-10-15T22:39:08.366984,0
+83,"lagerabzieher zgonc",ThisWeek,2025-10-16T11:35:41.143668,1
+84,"leistungsnachweis",Today,2025-10-16T16:46:25.296422,1
+85,"tabak und gmias",Today,2025-10-18T10:09:23.314649,1
+86,"winterreifen",Today,2025-10-18T21:13:02.802208,1
+87,"mail to heide",Today,2025-10-19T22:05:17.253498,1
+88,"lygra.no",ThisWeek,2025-10-20T15:35:39.839604,1
+89,"practice 1",ThisWeek,2025-10-22T09:39:29.137821,1
+90,"erd",ThisWeek,2025-10-22T17:23:01.617595,1
+91,"spotify",ThisWeek,2025-10-27T21:17:00.748967,1
+92,"critical response paper",ThisWeek,2025-10-28T15:02:20.167765,1
+93,"do-date",ThisMonth,2025-10-29T09:50:13.209319,1
+94,"ochsenberger",ThisWeek,2025-10-31T12:01:31.391842,1
+95,"adventskalender",ThisWeek,2025-10-31T15:43:25.501788,1
+96,"weck deckel",ThisWeek,2025-10-31T16:51:31.30284,1
+97,"resppnse paper",ThisMonth,2025-11-01T21:46:05.804833,1
+98,"testing",ThisYear,2025-11-02T09:15:10.845571,1
+99,"cool",ThisMonth,2025-11-02T09:15:40.882517,1
+100,"testing",ThisYear,2025-11-02T11:37:32.65193,1
+101,"practice 2",ThisMonth,2025-11-02T22:10:09.267082,1
+102,"mid-term presentation",ThisMonth,2025-11-04T07:20:39.719861,1
+103,"Prüfung: Systems Modelling",ThisMonth,2025-11-04T07:21:40.596036,1
+104,"lab 02",ThisMonth,2025-11-04T07:23:28.534832,1
+105,"BestNature Report",ThisWeek,2025-11-04T17:27:43.381865,1
+106,"bananenbrot",ThisWeek,2025-11-04T18:03:49.198548,1
+107,"termin augenarzt",Today,2025-11-06T06:43:20.558372,1
+108,"coctiff & vectortilecache",Today,2025-11-07T15:09:05.745486,1
+109,"drybag kleben?",ThisWeek,2025-11-08T09:34:33.298821,1
+110,"lab03 postgis",ThisMonth,2025-11-09T11:20:26.210186,1
+111,"böhmischer",Today,2025-11-10T15:27:52.939753,1
+112,"sammy",Today,2025-11-11T08:27:35.131497,1
+113,"the mindmap",ThisWeek,2025-11-11T13:43:12.893175,1
+114,"optiker",ThisWeek,2025-11-12T18:30:28.679564,1
+115,"lab04 - spatial operations",ThisMonth,2025-11-13T13:27:42.889525,1
+116,"mail manuela",ThisWeek,2025-11-13T14:21:23.080287,1
+117,"today",Today,2025-11-13T14:38:26.155341,1
+118,"bouldern sammy&lena",ThisWeek,2025-11-14T21:18:29.928885,1
+119,"eyeside",ThisWeek,2025-11-14T21:57:49.145561,1
+120,"granulum",ThisMonth,2025-11-14T22:03:45.912241,1
+121,"panflöte",Today,2025-11-15T17:51:07.875542,1
+122,"gummistiefel",ThisWeek,2025-11-15T17:51:25.981183,1
+123,"sonnenbankerl",ThisWeek,2025-11-15T17:51:36.382578,1
+124,"pvc reparaturset",ThisMonth,2025-11-16T12:42:52.551965,0
+125,"dachbox",ThisYear,2025-11-16T13:11:25.449251,0
+126,"druck",Today,2025-11-18T14:45:00.092695,1
+127,"haleconnect",ThisWeek,2025-11-20T08:19:53.530036,1
+128,"graph.files",Today,2025-11-21T12:33:20.598862,1
+129,"lbs gruppe",ThisWeek,2025-11-21T21:40:37.48631,1
+130,"athoughtamonth",ThisWeek,2025-11-22T13:39:18.810677,1
+131,"LHG",ThisWeek,2025-11-24T16:08:47.527143,1
+132,"lab05",ThisWeek,2025-11-24T17:21:19.853065,1
+133,"kündigung",Today,2025-11-24T21:22:43.860277,1
+134,"saatgut inventur",ThisWeek,2025-11-25T10:34:27.129775,1
+135,"mais entkörnen",ThisWeek,2025-11-25T16:55:54.120277,1
+136,"Best Nature Überblick",ThisWeek,2025-11-26T19:26:29.997973,1
+137,"bettwäsche",ThisWeek,2025-11-29T09:54:53.489075,1
+138,"heizung",ThisWeek,2025-11-29T22:34:15.287757,1
+139,"fußbad",ThisWeek,2025-11-30T15:36:09.48016,0

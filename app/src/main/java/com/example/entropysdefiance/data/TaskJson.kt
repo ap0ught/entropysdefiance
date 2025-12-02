@@ -1,5 +1,6 @@
 package com.example.entropysdefiance.data
 
+import com.example.entropysdefiance.model.Task
 import com.example.entropysdefiance.model.TimeHorizon
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.KSerializer
@@ -49,10 +50,10 @@ object LocalDateSerializer : KSerializer<LocalDate> {
 }
 
 /**
- * JSON representation of a task for serialization
+ * Internal representation of a task for file storage
  */
 @Serializable
-data class TaskJson(
+data class TaskData(
     val id: String,
     val title: String,
     val timeHorizon: String,
@@ -67,44 +68,43 @@ data class TaskJson(
     @Serializable(with = LocalDateSerializer::class)
     val doDate: LocalDate? = null
 ) {
-    companion object {
-        /**
-         * Convert TaskEntity to TaskJson
-         */
-        fun fromEntity(entity: TaskEntity): TaskJson {
-            return TaskJson(
-                id = entity.id,
-                title = entity.title,
-                timeHorizon = entity.timeHorizon.name,
-                autoId = entity.autoId,
-                createdAt = entity.createdAt,
-                isCompleted = entity.isCompleted,
-                isDeadlineTask = entity.isDeadlineTask,
-                deadline = entity.deadline,
-                daysNeeded = entity.daysNeeded,
-                doDate = entity.doDate
-            )
-        }
-    }
-    
     /**
-     * Convert TaskJson to TaskEntity
+     * Convert TaskData to Task model
      */
-    fun toEntity(): TaskEntity {
-        return TaskEntity(
+    fun toTask(): Task {
+        return Task(
             id = id,
             title = title,
             timeHorizon = TimeHorizon.valueOf(timeHorizon),
-            autoId = autoId,
-            createdAt = createdAt,
-            isCompleted = isCompleted,
             isDeadlineTask = isDeadlineTask,
             deadline = deadline,
-            daysNeeded = daysNeeded,
             doDate = doDate
         )
     }
+    
+    companion object {
+        /**
+         * Convert Task model to TaskData
+         */
+        fun fromTask(task: Task, autoId: Long?, createdAt: LocalDateTime?, isCompleted: Boolean, daysNeeded: Int?): TaskData {
+            return TaskData(
+                id = task.id,
+                title = task.title,
+                timeHorizon = task.timeHorizon.name,
+                autoId = autoId,
+                createdAt = createdAt,
+                isCompleted = isCompleted,
+                isDeadlineTask = task.isDeadlineTask,
+                deadline = task.deadline,
+                daysNeeded = daysNeeded,
+                doDate = task.doDate
+            )
+        }
+    }
 }
+
+// Alias for backward compatibility with existing code
+typealias TaskJson = TaskData
 
 /**
  * Root JSON structure for the tasks file
@@ -112,5 +112,5 @@ data class TaskJson(
 @Serializable
 data class TasksFileJson(
     val version: Int = 1,
-    val tasks: List<TaskJson> = emptyList()
+    val tasks: List<TaskData> = emptyList()
 )
