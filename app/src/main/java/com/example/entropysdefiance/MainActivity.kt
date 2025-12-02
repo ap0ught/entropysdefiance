@@ -461,6 +461,15 @@ fun TaskApp(
                             showAppDrawer = false
                             // Add additional actions for notification panel if needed
                         }
+                    },
+                    onAppSettings = { app ->
+                        launcherViewModel.openAppSettings(app.packageName)
+                    },
+                    onAppUninstall = { app ->
+                        launcherViewModel.uninstallApp(app.packageName)
+                    },
+                    onResetAppCounter = { app ->
+                        launcherViewModel.resetAppCounter(app.packageName)
                     }
                 )
             }

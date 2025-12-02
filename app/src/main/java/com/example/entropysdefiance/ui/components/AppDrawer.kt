@@ -44,6 +44,17 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.abs
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
 
 // Gesture handler class to manage different gestures
 class GestureHandler {
@@ -203,6 +214,9 @@ fun AppDrawer(
     onAppClick: (AppInfo) -> Unit,
     modifier: Modifier = Modifier,
     onNotificationPullDown: () -> Unit = {}, // Added callback for notification panel
+    onAppSettings: (AppInfo) -> Unit = {},
+    onAppUninstall: (AppInfo) -> Unit = {},
+    onResetAppCounter: (AppInfo) -> Unit = {}
 ) {
     var searchQuery by remember { mutableStateOf("") }
     val focusRequester = remember { FocusRequester() }
@@ -213,6 +227,13 @@ fun AppDrawer(
     // Track scroll state for keyboard visibility
     var isScrolling by remember { mutableStateOf(false) }
     var lastScrollOffset by remember { mutableIntStateOf(0) }
+    
+    // Track which app is showing the action menu (if any)
+    var appShowingMenu by remember { mutableStateOf<String?>(null) }
+    
+    // Confirmation dialog states
+    var showUninstallDialog by remember { mutableStateOf<AppInfo?>(null) }
+    var showResetCounterDialog by remember { mutableStateOf<AppInfo?>(null) }
     
     LaunchedEffect(Unit) {
         focusRequester.requestFocus()
@@ -323,22 +344,85 @@ fun AppDrawer(
                     items(filteredApps, key = { it.packageName }) { app ->
                         AppItem(
                             app = app,
-                            onClick = { onAppClick(app) },
+                            onClick = { 
+                                onAppClick(app)
+                                appShowingMenu = null // Close menu when app is clicked
+                            },
                             onLongPress = { 
-                                // TODO: Implement long press functionality
-                                // For now, just open the app
-                                onAppClick(app) 
+                                // Toggle the action menu for this app
+                                appShowingMenu = if (appShowingMenu == app.packageName) {
+                                    null
+                                } else {
+                                    app.packageName
+                                }
                             },
                             onDoubleTap = { 
                                 // TODO: Implement double tap functionality
                                 // For now, just open the app
                                 onAppClick(app)
+                            },
+                            isShowingMenu = appShowingMenu == app.packageName,
+                            onSettings = { 
+                                onAppSettings(app)
+                                appShowingMenu = null // Auto-dismiss
+                            },
+                            onUninstall = { 
+                                showUninstallDialog = app
+                                appShowingMenu = null // Auto-dismiss
+                            },
+                            onResetCounter = { 
+                                showResetCounterDialog = app
+                                appShowingMenu = null // Auto-dismiss
                             }
                         )
                     }
                 }
             }
         }
+    }
+    
+    // Uninstall confirmation dialog
+    showUninstallDialog?.let { app ->
+        AlertDialog(
+            onDismissRequest = { showUninstallDialog = null },
+            title = { Text("Uninstall ${app.appName}?") },
+            text = { Text("This will open the system uninstall dialog for ${app.appName}.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    onAppUninstall(app)
+                    showUninstallDialog = null
+                }) {
+                    Text("Uninstall")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showUninstallDialog = null }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+    
+    // Reset counter confirmation dialog
+    showResetCounterDialog?.let { app ->
+        AlertDialog(
+            onDismissRequest = { showResetCounterDialog = null },
+            title = { Text("Reset counter for ${app.appName}?") },
+            text = { Text("This will reset the open counter and change the app's position in the drawer.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    onResetAppCounter(app)
+                    showResetCounterDialog = null
+                }) {
+                    Text("Reset")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showResetCounterDialog = null }) {
+                    Text("Cancel")
+                }
+            }
+        )
     }
 }
 
@@ -348,48 +432,111 @@ private fun AppItem(
     onClick: () -> Unit,
     onLongPress: () -> Unit = {},
     onDoubleTap: () -> Unit = {},
+    isShowingMenu: Boolean = false,
+    onSettings: () -> Unit = {},
+    onUninstall: () -> Unit = {},
+    onResetCounter: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var lastTapTimeMs by remember { mutableLongStateOf(0L) }
     val doubleTapTimeoutMs = 300L
     
-    Box(
-        modifier = modifier.fillMaxWidth(),
-        contentAlignment = Alignment.CenterEnd
+    Column(
+        modifier = modifier.fillMaxWidth()
     ) {
-        Text(
-            text = app.appName,
-            style = MaterialTheme.typography.displayMedium,
-            color = MaterialTheme.colorScheme.onBackground,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            textAlign = TextAlign.End,
-            modifier = Modifier
-                .fillMaxWidth() // Fill width to be part of scrollable area
-                .padding(start = 16.dp, end = 16.dp)
-                // Use combined pointer input for handling gestures while allowing scrolling
-                .pointerInput(Unit) {
-                    detectTapGestures(
-                        onPress = { /* Empty implementation to allow scrolling */ },
-                        onDoubleTap = { 
-                            onDoubleTap()
-                        },
-                        onLongPress = { 
-                            onLongPress() 
-                        },
-                        onTap = {
-                            val currentTime = System.currentTimeMillis()
-                            val isDoubleTap = (currentTime - lastTapTimeMs) < doubleTapTimeoutMs
-                            
-                            if (!isDoubleTap) {
-                                // Single tap after timeout
-                                onClick()
+        // App name row
+        Box(
+            modifier = Modifier.fillMaxWidth(),
+            contentAlignment = Alignment.CenterEnd
+        ) {
+            Text(
+                text = app.appName,
+                style = MaterialTheme.typography.displayMedium,
+                color = MaterialTheme.colorScheme.onBackground,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = TextAlign.End,
+                modifier = Modifier
+                    .fillMaxWidth() // Fill width to be part of scrollable area
+                    .padding(start = 16.dp, end = 16.dp)
+                    // Use combined pointer input for handling gestures while allowing scrolling
+                    .pointerInput(Unit) {
+                        detectTapGestures(
+                            onPress = { /* Empty implementation to allow scrolling */ },
+                            onDoubleTap = { 
+                                onDoubleTap()
+                            },
+                            onLongPress = { 
+                                onLongPress() 
+                            },
+                            onTap = {
+                                val currentTime = System.currentTimeMillis()
+                                val isDoubleTap = (currentTime - lastTapTimeMs) < doubleTapTimeoutMs
+                                
+                                if (!isDoubleTap) {
+                                    // Single tap after timeout
+                                    onClick()
+                                }
+                                
+                                lastTapTimeMs = currentTime
                             }
-                            
-                            lastTapTimeMs = currentTime
-                        }
+                        )
+                    }
+            )
+        }
+        
+        // Action menu row (shown when long-pressed)
+        if (isShowingMenu) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 16.dp, end = 16.dp, top = 8.dp),
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Settings button
+                IconButton(
+                    onClick = onSettings,
+                    modifier = Modifier.size(40.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Settings,
+                        contentDescription = "App Settings",
+                        tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
+                        modifier = Modifier.size(24.dp)
                     )
                 }
-        )
+                
+                Spacer(modifier = Modifier.width(8.dp))
+                
+                // Uninstall button
+                IconButton(
+                    onClick = onUninstall,
+                    modifier = Modifier.size(40.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Delete,
+                        contentDescription = "Uninstall App",
+                        tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+                
+                Spacer(modifier = Modifier.width(8.dp))
+                
+                // Reset counter button
+                IconButton(
+                    onClick = onResetCounter,
+                    modifier = Modifier.size(40.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Refresh,
+                        contentDescription = "Reset Open Counter",
+                        tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+            }
+        }
     }
 } 
