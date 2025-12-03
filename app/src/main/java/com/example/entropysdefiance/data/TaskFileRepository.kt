@@ -161,7 +161,13 @@ class TaskFileRepository(private val context: Context) {
 
             // Write atomically by writing to temp file then renaming
             val tempFile = File(file.parent, "${file.name}.tmp")
-            tempFile.writeText(jsonString)
+            
+            // Write with proper flushing and syncing
+            tempFile.outputStream().use { fos ->
+                fos.write(jsonString.toByteArray(Charsets.UTF_8))
+                fos.flush()
+                fos.fd.sync() // Force write to disk before rename
+            }
 
             // Atomic rename
             if (tempFile.renameTo(file)) {
@@ -190,14 +196,19 @@ class TaskFileRepository(private val context: Context) {
 
             val jsonString = json.encodeToString(tasksFile)
 
-            val outputStream = context.contentResolver.openOutputStream(uri)
+            val outputStream = context.contentResolver.openOutputStream(uri, "wt") // "wt" = write, truncate
             if (outputStream == null) {
                 Log.e(TAG, "Could not open output stream for URI: $uri")
                 return@withContext false
             }
 
-            outputStream.bufferedWriter().use { it.write(jsonString) }
-            outputStream.close()
+            // Write with proper flushing
+            outputStream.use { os ->
+                os.write(jsonString.toByteArray(Charsets.UTF_8))
+                os.flush()
+                // Note: FileDescriptor.sync() may not be available for URIs
+                // The 'wt' mode and flush() should be sufficient
+            }
 
             Log.d(TAG, "Successfully wrote ${tasks.size} tasks to URI: $uri")
             true

@@ -46,11 +46,20 @@ class TaskManager:
             return {"version": 1, "tasks": []}
     
     def save_tasks(self) -> None:
-        """Save tasks to JSON file"""
+        """Save tasks to JSON file atomically"""
         try:
             self.filepath.parent.mkdir(parents=True, exist_ok=True)
-            with open(self.filepath, 'w') as f:
+            
+            # Write to temp file first
+            temp_path = self.filepath.with_suffix('.json.tmp')
+            with open(temp_path, 'w') as f:
                 json.dump(self.data, f, indent=2)
+                f.flush()  # Ensure buffer is written
+                import os
+                os.fsync(f.fileno())  # Ensure data is on disk
+            
+            # Atomic rename
+            temp_path.replace(self.filepath)
         except Exception as e:
             pass
     
