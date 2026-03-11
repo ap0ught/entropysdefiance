@@ -88,6 +88,10 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
+    fun refreshApps() {
+        loadApps()
+    }
+
     fun launchApp(packageName: String, launchIntent: String, shortcutId: String? = null) {
         val context = getApplication<Application>()
 

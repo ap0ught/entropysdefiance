@@ -347,6 +347,8 @@ fun TaskApp(
                 taskViewModel.checkForExternalFileChanges()
                 // Refresh calendar events when app comes to foreground
                 calendarViewModel.loadEvents()
+                // Refresh app list (picks up newly pinned shortcuts)
+                launcherViewModel.refreshApps()
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
