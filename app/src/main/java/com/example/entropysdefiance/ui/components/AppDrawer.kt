@@ -341,7 +341,7 @@ fun AppDrawer(
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                     modifier = Modifier.fillMaxSize()
                 ) {
-                    items(filteredApps, key = { it.packageName }) { app ->
+                    items(filteredApps, key = { it.usageKey }) { app ->
                         AppItem(
                             app = app,
                             onClick = { 

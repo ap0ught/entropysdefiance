@@ -3,8 +3,10 @@ package com.example.entropysdefiance.viewmodel
 import android.app.Application
 import android.content.Context
 import android.content.Intent
+import android.content.pm.LauncherApps
 import android.content.pm.PackageManager
 import android.content.SharedPreferences
+import android.os.Process
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.entropysdefiance.model.AppInfo
@@ -27,7 +29,8 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
 
     private fun loadApps() {
         viewModelScope.launch {
-            val pm = getApplication<Application>().packageManager
+            val context = getApplication<Application>()
+            val pm = context.packageManager
             val intent = Intent(Intent.ACTION_MAIN, null)
             intent.addCategory(Intent.CATEGORY_LAUNCHER)
 
@@ -40,29 +43,79 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
                     launchIntent = resolveInfo.activityInfo.name
                 )
             }
-            
+
+            // Query pinned shortcuts (PWAs and website shortcuts)
+            val shortcutList = loadPinnedShortcuts(context)
+
+            val combined = appList + shortcutList
+
             // Sort by usage count (most used first)
-            val sortedAppList = appList.sortedByDescending { app -> 
-                appUsagePrefs.getInt(app.packageName, 0)
+            val sortedAppList = combined.sortedByDescending { app ->
+                appUsagePrefs.getInt(app.usageKey, 0)
             }
 
             _apps.value = sortedAppList
         }
     }
 
-    fun launchApp(packageName: String, launchIntent: String) {
+    private fun loadPinnedShortcuts(context: Context): List<AppInfo> {
+        return try {
+            val launcherApps = context.getSystemService(Context.LAUNCHER_APPS_SERVICE) as LauncherApps
+            val query = LauncherApps.ShortcutQuery().apply {
+                setQueryFlags(LauncherApps.ShortcutQuery.FLAG_MATCH_PINNED)
+            }
+            val density = context.resources.displayMetrics.densityDpi
+            launcherApps.getShortcuts(query, Process.myUserHandle())?.map { shortcut ->
+                val icon = try {
+                    launcherApps.getShortcutIconDrawable(shortcut, density)
+                        ?: context.packageManager.getApplicationIcon(shortcut.`package`)
+                } catch (e: Exception) {
+                    context.packageManager.getApplicationIcon(shortcut.`package`)
+                }
+                AppInfo(
+                    packageName = shortcut.`package`,
+                    appName = shortcut.shortLabel?.toString()
+                        ?: shortcut.longLabel?.toString()
+                        ?: shortcut.`package`,
+                    icon = icon,
+                    launchIntent = "",
+                    shortcutId = shortcut.id
+                )
+            } ?: emptyList()
+        } catch (e: Exception) {
+            android.util.Log.e("LauncherViewModel", "Failed to load pinned shortcuts: ${e.message}", e)
+            emptyList()
+        }
+    }
+
+    fun launchApp(packageName: String, launchIntent: String, shortcutId: String? = null) {
+        val context = getApplication<Application>()
+
+        if (shortcutId != null) {
+            // Launch pinned shortcut (PWA / website shortcut)
+            val launcherApps = context.getSystemService(Context.LAUNCHER_APPS_SERVICE) as LauncherApps
+            try {
+                launcherApps.startShortcut(packageName, shortcutId, null, null, Process.myUserHandle())
+                val key = "shortcut:$packageName:$shortcutId"
+                appUsagePrefs.edit().putInt(key, appUsagePrefs.getInt(key, 0) + 1).apply()
+            } catch (e: Exception) {
+                android.util.Log.e("LauncherViewModel", "Failed to launch shortcut: ${e.message}", e)
+            }
+            loadApps()
+            return
+        }
+
         // Increment usage count for this app
         val currentCount = appUsagePrefs.getInt(packageName, 0)
         appUsagePrefs.edit().putInt(packageName, currentCount + 1).apply()
-        
+
         // Launch the app
-        val context = getApplication<Application>()
         val intent = Intent().apply {
             setClassName(packageName, launchIntent)
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
         context.startActivity(intent)
-        
+
         // Refresh the app list with updated usage counts
         loadApps()
     }

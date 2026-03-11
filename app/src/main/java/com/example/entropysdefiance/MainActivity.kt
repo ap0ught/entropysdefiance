@@ -452,7 +452,7 @@ fun TaskApp(
                     modifier = Modifier.fillMaxSize(),
                     apps = apps,
                     onAppClick = { app ->
-                        launcherViewModel.launchApp(app.packageName, app.launchIntent)
+                        launcherViewModel.launchApp(app.packageName, app.launchIntent, app.shortcutId)
                         showAppDrawer = false
                     },
                     onNotificationPullDown = {
