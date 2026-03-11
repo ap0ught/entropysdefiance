@@ -38,6 +38,7 @@ fun TaskList(
     onCompleteTask: (String) -> Unit,
     onMoveTask: (String, TimeHorizon) -> Unit,
     onLongPressTask: (Task) -> Unit = {},
+    onTaskSwiped: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     LazyColumn(
@@ -54,6 +55,7 @@ fun TaskList(
                 onComplete = { onCompleteTask(task.id) },
                 onMoveTask = { newTimeHorizon -> onMoveTask(task.id, newTimeHorizon) },
                 onLongPress = { onLongPressTask(task) },
+                onSwipe = { onTaskSwiped() },
                 currentTimeHorizon = timeHorizon
             )
         }
@@ -66,6 +68,7 @@ private fun TaskItem(
     onComplete: () -> Unit,
     onMoveTask: (TimeHorizon) -> Unit,
     onLongPress: () -> Unit,
+    onSwipe: () -> Unit,
     currentTimeHorizon: TimeHorizon,
     modifier: Modifier = Modifier
 ) {
@@ -138,6 +141,7 @@ private fun TaskItem(
                         
                         if (newTimeHorizon != currentTimeHorizon) {
                             onMoveTask(newTimeHorizon)
+                            onSwipe()
                         }
                     }
                     // Animate back to center

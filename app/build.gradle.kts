@@ -2,6 +2,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     id("org.jetbrains.kotlin.plugin.serialization") version "1.9.22"
+    alias(libs.plugins.kotlin.compose)
 }
 
 android {
@@ -50,10 +51,7 @@ android {
         compose = true
         buildConfig = true
     }
-    composeOptions {
-        kotlinCompilerExtensionVersion = "1.5.8"
-    }
-    
+
     // Configure Robolectric
     testOptions {
         unitTests {
@@ -108,4 +106,5 @@ dependencies {
     testImplementation("androidx.datastore:datastore-preferences:1.1.0-beta02")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.7.3")
     androidTestImplementation("androidx.datastore:datastore-preferences:1.1.0-beta02")
+    implementation(libs.intro.showcase.view)
 }

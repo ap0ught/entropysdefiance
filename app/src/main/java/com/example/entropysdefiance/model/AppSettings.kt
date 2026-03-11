@@ -25,5 +25,8 @@ data class AppSettings(
     val backupIntervalHours: Int = 24,
     
     // Task file sync settings
-    val taskFilePath: String = "" // Empty means use default location (file path or URI depending on Android version)
+    val taskFilePath: String = "", // Empty means use default location (file path or URI depending on Android version)
+
+    // Tutorial settings
+    val tutorialCompleted: Boolean = false
 ) 

@@ -31,6 +31,8 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.draw.alpha
 import androidx.compose.foundation.layout.Box
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -213,16 +215,20 @@ fun AppDrawer(
     apps: List<AppInfo>,
     onAppClick: (AppInfo) -> Unit,
     modifier: Modifier = Modifier,
-    onNotificationPullDown: () -> Unit = {}, // Added callback for notification panel
+    onNotificationPullDown: () -> Unit = {},
     onAppSettings: (AppInfo) -> Unit = {},
     onAppUninstall: (AppInfo) -> Unit = {},
-    onResetAppCounter: (AppInfo) -> Unit = {}
+    onResetAppCounter: (AppInfo) -> Unit = {},
+    onSearchFocused: () -> Unit = {},
+    onAppLaunched: () -> Unit = {}
 ) {
     var searchQuery by remember { mutableStateOf("") }
+    var hasStartedTyping by remember { mutableStateOf(false) }
     val focusRequester = remember { FocusRequester() }
     val keyboardController = LocalSoftwareKeyboardController.current
     val listState = rememberLazyListState()
     val gestureHandler = remember { GestureHandler() }
+    val tutorialTargetRegistry = LocalTutorialTargets.current
     
     // Track scroll state for keyboard visibility
     var isScrolling by remember { mutableStateOf(false) }
@@ -278,6 +284,7 @@ fun AppDrawer(
     LaunchedEffect(filteredApps) {
         if (searchQuery.isNotEmpty() && filteredApps.size == 1) {
             onAppClick(filteredApps[0])
+            onAppLaunched()
         }
     }
 
@@ -303,11 +310,24 @@ fun AppDrawer(
                 BasicTextField(
                     value = searchQuery,
                     onValueChange = { newQuery ->
+                        if (!hasStartedTyping && newQuery.isNotEmpty()) {
+                            hasStartedTyping = true
+                            onSearchFocused()
+                        }
                         searchQuery = newQuery
                     },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .focusRequester(focusRequester),
+                        .focusRequester(focusRequester)
+                        .onGloballyPositioned { coordinates ->
+                            val bounds = androidx.compose.ui.geometry.Rect(
+                                left = coordinates.positionInRoot().x,
+                                top = coordinates.positionInRoot().y,
+                                right = coordinates.positionInRoot().x + coordinates.size.width,
+                                bottom = coordinates.positionInRoot().y + coordinates.size.height
+                            )
+                            tutorialTargetRegistry.report("app_drawer_search", bounds)
+                        },
                     textStyle = MaterialTheme.typography.displayMedium.copy(
                         color = MaterialTheme.colorScheme.onBackground
                     ),
@@ -344,11 +364,12 @@ fun AppDrawer(
                     items(filteredApps, key = { it.usageKey }) { app ->
                         AppItem(
                             app = app,
-                            onClick = { 
+                            onClick = {
                                 onAppClick(app)
+                                onAppLaunched()
                                 appShowingMenu = null // Close menu when app is clicked
                             },
-                            onLongPress = { 
+                            onLongPress = {
                                 // Toggle the action menu for this app
                                 appShowingMenu = if (appShowingMenu == app.packageName) {
                                     null
@@ -356,10 +377,11 @@ fun AppDrawer(
                                     app.packageName
                                 }
                             },
-                            onDoubleTap = { 
+                            onDoubleTap = {
                                 // TODO: Implement double tap functionality
                                 // For now, just open the app
                                 onAppClick(app)
+                                onAppLaunched()
                             },
                             isShowingMenu = appShowingMenu == app.packageName,
                             onSettings = { 

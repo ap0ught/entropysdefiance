@@ -48,6 +48,9 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
         
         // Task file sync settings
         val TASK_FILE_PATH = stringPreferencesKey("task_file_path")
+
+        // Tutorial settings
+        val TUTORIAL_COMPLETED = booleanPreferencesKey("tutorial_completed")
     }
 
     /**
@@ -76,7 +79,8 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
             val backupIntervalHours = preferences[PreferencesKeys.BACKUP_INTERVAL_HOURS] ?: 24
             val productivityRatio = preferences[PreferencesKeys.PRODUCTIVITY_RATIO] ?: 0.5f
             val taskFilePath = preferences[PreferencesKeys.TASK_FILE_PATH] ?: ""
-            
+            val tutorialCompleted = preferences[PreferencesKeys.TUTORIAL_COMPLETED] ?: false
+
             // Extract selected calendar IDs from the string set
             val selectedCalendarIdStrings = preferences[PreferencesKeys.SELECTED_CALENDAR_IDS] ?: emptySet()
             val selectedCalendarIds = selectedCalendarIdStrings
@@ -94,7 +98,7 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
                        "colorTheme=$colorTheme, backup=$enableAutomaticBackup, " +
                        "selectedCalendars=${selectedCalendarIds.size}, " +
                        "calculationCalendars=${calculationCalendarIds.size}, " +
-                       "productivityRatio=$productivityRatio")
+                       "productivityRatio=$productivityRatio, tutorialCompleted=$tutorialCompleted")
             
             AppSettings(
                 showCalendarWidget = showCalendarWidget,
@@ -107,7 +111,8 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
                 productivityRatio = productivityRatio,
                 enableAutomaticBackup = enableAutomaticBackup,
                 backupIntervalHours = backupIntervalHours,
-                taskFilePath = taskFilePath
+                taskFilePath = taskFilePath,
+                tutorialCompleted = tutorialCompleted
             )
         }
 
@@ -267,6 +272,7 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
                 preferences[PreferencesKeys.CALCULATION_CALENDAR_IDS] = calculationCalendarIdStrings
                 preferences[PreferencesKeys.PRODUCTIVITY_RATIO] = settings.productivityRatio
                 preferences[PreferencesKeys.TASK_FILE_PATH] = settings.taskFilePath
+                preferences[PreferencesKeys.TUTORIAL_COMPLETED] = settings.tutorialCompleted
             }
             Log.d(TAG, "Successfully saved all settings")
             dumpDataStoreContents() // Debug - dump contents after updating
@@ -316,6 +322,21 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
             dumpDataStoreContents()
         } catch (e: Exception) {
             Log.e(TAG, "Error saving taskFilePath: ${e.message}", e)
+        }
+    }
+
+    /**
+     * Update tutorial completed setting
+     */
+    suspend fun updateTutorialCompleted(completed: Boolean) {
+        Log.d(TAG, "Saving tutorialCompleted: $completed")
+        try {
+            dataStore.edit { preferences ->
+                preferences[PreferencesKeys.TUTORIAL_COMPLETED] = completed
+            }
+            Log.d(TAG, "Successfully saved tutorialCompleted")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error saving tutorialCompleted: ${e.message}", e)
         }
     }
     

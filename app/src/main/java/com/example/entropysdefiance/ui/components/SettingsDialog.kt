@@ -14,6 +14,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -38,6 +39,7 @@ fun SettingsDialog(
     onPermissionsSettingsClick: () -> Unit,
     onBackupSettingsClick: () -> Unit,
     onStatisticsClick: () -> Unit,
+    onStartTutorial: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     
@@ -83,6 +85,16 @@ fun SettingsDialog(
                     .verticalScroll(rememberScrollState())
                     .padding(vertical = 8.dp)
             ) {
+                // Tutorial Section
+                SettingsSectionButton(
+                    title = "Introduction",
+                    description = "Restart the interactive tutorial to learn the basics",
+                    icon = Icons.Default.PlayArrow,
+                    onClick = onStartTutorial
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
                 // Calendar Settings Section
                 SettingsSectionButton(
                     title = "Calendar",

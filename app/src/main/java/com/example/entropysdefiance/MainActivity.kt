@@ -77,6 +77,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.background
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
 import android.util.Log
 import com.example.entropysdefiance.viewmodel.CalendarViewModel
 import androidx.compose.runtime.collectAsState
@@ -111,6 +113,11 @@ import com.example.entropysdefiance.ui.components.ZenModeScreen
 import com.example.entropysdefiance.ui.components.ZenModeDurationDialog
 import com.example.entropysdefiance.viewmodel.AlignmentViewModel
 import com.example.entropysdefiance.viewmodel.ZenModeViewModel
+import com.example.entropysdefiance.viewmodel.TutorialViewModel
+import com.example.entropysdefiance.ui.components.AppTutorialOverlay
+import com.example.entropysdefiance.ui.components.LocalTutorialTargets
+import com.example.entropysdefiance.ui.components.report
+import androidx.compose.ui.geometry.Rect
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalComposeUiApi::class)
 class MainActivity : ComponentActivity() {
@@ -150,12 +157,13 @@ class MainActivity : ComponentActivity() {
                     val launcherViewModel: LauncherViewModel = viewModel(factory = viewModelFactory)
                     val calendarViewModel: CalendarViewModel = viewModel(factory = viewModelFactory)
                     val zenModeViewModel: ZenModeViewModel = viewModel(factory = viewModelFactory)
-                    
+                    val tutorialViewModel: TutorialViewModel = viewModel(factory = viewModelFactory)
+
                     // Set TaskViewModel in ZenModeViewModel for task completion
                     LaunchedEffect(Unit) {
                         zenModeViewModel.setTaskViewModel(taskViewModel)
                     }
-                    
+
                     // Use the TaskApp composable with Calendar integration
                     TaskApp(
                         taskViewModel = taskViewModel,
@@ -163,7 +171,8 @@ class MainActivity : ComponentActivity() {
                         calendarViewModel = calendarViewModel,
                         settingsViewModel = settingsViewModel,
                         viewModelFactory = viewModelFactory,
-                        zenModeViewModel = zenModeViewModel
+                        zenModeViewModel = zenModeViewModel,
+                        tutorialViewModel = tutorialViewModel
                     )
                 }
             }
@@ -179,7 +188,8 @@ fun TaskApp(
     calendarViewModel: CalendarViewModel,
     settingsViewModel: SettingsViewModel,
     viewModelFactory: ViewModelProvider.AndroidViewModelFactory,
-    zenModeViewModel: ZenModeViewModel
+    zenModeViewModel: ZenModeViewModel,
+    tutorialViewModel: TutorialViewModel
 ) {
     var showAddScreen by remember { mutableStateOf(false) }
     val tasks by taskViewModel.tasks.collectAsStateWithLifecycle(initialValue = emptyList())
@@ -382,6 +392,9 @@ fun TaskApp(
     val showSettingsDialog by settingsViewModel.showSettingsDialog.collectAsState()
     val showCalendarSelection by settingsViewModel.showCalendarSelection.collectAsState()
     val showColorPaletteSelection by settingsViewModel.showColorPaletteSelection.collectAsState()
+
+    // Tutorial target registry for positioning tooltips
+    val tutorialTargetRegistry = remember { com.example.entropysdefiance.ui.components.TutorialTargetRegistry() }
     val showStatisticsScreen by settingsViewModel.showStatisticsScreen.collectAsState()
     val showCalendarSettings by settingsViewModel.showCalendarSettings.collectAsState()
     val showAppearanceSettings by settingsViewModel.showAppearanceSettings.collectAsState()
@@ -417,22 +430,26 @@ fun TaskApp(
     val configuration = LocalConfiguration.current
 
     Box(modifier = Modifier.fillMaxSize()) {
-        // Only show scrim overlay when NOT in zen mode
+        // Dark scrim overlay - bottom layer (visual dimming, doesn't block touches)
         if (!zenModeState.isActive) {
-            // We don't need the separate overlay with padding
-            // Just apply the scrim overlay to the entire screen
             Surface(
                 modifier = Modifier.fillMaxSize(),
                 color = Color.Black.copy(alpha = 0.6f)
             ) {}
         }
-
-        if (showAddScreen) {
+        
+        // Tutorial target registry provider
+        androidx.compose.runtime.CompositionLocalProvider(
+            LocalTutorialTargets provides tutorialTargetRegistry
+        ) {
+            // Main app content (bottom layer)
+            if (showAddScreen) {
             // Show the AddTaskScreen on top of the overlay
             AddTaskScreen(
                 onAddTask = { title, timeHorizon ->
                     taskViewModel.addTask(title, timeHorizon)
                     showAddScreen = false
+                    tutorialViewModel.onTaskCreated(timeHorizon.name)
                 },
                 onAddDeadlineTask = { title, deadline, daysNeeded ->
                     taskViewModel.addDeadlineTask(title, deadline, daysNeeded)
@@ -450,12 +467,26 @@ fun TaskApp(
                 modifier = Modifier.fillMaxSize(),
                 windowInsets = WindowInsets(0, 0, 0, 0) // Remove any insets to ensure full coverage
             ) {
-                AppDrawer(
-                    modifier = Modifier.fillMaxSize(),
-                    apps = apps,
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .onGloballyPositioned { coordinates ->
+                            val bounds = androidx.compose.ui.geometry.Rect(
+                                left = coordinates.positionInRoot().x,
+                                top = coordinates.positionInRoot().y,
+                                right = coordinates.positionInRoot().x + coordinates.size.width,
+                                bottom = coordinates.positionInRoot().y + coordinates.size.height
+                            )
+                            tutorialTargetRegistry.report("app_drawer_list", bounds)
+                        }
+                ) {
+                    AppDrawer(
+                        modifier = Modifier.fillMaxSize(),
+                        apps = apps,
                     onAppClick = { app ->
                         launcherViewModel.launchApp(app.packageName, app.launchIntent, app.shortcutId)
                         showAppDrawer = false
+                        tutorialViewModel.onAppLaunched()
                     },
                     onNotificationPullDown = {
                         // Handle notification pull down
@@ -472,8 +503,10 @@ fun TaskApp(
                     },
                     onResetAppCounter = { app ->
                         launcherViewModel.resetAppCounter(app.packageName)
-                    }
-                )
+                    },
+                    onSearchFocused = { tutorialViewModel.onAppDrawerSearchFocused() },
+                    onAppLaunched = { tutorialViewModel.onAppLaunched() }
+                )}
             }
         } else if (showSettingsDialog) {
             // Handle back press for settings dialog
@@ -491,7 +524,11 @@ fun TaskApp(
                 onFileSyncSettingsClick = { settingsViewModel.showFileSyncSettings() },
                 onPermissionsSettingsClick = { settingsViewModel.showPermissionsSettings() },
                 onBackupSettingsClick = { settingsViewModel.showBackupSettings() },
-                onStatisticsClick = { settingsViewModel.showStatisticsScreen() }
+                onStatisticsClick = { settingsViewModel.showStatisticsScreen() },
+                onStartTutorial = {
+                    settingsViewModel.hideSettingsDialog()
+                    tutorialViewModel.startTutorial()
+                }
             )
         } else if (showCalendarSelection) {
             // Handle back press for calendar selection
@@ -743,15 +780,25 @@ fun TaskApp(
                                 } else {
                                     displayedTimeHorizon.title
                                 }
-                                Text(
+                                    Text(
                                     text = title,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis,
                                     modifier = Modifier
                                         .fillMaxWidth()
+                                        .onGloballyPositioned { coordinates ->
+                                            val bounds = androidx.compose.ui.geometry.Rect(
+                                                left = coordinates.positionInRoot().x,
+                                                top = coordinates.positionInRoot().y,
+                                                right = coordinates.positionInRoot().x + coordinates.size.width,
+                                                bottom = coordinates.positionInRoot().y + coordinates.size.height
+                                            )
+                                            tutorialTargetRegistry.report("horizon_title", bounds)
+                                        }
                                         .pointerInput(Unit) {
                                             detectTapGestures(
-                                                onTap = { 
+                                                onTap = {
+                                                    tutorialViewModel.onHorizonTitleTapped()
                                                     // Check for calendar permission first
                                                     if (ContextCompat.checkSelfPermission(
                                                             context,
@@ -772,6 +819,7 @@ fun TaskApp(
                                                     }
                                                 },
                                                 onLongPress = {
+                                                    tutorialViewModel.onHorizonTitleLongPressed()
                                                     // Start alignment mode on long press
                                                     alignmentViewModel.startAlignment()
                                                 }
@@ -829,17 +877,31 @@ fun TaskApp(
                     }
                 },
                 floatingActionButton = {
-                    MultiFunctionFAB(
+                    Box(
+                        modifier = Modifier
+                            .onGloballyPositioned { coordinates ->
+                                val bounds = androidx.compose.ui.geometry.Rect(
+                                    left = coordinates.positionInRoot().x,
+                                    top = coordinates.positionInRoot().y,
+                                    right = coordinates.positionInRoot().x + coordinates.size.width,
+                                    bottom = coordinates.positionInRoot().y + coordinates.size.height
+                                )
+                                tutorialTargetRegistry.report("main_fab", bounds)
+                            }
+                    ) {
+                        MultiFunctionFAB(
                         expanded = isFabExpanded,
                         onExpandedChange = { isFabExpanded = it },
                         isPeeking = isPeeking,
                         onPeekingChange = { isPeeking = it },
-                        onAddTask = { 
+                        onAddTask = {
                             isFabExpanded = false
-                            showAddScreen = true 
+                            showAddScreen = true
+                            tutorialViewModel.onAddTaskButtonTapped()
                         },
                         onAddCalendarEvent = {
                             isFabExpanded = false
+                            tutorialViewModel.onFabTapped()
                             // Open the "Add Event" dialog directly in the calendar app
                             if (ContextCompat.checkSelfPermission(
                                     context,
@@ -850,7 +912,7 @@ fun TaskApp(
                                 val intent = Intent(Intent.ACTION_INSERT)
                                     .setData(CalendarContract.Events.CONTENT_URI)
                                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                
+
                                 try {
                                     context.startActivity(intent)
                                 } catch (e: Exception) {
@@ -858,8 +920,8 @@ fun TaskApp(
                                     Log.e("MainActivity", "Failed to open add event dialog", e)
                                     launcherViewModel.launchCalendarApp("org.fossify.calendar")
                                     Toast.makeText(
-                                        context, 
-                                        "Couldn't open add event directly", 
+                                        context,
+                                        "Couldn't open add event directly",
                                         Toast.LENGTH_SHORT
                                     ).show()
                                 }
@@ -871,14 +933,24 @@ fun TaskApp(
                                     Toast.LENGTH_SHORT
                                 ).show()
                             }
-                        }
-                    )
+                        },
+                        onFabClick = { tutorialViewModel.onFabTapped() }
+                    )}
                 }
             ) { padding ->
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(padding)
+                        .onGloballyPositioned { coordinates ->
+                            val bounds = androidx.compose.ui.geometry.Rect(
+                                left = coordinates.positionInRoot().x,
+                                top = coordinates.positionInRoot().y,
+                                right = coordinates.positionInRoot().x + coordinates.size.width,
+                                bottom = coordinates.positionInRoot().y + coordinates.size.height
+                            )
+                            tutorialTargetRegistry.report("main_content", bounds)
+                        }
                         // Add gesture detection to the main screen
                         .pointerInput(Unit) {
                             detectTapGestures(
@@ -886,12 +958,14 @@ fun TaskApp(
                                     // Launch dialer app on double tap if enabled
                                     if (appSettings.enableDoubleTapForDialer) {
                                         launcherViewModel.launchDialerApp()
+                                        tutorialViewModel.onDoubleTappedMainScreen()
                                     }
                                 },
                                 onLongPress = {
                                     // Only show settings on long press if alignment mode is not active
                                     if (!isAlignmentActive) {
                                         settingsViewModel.showSettingsDialog()
+                                        tutorialViewModel.onSettingsOpened()
                                     }
                                 },
                                 onTap = {
@@ -927,6 +1001,15 @@ fun TaskApp(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(taskListHeight)
+                                .onGloballyPositioned { coordinates ->
+                                    val bounds = androidx.compose.ui.geometry.Rect(
+                                        left = coordinates.positionInRoot().x,
+                                        top = coordinates.positionInRoot().y,
+                                        right = coordinates.positionInRoot().x + coordinates.size.width,
+                                        bottom = coordinates.positionInRoot().y + coordinates.size.height
+                                    )
+                                    tutorialTargetRegistry.report("task_list", bounds)
+                                }
                         ) {
                             TaskList(
                                 modifier = Modifier.fillMaxSize(),
@@ -934,9 +1017,11 @@ fun TaskApp(
                                 tasks = tasks,
                                 onCompleteTask = taskViewModel::completeTask,
                                 onMoveTask = taskViewModel::moveTask,
-                        onLongPressTask = { task ->
-                            zenModeViewModel.startZenModeDirectly(task)
-                        }
+                                onLongPressTask = { task ->
+                                    zenModeViewModel.startZenModeDirectly(task)
+                                    tutorialViewModel.onZenModeStarted()
+                                },
+                                onTaskSwiped = { tutorialViewModel.onTaskSwiped() }
                             )
                         }
                         
@@ -1050,23 +1135,25 @@ fun TaskApp(
                             .padding(bottom = 100.dp) // Position above the bottom app drawer area
                             .pointerInput(Unit) {
                                 var totalDragDistance = 0f
-                                
+
                                 detectVerticalDragGestures(
-                                    onDragStart = { 
+                                    onDragStart = {
                                         totalDragDistance = 0f
                                     },
-                                    onDragEnd = { 
+                                    onDragEnd = {
                                         if (totalDragDistance < -20f) {
                                             showAppDrawer = true
+                                            tutorialViewModel.onAppDrawerOpened()
                                         }
                                     },
                                     onDragCancel = {},
                                     onVerticalDrag = { change, dragAmount ->
                                         change.consume() // Always consume to prevent calendar scrolling
                                         totalDragDistance += dragAmount
-                                        
+
                                         if (totalDragDistance < -30f) {
                                             showAppDrawer = true
+                                            tutorialViewModel.onAppDrawerOpened()
                                         }
                                     }
                                 )
@@ -1108,6 +1195,15 @@ fun TaskApp(
                 }
             }
         }
+
+        // Tutorial overlay (TOP LAYER - on top of everything)
+        AppTutorialOverlay(
+            tutorialViewModel = tutorialViewModel,
+            onTutorialExit = { tutorialViewModel.exitTutorial() }
+        )
+
+        // End of tutorial target registry provider
+        }
     }
 }
 
@@ -1122,7 +1218,8 @@ fun MultiFunctionFAB(
     isPeeking: Boolean,
     onPeekingChange: (Boolean) -> Unit,
     onAddTask: () -> Unit,
-    onAddCalendarEvent: () -> Unit
+    onAddCalendarEvent: () -> Unit,
+    onFabClick: () -> Unit = {}
 ) {
     // Use the theme's predefined colors instead of transparency
     val primaryColor = MaterialTheme.colorScheme.primary
@@ -1247,7 +1344,10 @@ fun MultiFunctionFAB(
             
             // Main FAB - toggles expansion
             FloatingActionButton(
-                onClick = { onExpandedChange(!expanded) },
+                onClick = {
+                    onExpandedChange(!expanded)
+                    onFabClick()
+                },
                 containerColor = primaryColor,
                 contentColor = MaterialTheme.colorScheme.onPrimary
             ) {
