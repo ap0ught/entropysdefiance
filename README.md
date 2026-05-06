@@ -4,6 +4,12 @@
   <img src="icon.svg" width="300" alt="Entropy's Defiance Logo">
 </p>
 
+<p align="center">
+  <a href="https://buymeacoffee.com/hwanderer">
+    <img src="https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png" alt="Buy Me A Coffee">
+  </a>
+</p>
+
 ## Overview
 
 Entropy's Defiance is a minimalist Android launcher and task management app designed to bring order to the chaos of everyday digital life. It offers a unique approach to task management based on time horizons and seamlessly integrates with your calendar to keep you focused on what matters.
@@ -133,6 +139,12 @@ While this project was created through AI assistance, thoughtful contributions a
 5. Open a Merge Request
 
 Please read our [Contributing Guidelines](.gitlab/CONTRIBUTING.md) for more details.
+
+## Support
+
+If you find Entropy's Defiance useful, consider buying me a coffee:
+
+[![Buy Me A Coffee](https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png)](https://buymeacoffee.com/hwanderer)
 
 ## License
 
