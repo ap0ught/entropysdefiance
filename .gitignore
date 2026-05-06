@@ -24,17 +24,14 @@ wheels/
 *.iml
 .gradle
 local.properties
-.idea/workspace.xml
-.idea/tasks.xml
-.idea/gradle.xml
-.idea/assetWizardSettings.xml
-.idea/dictionaries
-.idea/libraries
+.idea/
+.kotlin/
 .DS_Store
 /build
 /captures
 .externalNativeBuild
 .cxx
+release.keystore
 
 # User-specific
 *.json.backup

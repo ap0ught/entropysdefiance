@@ -6,11 +6,11 @@ plugins {
 }
 
 android {
-    namespace = "com.example.entropysdefiance"
+    namespace = "com.hwanderer.entropysdefiance"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.example.entropysdefiance"
+        applicationId = "com.hwanderer.entropysdefiance"
         minSdk = 33
         targetSdk = 35
         versionCode = 1
@@ -21,12 +21,25 @@ android {
         resValue("bool", "enable_auto_backup", "true")
     }
 
-    signingConfigs {
-        create("release") {
-            storeFile = file(System.getenv("KEYSTORE_FILE") ?: "../release.keystore")
-            storePassword = System.getenv("KEYSTORE_PASSWORD")
-            keyAlias = System.getenv("KEY_ALIAS")
-            keyPassword = System.getenv("KEY_PASSWORD")
+    // Only configure release signing when a keystore is actually available.
+    // F-Droid builds from source without our keystore and signs with their own key,
+    // so an unsigned APK from `assembleRelease` is the expected output there.
+    val keystorePath = System.getenv("KEYSTORE_FILE") ?: "../release.keystore"
+    val keystorePassword = System.getenv("KEYSTORE_PASSWORD")
+    val keyAliasEnv = System.getenv("KEY_ALIAS")
+    val keyPasswordEnv = System.getenv("KEY_PASSWORD")
+    val keystoreFile = file(keystorePath)
+    val hasReleaseSigning = keystoreFile.exists()
+        && keystorePassword != null && keyAliasEnv != null && keyPasswordEnv != null
+
+    if (hasReleaseSigning) {
+        signingConfigs {
+            create("release") {
+                storeFile = keystoreFile
+                storePassword = keystorePassword
+                keyAlias = keyAliasEnv
+                keyPassword = keyPasswordEnv
+            }
         }
     }
 
@@ -37,7 +50,9 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            signingConfig = signingConfigs.getByName("release")
+            if (hasReleaseSigning) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
     }
     compileOptions {
@@ -84,7 +99,6 @@ dependencies {
     androidTestImplementation(libs.androidx.ui.test.junit4)
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
-    implementation("androidx.compose.ui:ui-text-google-fonts:1.6.3")
 
     // DataStore
     implementation("androidx.datastore:datastore-preferences:1.1.0-beta02")
