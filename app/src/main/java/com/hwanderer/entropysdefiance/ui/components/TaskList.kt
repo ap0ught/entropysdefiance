@@ -23,8 +23,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import com.hwanderer.entropysdefiance.model.Task
@@ -40,25 +38,10 @@ fun TaskList(
     onCompleteTask: (String) -> Unit,
     onMoveTask: (String, TimeHorizon) -> Unit,
     onLongPressTask: (Task) -> Unit = {},
-    onTaskSwiped: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
-    val tutorialTargetRegistry = LocalTutorialTargets.current
-    val view = LocalView.current
     val horizonTasks = remember(tasks, timeHorizon) {
         tasks.filter { it.timeHorizon == timeHorizon }
-    }
-
-    LaunchedEffect(horizonTasks.isEmpty()) {
-        if (horizonTasks.isEmpty()) {
-            tutorialTargetRegistry.remove("task_item")
-        }
-    }
-
-    DisposableEffect(horizonTasks.firstOrNull()?.id) {
-        onDispose {
-            tutorialTargetRegistry.remove("task_item")
-        }
     }
 
     LazyColumn(
@@ -69,23 +52,14 @@ fun TaskList(
         itemsIndexed(
             items = horizonTasks,
             key = { _, task -> task.id }
-        ) { index, task ->
-            val tutorialModifier = if (index == 0) {
-                Modifier.onGloballyPositioned { coordinates ->
-                    tutorialTargetRegistry.report("task_item", coordinates, view)
-                }
-            } else {
-                Modifier
-            }
-
+        ) { _, task ->
             TaskItem(
                 task = task,
                 onComplete = { onCompleteTask(task.id) },
                 onMoveTask = { newTimeHorizon -> onMoveTask(task.id, newTimeHorizon) },
                 onLongPress = { onLongPressTask(task) },
-                onSwipe = { onTaskSwiped() },
-                currentTimeHorizon = timeHorizon,
-                modifier = tutorialModifier
+                onSwipe = {},
+                currentTimeHorizon = timeHorizon
             )
         }
     }

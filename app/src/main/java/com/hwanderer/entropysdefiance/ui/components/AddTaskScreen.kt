@@ -26,8 +26,6 @@ import com.hwanderer.entropysdefiance.model.TimeHorizon
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.platform.LocalView
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -39,8 +37,6 @@ fun AddTaskScreen(
     onAddDeadlineTask: (String, LocalDate, Int) -> Unit = { _, _, _ -> },
     onDismiss: () -> Unit
 ) {
-    val tutorialTargetRegistry = LocalTutorialTargets.current
-    val view = LocalView.current
     var taskTitle by remember { mutableStateOf("") }
     var selectedTimeHorizon by remember { mutableStateOf(TimeHorizon.Today) }
     var isDeadlineTask by remember { mutableStateOf(false) }
@@ -69,12 +65,6 @@ fun AddTaskScreen(
         focusRequester.requestFocus()
     }
 
-    DisposableEffect(Unit) {
-        onDispose {
-            tutorialTargetRegistry.remove("add_button")
-        }
-    }
-
     Scaffold(
         topBar = {
             TopAppBar(
@@ -91,10 +81,7 @@ fun AddTaskScreen(
                         colors = ButtonDefaults.buttonColors(
                             containerColor = MaterialTheme.colorScheme.primary,
                             contentColor = MaterialTheme.colorScheme.onPrimary
-                        ),
-                        modifier = Modifier.onGloballyPositioned { coordinates ->
-                            tutorialTargetRegistry.report("add_button", coordinates, view)
-                        }
+                        )
                     ) {
                         Text("Add")
                     }

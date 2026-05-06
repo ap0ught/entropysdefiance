@@ -46,17 +46,17 @@ RepoType: git
 Repo: https://gitlab.com/hwanderer/entropysdefiance.git
 
 Builds:
-  - versionName: 2.0.0
-    versionCode: 2
-    commit: v2.0.0
+  - versionName: 3.0.0
+    versionCode: 3
+    commit: v3.0.0
     subdir: app
     gradle:
       - yes
 
 AutoUpdateMode: Version
 UpdateCheckMode: Tags
-CurrentVersion: 2.0.0
-CurrentVersionCode: 2
+CurrentVersion: 3.0.0
+CurrentVersionCode: 3
 ```
 
 Once merged, F-Droid's bot picks up subsequent tags automatically.

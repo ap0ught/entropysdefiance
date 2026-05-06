@@ -4,6 +4,13 @@ All notable changes to Entropy's Defiance are documented here. The format follow
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project adheres
 to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.0.0] — 2026-05-06
+
+### Changed
+- Replaced step-by-step tutorial overlay with a full-screen welcome experience:
+  six swipeable pages introducing the app's philosophy before the first use.
+  Replayable from Settings → Introduction.
+
 ## [2.0.0] — 2026-05-06
 
 First F-Droid-ready release. Application id changes from

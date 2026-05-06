@@ -115,10 +115,7 @@ import com.hwanderer.entropysdefiance.ui.components.ZenModeDurationDialog
 import com.hwanderer.entropysdefiance.viewmodel.AlignmentViewModel
 import com.hwanderer.entropysdefiance.viewmodel.ZenModeViewModel
 import com.hwanderer.entropysdefiance.viewmodel.TutorialViewModel
-import com.hwanderer.entropysdefiance.ui.components.AppTutorialOverlay
-import com.hwanderer.entropysdefiance.ui.components.LocalTutorialTargets
-import com.hwanderer.entropysdefiance.ui.components.report
-import androidx.compose.ui.geometry.Rect
+import com.hwanderer.entropysdefiance.ui.components.WelcomeScreen
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalComposeUiApi::class)
 class MainActivity : ComponentActivity() {
@@ -394,8 +391,6 @@ fun TaskApp(
     val showCalendarSelection by settingsViewModel.showCalendarSelection.collectAsState()
     val showColorPaletteSelection by settingsViewModel.showColorPaletteSelection.collectAsState()
 
-    // Tutorial target registry for positioning tooltips
-    val tutorialTargetRegistry = remember { com.hwanderer.entropysdefiance.ui.components.TutorialTargetRegistry() }
     val showStatisticsScreen by settingsViewModel.showStatisticsScreen.collectAsState()
     val showCalendarSettings by settingsViewModel.showCalendarSettings.collectAsState()
     val showAppearanceSettings by settingsViewModel.showAppearanceSettings.collectAsState()
@@ -428,23 +423,7 @@ fun TaskApp(
         calendarViewModel.updateTimeHorizon(displayedTimeHorizon)
     }
 
-    val configuration = LocalConfiguration.current
-    val density = LocalDensity.current
-    val view = LocalView.current
-
-    LaunchedEffect(configuration) {
-        val screenWidthPx = with(density) { configuration.screenWidthDp.dp.toPx() }
-        val screenHeightPx = with(density) { configuration.screenHeightDp.dp.toPx() }
-        tutorialTargetRegistry.report(
-            "bottom_edge",
-            androidx.compose.ui.geometry.Rect(
-                left = 0f,
-                top = screenHeightPx - with(density) { 96.dp.toPx() },
-                right = screenWidthPx,
-                bottom = screenHeightPx
-            )
-        )
-    }
+    val isWelcomeVisible by tutorialViewModel.isWelcomeVisible.collectAsState()
 
     Box(modifier = Modifier.fillMaxSize()) {
         // Dark scrim overlay - bottom layer (visual dimming, doesn't block touches)
@@ -455,18 +434,13 @@ fun TaskApp(
             ) {}
         }
         
-        // Tutorial target registry provider
-        androidx.compose.runtime.CompositionLocalProvider(
-            LocalTutorialTargets provides tutorialTargetRegistry
-        ) {
-            // Main app content (bottom layer)
-            if (showAddScreen) {
+        // Main app content (bottom layer)
+        if (showAddScreen) {
             // Show the AddTaskScreen on top of the overlay
             AddTaskScreen(
                 onAddTask = { title, timeHorizon ->
                     taskViewModel.addTask(title, timeHorizon)
                     showAddScreen = false
-                    tutorialViewModel.onTaskCreated(timeHorizon.name)
                 },
                 onAddDeadlineTask = { title, deadline, daysNeeded ->
                     taskViewModel.addDeadlineTask(title, deadline, daysNeeded)
@@ -484,26 +458,16 @@ fun TaskApp(
                 modifier = Modifier.fillMaxSize(),
                 windowInsets = WindowInsets(0, 0, 0, 0) // Remove any insets to ensure full coverage
             ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .onGloballyPositioned { coordinates ->
-                            tutorialTargetRegistry.report("app_drawer_list", coordinates, view)
-                        }
-                ) {
-                    AppDrawer(
-                        modifier = Modifier.fillMaxSize(),
-                        apps = apps,
+                AppDrawer(
+                    modifier = Modifier.fillMaxSize(),
+                    apps = apps,
                     onAppClick = { app ->
                         launcherViewModel.launchApp(app.packageName, app.launchIntent, app.shortcutId)
                         showAppDrawer = false
-                        tutorialViewModel.onAppLaunched()
                     },
                     onNotificationPullDown = {
-                        // Handle notification pull down
                         coroutineScope.launch {
                             showAppDrawer = false
-                            // Add additional actions for notification panel if needed
                         }
                     },
                     onAppSettings = { app ->
@@ -514,10 +478,8 @@ fun TaskApp(
                     },
                     onResetAppCounter = { app ->
                         launcherViewModel.resetAppCounter(app.packageName)
-                    },
-                    onSearchFocused = { tutorialViewModel.onAppDrawerSearchFocused() },
-                    onAppLaunched = { tutorialViewModel.onAppLaunched() }
-                )}
+                    }
+                )
             }
         } else if (showSettingsDialog) {
             // Handle back press for settings dialog
@@ -797,25 +759,17 @@ fun TaskApp(
                                     overflow = TextOverflow.Ellipsis,
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .onGloballyPositioned { coordinates ->
-                                            tutorialTargetRegistry.report("horizon_title", coordinates, view)
-                                        }
                                         .pointerInput(Unit) {
                                             detectTapGestures(
                                                 onTap = {
-                                                    tutorialViewModel.onHorizonTitleTapped()
-                                                    // Check for calendar permission first
                                                     if (ContextCompat.checkSelfPermission(
                                                             context,
                                                             Manifest.permission.READ_CALENDAR
                                                         ) == PackageManager.PERMISSION_GRANTED
                                                     ) {
-                                                        // Permission granted, launch calendar app
                                                         launcherViewModel.launchCalendarApp("org.fossify.calendar")
                                                     } else {
-                                                        // No permission, request it
                                                         calendarViewModel.initialize()
-                                                        // Show a toast message to inform the user
                                                         Toast.makeText(
                                                             context,
                                                             "Calendar permission needed to open calendar app",
@@ -824,8 +778,6 @@ fun TaskApp(
                                                     }
                                                 },
                                                 onLongPress = {
-                                                    tutorialViewModel.onHorizonTitleLongPressed()
-                                                    // Start alignment mode on long press
                                                     alignmentViewModel.startAlignment()
                                                 }
                                             )
@@ -882,13 +834,7 @@ fun TaskApp(
                     }
                 },
                 floatingActionButton = {
-                    Box(
-                        modifier = Modifier
-                            .onGloballyPositioned { coordinates ->
-                                tutorialTargetRegistry.report("main_fab", coordinates, view)
-                            }
-                    ) {
-                        MultiFunctionFAB(
+                    MultiFunctionFAB(
                         expanded = isFabExpanded,
                         onExpandedChange = { isFabExpanded = it },
                         isPeeking = isPeeking,
@@ -896,11 +842,9 @@ fun TaskApp(
                         onAddTask = {
                             isFabExpanded = false
                             showAddScreen = true
-                            tutorialViewModel.onAddTaskButtonTapped()
                         },
                         onAddCalendarEvent = {
                             isFabExpanded = false
-                            tutorialViewModel.onFabTapped()
                             // Open the "Add Event" dialog directly in the calendar app
                             if (ContextCompat.checkSelfPermission(
                                     context,
@@ -932,37 +876,28 @@ fun TaskApp(
                                     Toast.LENGTH_SHORT
                                 ).show()
                             }
-                        },
-                        onFabClick = { tutorialViewModel.onFabTapped() }
-                    )}
+                        }
+                    )
                 }
             ) { padding ->
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(padding)
-                        .onGloballyPositioned { coordinates ->
-                            tutorialTargetRegistry.report("main_content", coordinates, view)
-                        }
                         // Add gesture detection to the main screen
                         .pointerInput(Unit) {
                             detectTapGestures(
                                 onDoubleTap = {
-                                    // Launch dialer app on double tap if enabled
                                     if (appSettings.enableDoubleTapForDialer) {
                                         launcherViewModel.launchDialerApp()
-                                        tutorialViewModel.onDoubleTappedMainScreen()
                                     }
                                 },
                                 onLongPress = {
-                                    // Only show settings on long press if alignment mode is not active
                                     if (!isAlignmentActive) {
                                         settingsViewModel.showSettingsDialog()
-                                        tutorialViewModel.onSettingsOpened()
                                     }
                                 },
                                 onTap = {
-                                    // Close FAB menu when tapping anywhere on the screen
                                     if (isFabExpanded) {
                                         isFabExpanded = false
                                     }
@@ -994,9 +929,6 @@ fun TaskApp(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(taskListHeight)
-                                .onGloballyPositioned { coordinates ->
-                                    tutorialTargetRegistry.report("task_list", coordinates, view)
-                                }
                         ) {
                             TaskList(
                                 modifier = Modifier.fillMaxSize(),
@@ -1006,9 +938,7 @@ fun TaskApp(
                                 onMoveTask = taskViewModel::moveTask,
                                 onLongPressTask = { task ->
                                     zenModeViewModel.startZenModeDirectly(task)
-                                    tutorialViewModel.onZenModeStarted()
-                                },
-                                onTaskSwiped = { tutorialViewModel.onTaskSwiped() }
+                                }
                             )
                         }
                         
@@ -1130,7 +1060,6 @@ fun TaskApp(
                                     onDragEnd = {
                                         if (totalDragDistance < -20f) {
                                             showAppDrawer = true
-                                            tutorialViewModel.onAppDrawerOpened()
                                         }
                                     },
                                     onDragCancel = {},
@@ -1140,7 +1069,6 @@ fun TaskApp(
 
                                         if (totalDragDistance < -30f) {
                                             showAppDrawer = true
-                                            tutorialViewModel.onAppDrawerOpened()
                                         }
                                     }
                                 )
@@ -1183,13 +1111,12 @@ fun TaskApp(
             }
         }
 
-        // Tutorial overlay (TOP LAYER - on top of everything)
-        AppTutorialOverlay(
-            tutorialViewModel = tutorialViewModel,
-            onTutorialExit = { tutorialViewModel.exitTutorial() }
-        )
-
-        // End of tutorial target registry provider
+        // Welcome narration — shown on first launch and replayable from Settings
+        if (isWelcomeVisible) {
+            WelcomeScreen(
+                primaryColor = MaterialTheme.colorScheme.primary,
+                onComplete = { tutorialViewModel.dismissTutorial() }
+            )
         }
     }
 }
@@ -1205,20 +1132,8 @@ fun MultiFunctionFAB(
     isPeeking: Boolean,
     onPeekingChange: (Boolean) -> Unit,
     onAddTask: () -> Unit,
-    onAddCalendarEvent: () -> Unit,
-    onFabClick: () -> Unit = {}
+    onAddCalendarEvent: () -> Unit
 ) {
-    val tutorialTargetRegistry = LocalTutorialTargets.current
-    val view = LocalView.current
-    DisposableEffect(expanded) {
-        if (!expanded) {
-            tutorialTargetRegistry.remove("add_task_button")
-        }
-        onDispose {
-            tutorialTargetRegistry.remove("add_task_button")
-        }
-    }
-    // Use the theme's predefined colors instead of transparency
     val primaryColor = MaterialTheme.colorScheme.primary
     val taskButtonColor = MaterialTheme.colorScheme.secondary  // Uses primaryVariant1 from theme
     val calendarButtonColor = MaterialTheme.colorScheme.secondary  // Uses primaryVariant2 from theme
@@ -1283,11 +1198,7 @@ fun MultiFunctionFAB(
                     onClick = onAddTask,
                     containerColor = taskButtonColor,
                     contentColor = MaterialTheme.colorScheme.onPrimary,
-                    modifier = Modifier
-                        .size(48.dp)
-                        .onGloballyPositioned { coordinates ->
-                            tutorialTargetRegistry.report("add_task_button", coordinates, view)
-                        }
+                    modifier = Modifier.size(48.dp)
                 ) {
                     Icon(
                         Icons.Default.Edit,
@@ -1345,10 +1256,7 @@ fun MultiFunctionFAB(
             
             // Main FAB - toggles expansion
             FloatingActionButton(
-                onClick = {
-                    onExpandedChange(!expanded)
-                    onFabClick()
-                },
+                onClick = { onExpandedChange(!expanded) },
                 containerColor = primaryColor,
                 contentColor = MaterialTheme.colorScheme.onPrimary
             ) {

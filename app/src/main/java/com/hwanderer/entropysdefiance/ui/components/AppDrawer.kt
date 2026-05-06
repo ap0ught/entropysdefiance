@@ -38,6 +38,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.input.pointer.PointerInputChange
 import androidx.compose.ui.input.pointer.consumeAllChanges
 import androidx.compose.ui.platform.LocalContext
@@ -218,57 +222,77 @@ fun AppDrawer(
     onNotificationPullDown: () -> Unit = {},
     onAppSettings: (AppInfo) -> Unit = {},
     onAppUninstall: (AppInfo) -> Unit = {},
-    onResetAppCounter: (AppInfo) -> Unit = {},
-    onSearchFocused: () -> Unit = {},
-    onAppLaunched: () -> Unit = {}
+    onResetAppCounter: (AppInfo) -> Unit = {}
 ) {
     var searchQuery by remember { mutableStateOf("") }
-    var hasStartedTyping by remember { mutableStateOf(false) }
     val focusRequester = remember { FocusRequester() }
     val keyboardController = LocalSoftwareKeyboardController.current
-    val view = LocalView.current
     val listState = rememberLazyListState()
     val gestureHandler = remember { GestureHandler() }
-    val tutorialTargetRegistry = LocalTutorialTargets.current
-    
-    // Track scroll state for keyboard visibility
-    var isScrolling by remember { mutableStateOf(false) }
-    var lastScrollOffset by remember { mutableIntStateOf(0) }
-    
+
+    // Suppress the second bounce when a fling reaches the top of the list, while still
+    // allowing the user's deliberate drag-to-dismiss gesture on the surrounding sheet.
+    //
+    // The two cases produce identical signals once the list is pinned at scroll = 0 — both
+    // forward a downward residual to the parent. They differ in what came before:
+    //   • Deliberate dismiss: at least one onPostScroll(Drag) before release.
+    //   • Fling-to-top:       only onPostScroll(Fling) ticks, no preceding Drag.
+    //
+    // We watch for a Drag tick during the gesture and only let the post-fling velocity
+    // propagate when we saw one. The Drag-source post-scroll itself we always pass through
+    // so the sheet can drag along with the user's finger.
+    val absorbResidualScroll = remember {
+        object : NestedScrollConnection {
+            private var sawUserDrag = false
+
+            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                if (source == NestedScrollSource.Drag) sawUserDrag = true
+                return Offset.Zero
+            }
+
+            override fun onPostScroll(
+                consumed: Offset,
+                available: Offset,
+                source: NestedScrollSource
+            ): Offset = if (source == NestedScrollSource.Fling) available else Offset.Zero
+
+            override suspend fun onPostFling(
+                consumed: Velocity,
+                available: Velocity
+            ): Velocity {
+                val swallow = !sawUserDrag
+                sawUserDrag = false
+                return if (swallow) available else Velocity.Zero
+            }
+        }
+    }
+
     // Track which app is showing the action menu (if any)
     var appShowingMenu by remember { mutableStateOf<String?>(null) }
-    
+
     // Confirmation dialog states
     var showUninstallDialog by remember { mutableStateOf<AppInfo?>(null) }
     var showResetCounterDialog by remember { mutableStateOf<AppInfo?>(null) }
-    
+
     LaunchedEffect(Unit) {
         focusRequester.requestFocus()
         keyboardController?.show()
     }
-    
-    // Monitor scroll state to hide/show keyboard
+
+    // Hide the keyboard while scrolling; restore it once the list settles back at the top.
+    // Snapshotting `isScrollInProgress` (instead of `firstVisibleItemScrollOffset`) means we only
+    // react to user-driven scroll-start / scroll-stop transitions — not to layout shifts triggered
+    // by the IME show/hide that we cause ourselves, which previously fed back into a second bounce.
     LaunchedEffect(listState) {
-        snapshotFlow { listState.firstVisibleItemScrollOffset }
-            .collect { scrollOffset ->
-                val isAtTop = scrollOffset == 0 && listState.firstVisibleItemIndex == 0
-                
-                // Hide keyboard when scrolling down, show when at top
-                if (scrollOffset > lastScrollOffset && scrollOffset > 10) {
-                    // Scrolling down - hide keyboard
-                    if (!isScrolling) {
-                        isScrolling = true
-                        keyboardController?.hide()
-                    }
-                } else if (isAtTop) {
-                    // At top - show keyboard
-                    if (isScrolling) {
-                        isScrolling = false
-                        keyboardController?.show()
-                    }
+        snapshotFlow { listState.isScrollInProgress }
+            .collect { isScrolling ->
+                if (isScrolling) {
+                    keyboardController?.hide()
+                } else {
+                    val atTop = listState.firstVisibleItemIndex == 0 &&
+                        listState.firstVisibleItemScrollOffset == 0
+                    if (atTop) keyboardController?.show()
                 }
-                
-                lastScrollOffset = scrollOffset
             }
     }
 
@@ -285,7 +309,6 @@ fun AppDrawer(
     LaunchedEffect(filteredApps) {
         if (searchQuery.isNotEmpty() && filteredApps.size == 1) {
             onAppClick(filteredApps[0])
-            onAppLaunched()
         }
     }
 
@@ -310,19 +333,10 @@ fun AppDrawer(
                 
                 BasicTextField(
                     value = searchQuery,
-                    onValueChange = { newQuery ->
-                        if (!hasStartedTyping && newQuery.isNotEmpty()) {
-                            hasStartedTyping = true
-                            onSearchFocused()
-                        }
-                        searchQuery = newQuery
-                    },
+                    onValueChange = { newQuery -> searchQuery = newQuery },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .focusRequester(focusRequester)
-                        .onGloballyPositioned { coordinates ->
-                            tutorialTargetRegistry.report("app_drawer_search", coordinates, view)
-                        },
+                        .focusRequester(focusRequester),
                     textStyle = MaterialTheme.typography.displayMedium.copy(
                         color = MaterialTheme.colorScheme.onBackground
                     ),
@@ -354,14 +368,15 @@ fun AppDrawer(
                 LazyColumn(
                     state = listState,
                     verticalArrangement = Arrangement.spacedBy(16.dp),
-                    modifier = Modifier.fillMaxSize()
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .nestedScroll(absorbResidualScroll)
                 ) {
                     items(filteredApps, key = { it.usageKey }) { app ->
                         AppItem(
                             app = app,
                             onClick = {
                                 onAppClick(app)
-                                onAppLaunched()
                                 appShowingMenu = null // Close menu when app is clicked
                             },
                             onLongPress = {

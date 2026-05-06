@@ -1,0 +1,1 @@
+Replaced the step-by-step tutorial overlay with a full-screen welcome experience: six swipeable pages introducing the app's philosophy before the first use. Replayable from Settings → Introduction.

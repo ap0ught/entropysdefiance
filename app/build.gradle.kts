@@ -13,8 +13,8 @@ android {
         applicationId = "com.hwanderer.entropysdefiance"
         minSdk = 33
         targetSdk = 35
-        versionCode = 2
-        versionName = "2.0.0"
+        versionCode = 3
+        versionName = "3.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         
@@ -120,5 +120,4 @@ dependencies {
     testImplementation("androidx.datastore:datastore-preferences:1.1.0-beta02")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.7.3")
     androidTestImplementation("androidx.datastore:datastore-preferences:1.1.0-beta02")
-    implementation(libs.intro.showcase.view)
 }
