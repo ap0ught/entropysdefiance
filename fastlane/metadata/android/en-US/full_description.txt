@@ -1,0 +1,29 @@
+Entropy's Defiance is a minimalist Android launcher and task manager built around
+five time horizons: <b>Today</b>, <b>This Week</b>, <b>This Month</b>,
+<b>This Year</b> and <b>This Life</b>. Tasks are stored in plain JSON, so they
+sync cleanly with Syncthing or any folder-sync tool, and a small terminal UI is
+available for editing the same file from a Linux laptop.
+
+<b>Features</b>
+* Time-horizon task list — swipe between horizons, peek at what's next
+* Minimalist home screen with a focused task view
+* App drawer with frequency-ranked apps and instant text search
+* Optional double-tap to launch the dialer
+* Calendar widget with free-time calculation across selected calendars
+* Zen Mode for distraction-free focus on a single task
+* Plain-JSON storage that syncs over Syncthing
+* Interactive in-app tutorial — replayable from Settings → Introduction
+
+<b>Permissions</b>
+* <i>Query all packages</i> — needed to list installed apps in the drawer
+* <i>Read calendar</i> — only used for the calendar widget; you can deny it
+* <i>Set wallpaper</i> — used by the launcher to restore your wallpaper
+* <i>Bind device admin</i> — only requested if you opt in to Zen Mode's
+  Do Not Disturb integration
+
+The app is offline-first and contains no trackers, no analytics, and no ads.
+Source code is published under the MIT License at
+https://gitlab.com/hwanderer/entropysdefiance.
+
+If you'd like to support development:
+https://buymeacoffee.com/hwanderer

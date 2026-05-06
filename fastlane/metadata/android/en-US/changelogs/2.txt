@@ -1,0 +1,6 @@
+First F-Droid-ready release.
+
+* Interactive onboarding tutorial, replayable from Settings → Introduction
+* Bundled Poppins font (no Google Play Services dependency)
+* Cleaned up unused storage permissions
+* New "Support development" entry in Settings
