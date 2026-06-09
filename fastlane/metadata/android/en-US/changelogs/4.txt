@@ -1,0 +1,1 @@
+Fixed tasks vanishing on a fresh install: a storage location is now requested up front, right after the welcome, so created tasks are saved and shown from the start. Added system back-button support on the task creation screen and made its back arrow clearly visible.

@@ -13,8 +13,8 @@ android {
         applicationId = "com.hwanderer.entropysdefiance"
         minSdk = 33
         targetSdk = 35
-        versionCode = 3
-        versionName = "3.0.0"
+        versionCode = 4
+        versionName = "3.0.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         

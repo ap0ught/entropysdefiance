@@ -4,6 +4,15 @@ All notable changes to Entropy's Defiance are documented here. The format follow
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project adheres
 to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.0.1] — 2026-06-09
+
+### Fixed
+- Tasks created on a fresh install no longer vanish. The app now requires a
+  storage location immediately after the welcome, instead of silently dropping
+  tasks when no task file was configured.
+- The system back button now returns to the home screen from the task creation
+  screen, and its back arrow is rendered with a clearly visible tint.
+
 ## [3.0.0] — 2026-05-06
 
 ### Changed

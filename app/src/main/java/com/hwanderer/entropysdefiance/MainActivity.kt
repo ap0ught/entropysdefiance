@@ -116,6 +116,7 @@ import com.hwanderer.entropysdefiance.viewmodel.AlignmentViewModel
 import com.hwanderer.entropysdefiance.viewmodel.ZenModeViewModel
 import com.hwanderer.entropysdefiance.viewmodel.TutorialViewModel
 import com.hwanderer.entropysdefiance.ui.components.WelcomeScreen
+import com.hwanderer.entropysdefiance.ui.components.StorageSetupScreen
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalComposeUiApi::class)
 class MainActivity : ComponentActivity() {
@@ -436,6 +437,12 @@ fun TaskApp(
         
         // Main app content (bottom layer)
         if (showAddScreen) {
+            // System back should return to the home screen, like every other
+            // full-screen view here.
+            BackHandler {
+                showAddScreen = false
+            }
+
             // Show the AddTaskScreen on top of the overlay
             AddTaskScreen(
                 onAddTask = { title, timeHorizon ->
@@ -1111,11 +1118,20 @@ fun TaskApp(
             }
         }
 
-        // Welcome narration — shown on first launch and replayable from Settings
+        // Welcome narration — shown on first launch and replayable from Settings.
+        // Once the narration is done, a storage location is mandatory: tasks are
+        // persisted to a user-chosen JSON file, and without one created tasks
+        // cannot be saved or shown. The gate also catches the case where a path
+        // is ever lost, instead of silently dropping tasks.
         if (isWelcomeVisible) {
             WelcomeScreen(
                 primaryColor = MaterialTheme.colorScheme.primary,
                 onComplete = { tutorialViewModel.dismissTutorial() }
+            )
+        } else if (settingsLoaded && appSettings.tutorialCompleted && appSettings.taskFilePath.isEmpty()) {
+            StorageSetupScreen(
+                primaryColor = MaterialTheme.colorScheme.primary,
+                onChooseFolder = { folderPickerLauncher.launch(null) }
             )
         }
     }
