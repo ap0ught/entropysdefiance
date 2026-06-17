@@ -15,8 +15,6 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.*
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -116,6 +114,8 @@ import com.hwanderer.entropysdefiance.viewmodel.AlignmentViewModel
 import com.hwanderer.entropysdefiance.viewmodel.ZenModeViewModel
 import com.hwanderer.entropysdefiance.viewmodel.TutorialViewModel
 import com.hwanderer.entropysdefiance.ui.components.WelcomeScreen
+import com.hwanderer.entropysdefiance.utils.buildDefaultLauncherIntent
+import com.hwanderer.entropysdefiance.utils.isAppDefaultLauncher
 import com.hwanderer.entropysdefiance.ui.components.StorageSetupScreen
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalComposeUiApi::class)
@@ -135,13 +135,15 @@ class MainActivity : ComponentActivity() {
         val viewModelFactory = ViewModelProvider.AndroidViewModelFactory.getInstance(application)
         
         setContent {
+            val context = LocalContext.current
             // Get settings from the ViewModel
             val settingsViewModel: SettingsViewModel = viewModel(factory = viewModelFactory)
             val appSettings by settingsViewModel.settings.collectAsState(AppSettings())
-            
-            // Get the selected color palette based on settings
+
+            // Resolve the accent palette: a preset name, a "#RRGGBB" custom color, or the
+            // Material You system accent.
             val selectedColorPalette = remember(appSettings.colorTheme) {
-                availableColorPalettes.find { it.displayName == appSettings.colorTheme } ?: GreenPalette
+                resolveColorPalette(appSettings.colorTheme, context)
             }
             
             EntropysDefianceTheme(
@@ -251,8 +253,13 @@ fun TaskApp(
                         }
                         
                         val fileRepo = com.hwanderer.entropysdefiance.data.TaskFileRepository(context)
-                        val allTasks = fileRepo.readTasksFromFile(filePath)
-                        
+                        val readResult = fileRepo.readTasksFromFile(filePath)
+                        if (readResult !is com.hwanderer.entropysdefiance.data.TaskReadResult.Success) {
+                            Toast.makeText(context, "Could not read tasks to export", Toast.LENGTH_LONG).show()
+                            return@launch
+                        }
+                        val allTasks = readResult.tasks
+
                         val parcelFileDescriptor = context.contentResolver.openFileDescriptor(uri, "w")
                         if (parcelFileDescriptor != null) {
                             backupRepository.exportTasksToCsv(allTasks, parcelFileDescriptor)
@@ -297,6 +304,12 @@ fun TaskApp(
         }
     )
     
+    // Prompt to become the default launcher after onboarding — many OEMs (e.g. Samsung
+    // One UI) never ask on their own, leaving the app installed but never used as Home.
+    val defaultLauncherRequest = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { /* Status is re-derived from the system on next read; nothing to do here. */ }
+
     // Folder picker for setting up file sync
     val folderPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocumentTree(),
@@ -400,9 +413,6 @@ fun TaskApp(
     val showPermissionsSettings by settingsViewModel.showPermissionsSettings.collectAsState()
     val showBackupSettings by settingsViewModel.showBackupSettings.collectAsState()
     val showCalculationCalendarSelection by settingsViewModel.showCalculationCalendarSelection.collectAsState()
-    
-    // Define our bottom sheet state for the app drawer
-    val bottomSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     val currentTimeHorizon = remember(tasks) {
         TimeHorizon.entries.firstOrNull { horizon ->
@@ -456,14 +466,16 @@ fun TaskApp(
                 onDismiss = { showAddScreen = false }
             )
         } else if (showAppDrawer) {
-            // Use ModalBottomSheet with proper configuration for full-screen display
-            ModalBottomSheet(
-                onDismissRequest = { showAppDrawer = false },
-                sheetState = bottomSheetState,
-                dragHandle = { /* No visible drag handle */ },
-                containerColor = MaterialTheme.colorScheme.background,
+            // Full-screen app drawer rendered as a plain composable, consistent with the other
+            // screens. It previously used a ModalBottomSheet, whose hide animation and IME-inset
+            // handling caused a multi-second lag on close and delayed the keyboard re-showing.
+            BackHandler {
+                showAppDrawer = false
+            }
+
+            Surface(
                 modifier = Modifier.fillMaxSize(),
-                windowInsets = WindowInsets(0, 0, 0, 0) // Remove any insets to ensure full coverage
+                color = MaterialTheme.colorScheme.background
             ) {
                 AppDrawer(
                     modifier = Modifier.fillMaxSize(),
@@ -473,9 +485,7 @@ fun TaskApp(
                         showAppDrawer = false
                     },
                     onNotificationPullDown = {
-                        coroutineScope.launch {
-                            showAppDrawer = false
-                        }
+                        showAppDrawer = false
                     },
                     onAppSettings = { app ->
                         launcherViewModel.openAppSettings(app.packageName)
@@ -485,7 +495,8 @@ fun TaskApp(
                     },
                     onResetAppCounter = { app ->
                         launcherViewModel.resetAppCounter(app.packageName)
-                    }
+                    },
+                    leftHanded = appSettings.leftHanded
                 )
             }
         } else if (showSettingsDialog) {
@@ -508,7 +519,8 @@ fun TaskApp(
                 onStartTutorial = {
                     settingsViewModel.hideSettingsDialog()
                     tutorialViewModel.startTutorial()
-                }
+                },
+                onToggleLeftHanded = { settingsViewModel.toggleLeftHanded() }
             )
         } else if (showCalendarSelection) {
             // Handle back press for calendar selection
@@ -587,7 +599,6 @@ fun TaskApp(
             AppearanceSettingsScreen(
                 appSettings = appSettings,
                 onBack = { settingsViewModel.hideAppearanceSettings() },
-                onToggleDarkTheme = { settingsViewModel.toggleDarkTheme() },
                 onColorPaletteClick = { settingsViewModel.showColorPaletteSelection() }
             )
         } else if (showFreeTimeSettings) {
@@ -751,6 +762,7 @@ fun TaskApp(
             // Home screen content
             Scaffold(
                 containerColor = Color.Transparent,
+                floatingActionButtonPosition = if (appSettings.leftHanded) FabPosition.Start else FabPosition.End,
                 topBar = {
                     Column {
                         TopAppBar(
@@ -987,6 +999,7 @@ fun TaskApp(
                                                 // Open the specific calendar event
                                                 launcherViewModel.openCalendarEvent(event.eventId, event.calendarId)
                                             },
+                                            leftHanded = appSettings.leftHanded,
                                             modifier = Modifier.fillMaxSize()
                                         )
                                     }
@@ -1002,6 +1015,7 @@ fun TaskApp(
                                             // For mock events, just request calendar permission
                                             calendarViewModel.initialize()
                                         },
+                                        leftHanded = appSettings.leftHanded,
                                         modifier = Modifier.fillMaxSize()
                                     )
                                 }
@@ -1050,10 +1064,11 @@ fun TaskApp(
                     )
                     
                     // Add additional FAB area gesture detection to ensure swipes in this area
-                    // trigger the app drawer rather than scrolling calendar events
+                    // trigger the app drawer rather than scrolling calendar events. Mirrors to the
+                    // left in left-handed mode, matching the FAB and the calendar's reserved edge.
                     Box(
                         modifier = Modifier
-                            .align(Alignment.BottomEnd)
+                            .align(if (appSettings.leftHanded) Alignment.BottomStart else Alignment.BottomEnd)
                             .width(80.dp)
                             .height(350.dp) // Increased from 200dp to 350dp to extend higher up the screen
                             .padding(bottom = 100.dp) // Position above the bottom app drawer area
@@ -1126,7 +1141,13 @@ fun TaskApp(
         if (isWelcomeVisible) {
             WelcomeScreen(
                 primaryColor = MaterialTheme.colorScheme.primary,
-                onComplete = { tutorialViewModel.dismissTutorial() }
+                onComplete = {
+                    tutorialViewModel.dismissTutorial()
+                    // Offer to become the default launcher right after onboarding.
+                    if (!isAppDefaultLauncher(context)) {
+                        defaultLauncherRequest.launch(buildDefaultLauncherIntent(context))
+                    }
+                }
             )
         } else if (settingsLoaded && appSettings.tutorialCompleted && appSettings.taskFilePath.isEmpty()) {
             StorageSetupScreen(

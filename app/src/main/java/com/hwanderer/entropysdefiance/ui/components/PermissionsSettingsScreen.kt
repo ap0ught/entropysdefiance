@@ -7,6 +7,8 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
+import com.hwanderer.entropysdefiance.utils.buildDefaultLauncherIntent
+import com.hwanderer.entropysdefiance.utils.isAppDefaultLauncher
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
@@ -36,6 +38,7 @@ fun PermissionsSettingsScreen(
 
     // Permission states - reactive to permission changes
     var calendarPermissionGranted by remember { mutableStateOf(false) }
+    var isDefaultLauncher by remember { mutableStateOf(false) }
 
     // Function to refresh permission states
     fun refreshPermissions() {
@@ -43,6 +46,7 @@ fun PermissionsSettingsScreen(
             context,
             Manifest.permission.READ_CALENDAR
         ) == PackageManager.PERMISSION_GRANTED
+        isDefaultLauncher = isAppDefaultLauncher(context)
     }
 
     // Initialize permission states on first load
@@ -58,6 +62,12 @@ fun PermissionsSettingsScreen(
         }
     )
 
+    // Returns from the "Home app" role dialog (or Home settings) — re-check status.
+    val defaultLauncherResult = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult(),
+        onResult = { refreshPermissions() }
+    )
+
     Surface(
         modifier = Modifier.fillMaxSize(),
         color = MaterialTheme.colorScheme.background
@@ -65,32 +75,9 @@ fun PermissionsSettingsScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 16.dp)
+                .padding(horizontal = 24.dp)
         ) {
-            // Header
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 50.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(onClick = onBack) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = "Back",
-                        tint = MaterialTheme.colorScheme.onBackground
-                    )
-                }
-
-                Spacer(modifier = Modifier.width(8.dp))
-
-                Text(
-                    text = "Permissions",
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onBackground
-                )
-            }
+            ScreenHeader(title = "Permissions", onBack = onBack)
 
             // Content
             Column(
@@ -101,63 +88,43 @@ fun PermissionsSettingsScreen(
                     .padding(vertical = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                // Info card
-                OutlinedCard(
-                    modifier = Modifier.fillMaxWidth(),
-                    border = androidx.compose.foundation.BorderStroke(
-                        1.dp,
-                        MaterialTheme.colorScheme.primary
-                    ),
-                    colors = CardDefaults.outlinedCardColors(
-                        containerColor = MaterialTheme.colorScheme.background
+                // Intro
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "App permissions",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onBackground
                     )
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp)
+                    Text(
+                        text = "Grant permissions to enable full functionality. You can change " +
+                            "these in your device settings anytime.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
+                    )
+                    TextButton(
+                        onClick = { refreshPermissions() },
+                        contentPadding = PaddingValues(0.dp)
                     ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Info,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary
-                            )
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = "App Permissions",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onBackground
-                                )
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text(
-                                    text = "Grant permissions to enable full app functionality. " +
-                                            "You can change these in your device settings anytime.",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onBackground
-                                )
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(12.dp))
-
-                        OutlinedButton(
-                            onClick = { refreshPermissions() },
-                            modifier = Modifier.align(Alignment.End)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Refresh,
-                                contentDescription = null
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("Refresh Status")
-                        }
+                        Text(
+                            "Refresh status",
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.Medium
+                        )
                     }
                 }
+
+                // Default launcher — many OEMs (e.g. Samsung One UI) never prompt to switch
+                // home apps, so offer it explicitly here.
+                PermissionItem(
+                    title = "Default Launcher",
+                    description = "Set Entropy's Defiance as your home app so it opens when you " +
+                            "press Home or unlock your device.",
+                    isGranted = isDefaultLauncher,
+                    buttonLabel = "Set as Default Launcher",
+                    onRequestPermission = {
+                        defaultLauncherResult.launch(buildDefaultLauncherIntent(context))
+                    }
+                )
 
                 // Calendar permission
                 PermissionItem(
@@ -179,62 +146,47 @@ private fun PermissionItem(
     description: String,
     isGranted: Boolean,
     onRequestPermission: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    buttonLabel: String = "Grant Permission"
 ) {
-    Card(
-        modifier = modifier.fillMaxWidth()
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp)
+    val onBg = MaterialTheme.colorScheme.onBackground
+    val accent = MaterialTheme.colorScheme.primary
+    Column(modifier = modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Column(
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text(
-                        text = title,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-
-                    Spacer(modifier = Modifier.height(4.dp))
-
-                    Text(
-                        text = description,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-
-                // Status icon
-                Icon(
-                    imageVector = if (isGranted) Icons.Default.CheckCircle else Icons.Default.Warning,
-                    contentDescription = if (isGranted) "Granted" else "Not granted",
-                    tint = if (isGranted) {
-                        MaterialTheme.colorScheme.primary
-                    } else {
-                        MaterialTheme.colorScheme.error
-                    }
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = onBg
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = description,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = onBg.copy(alpha = 0.6f)
                 )
             }
+            Spacer(modifier = Modifier.width(12.dp))
+            Icon(
+                imageVector = if (isGranted) Icons.Default.CheckCircle else Icons.Default.Warning,
+                contentDescription = if (isGranted) "Granted" else "Not granted",
+                tint = if (isGranted) accent else onBg.copy(alpha = 0.45f)
+            )
+        }
 
-            if (!isGranted) {
-                Spacer(modifier = Modifier.height(12.dp))
-
-                Button(
-                    onClick = onRequestPermission,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("Grant Permission")
-                }
+        if (!isGranted) {
+            TextButton(
+                onClick = onRequestPermission,
+                contentPadding = PaddingValues(0.dp)
+            ) {
+                Text(buttonLabel, color = accent, fontWeight = FontWeight.Medium)
             }
         }
+
+        Spacer(modifier = Modifier.height(12.dp))
+        HorizontalDivider(thickness = 0.5.dp, color = onBg.copy(alpha = 0.12f))
     }
 }

@@ -13,8 +13,8 @@ android {
         applicationId = "com.hwanderer.entropysdefiance"
         minSdk = 33
         targetSdk = 35
-        versionCode = 4
-        versionName = "3.0.1"
+        versionCode = 5
+        versionName = "3.1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         
@@ -53,6 +53,12 @@ android {
             if (hasReleaseSigning) {
                 signingConfig = signingConfigs.getByName("release")
             }
+        }
+        debug {
+            // Install side-by-side with the release/F-Droid build so on-device testing
+            // never collides with or overwrites the user's real install and settings.
+            applicationIdSuffix = ".debug"
+            versionNameSuffix = "-debug"
         }
     }
     compileOptions {

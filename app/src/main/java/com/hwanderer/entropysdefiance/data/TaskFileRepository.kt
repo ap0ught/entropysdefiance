@@ -16,6 +16,18 @@ private const val TAG = "TaskFileRepository"
 private const val DEFAULT_FILE_NAME = "tasks.json"
 
 /**
+ * Outcome of reading the task file. [Success] carries the parsed tasks (which may be
+ * a legitimately empty list). [Failure] means the file could not be read or parsed
+ * (missing file, lost permission, transient/partial content, corrupt JSON) and must
+ * NOT be treated as "no tasks" — callers should keep their current state to avoid
+ * wiping the user's tasks when a sync source is momentarily unavailable.
+ */
+sealed interface TaskReadResult {
+    data class Success(val tasks: List<TaskData>) : TaskReadResult
+    object Failure : TaskReadResult
+}
+
+/**
  * Repository for managing task persistence to JSON file.
  * This enables syncing tasks with external tools like Syncthing.
  */
@@ -50,11 +62,13 @@ class TaskFileRepository(private val context: Context) {
     }
     
     /**
-     * Read tasks from JSON file
-     * Supports both file paths (older Android) and URIs (Android 13+)
-     * Returns empty list if file doesn't exist or is corrupted
+     * Read tasks from JSON file.
+     * Supports both file paths (older Android) and URIs (Android 13+).
+     * Returns [TaskReadResult.Success] with the parsed tasks (possibly empty) only when
+     * the file was read and parsed cleanly; otherwise [TaskReadResult.Failure] so callers
+     * never mistake an unreadable file for "no tasks".
      */
-    suspend fun readTasksFromFile(filePathOrUri: String): List<TaskData> = withContext(Dispatchers.IO) {
+    suspend fun readTasksFromFile(filePathOrUri: String): TaskReadResult = withContext(Dispatchers.IO) {
         try {
             if (filePathOrUri.startsWith("content://")) {
                 // Android 13+: Handle as URI using SAF
@@ -65,64 +79,66 @@ class TaskFileRepository(private val context: Context) {
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error reading tasks from file: ${e.message}", e)
-            emptyList()
+            TaskReadResult.Failure
         }
     }
 
-    private suspend fun readTasksFromFilePath(filePath: String): List<TaskData> = withContext(Dispatchers.IO) {
+    private suspend fun readTasksFromFilePath(filePath: String): TaskReadResult = withContext(Dispatchers.IO) {
         try {
             val file = getTaskFile(filePath)
 
             if (!file.exists()) {
-                Log.d(TAG, "Tasks file does not exist: ${file.absolutePath}")
-                return@withContext emptyList()
+                Log.w(TAG, "Tasks file does not exist: ${file.absolutePath}")
+                return@withContext TaskReadResult.Failure
             }
 
-            val jsonString = file.readText()
-            if (jsonString.isBlank()) {
-                Log.d(TAG, "Tasks file is empty: ${file.absolutePath}")
-                return@withContext emptyList()
-            }
-
-            val tasksFile = json.decodeFromString<TasksFileJson>(jsonString)
-            Log.d(TAG, "Successfully read ${tasksFile.tasks.size} tasks from ${file.absolutePath}")
-
-            tasksFile.tasks
+            parseTasks(file.readText(), file.absolutePath)
         } catch (e: Exception) {
             Log.e(TAG, "Error reading tasks from file path: ${e.message}", e)
-            emptyList()
+            TaskReadResult.Failure
         }
     }
 
-    private suspend fun readTasksFromUri(uri: Uri): List<TaskData> = withContext(Dispatchers.IO) {
+    private suspend fun readTasksFromUri(uri: Uri): TaskReadResult = withContext(Dispatchers.IO) {
         try {
             val documentFile = DocumentFile.fromSingleUri(context, uri)
             if (documentFile == null || !documentFile.exists()) {
-                Log.d(TAG, "Tasks file does not exist at URI: $uri")
-                return@withContext emptyList()
+                Log.w(TAG, "Tasks file does not exist at URI (or access lost): $uri")
+                return@withContext TaskReadResult.Failure
             }
 
             val inputStream = context.contentResolver.openInputStream(uri)
             if (inputStream == null) {
                 Log.e(TAG, "Could not open input stream for URI: $uri")
-                return@withContext emptyList()
+                return@withContext TaskReadResult.Failure
             }
 
-            val jsonString = inputStream.bufferedReader().use { it.readText() }
-            inputStream.close()
-
-            if (jsonString.isBlank()) {
-                Log.d(TAG, "Tasks file is empty at URI: $uri")
-                return@withContext emptyList()
-            }
-
-            val tasksFile = json.decodeFromString<TasksFileJson>(jsonString)
-            Log.d(TAG, "Successfully read ${tasksFile.tasks.size} tasks from URI: $uri")
-
-            tasksFile.tasks
+            val jsonString = inputStream.use { it.bufferedReader().readText() }
+            parseTasks(jsonString, uri.toString())
         } catch (e: Exception) {
             Log.e(TAG, "Error reading tasks from URI: ${e.message}", e)
-            emptyList()
+            TaskReadResult.Failure
+        }
+    }
+
+    /**
+     * Parse task JSON, distinguishing a genuinely-empty task list from an unreadable file.
+     * A blank/0-byte payload is treated as a [TaskReadResult.Failure] rather than "no tasks":
+     * normal writes always serialize an empty list as valid JSON with an empty array, so a
+     * blank read indicates a partial/transient read (e.g. mid-sync) and must not wipe state.
+     */
+    private fun parseTasks(jsonString: String, source: String): TaskReadResult {
+        if (jsonString.isBlank()) {
+            Log.w(TAG, "Tasks file is blank, treating as read failure: $source")
+            return TaskReadResult.Failure
+        }
+        return try {
+            val tasksFile = json.decodeFromString<TasksFileJson>(jsonString)
+            Log.d(TAG, "Successfully read ${tasksFile.tasks.size} tasks from $source")
+            TaskReadResult.Success(tasksFile.tasks)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error parsing tasks JSON from $source: ${e.message}", e)
+            TaskReadResult.Failure
         }
     }
     

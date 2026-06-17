@@ -17,7 +17,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalView
 import com.hwanderer.entropysdefiance.model.AppInfo
-import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.input.pointer.pointerInput
@@ -222,31 +222,32 @@ fun AppDrawer(
     onNotificationPullDown: () -> Unit = {},
     onAppSettings: (AppInfo) -> Unit = {},
     onAppUninstall: (AppInfo) -> Unit = {},
-    onResetAppCounter: (AppInfo) -> Unit = {}
+    onResetAppCounter: (AppInfo) -> Unit = {},
+    leftHanded: Boolean = false
 ) {
     var searchQuery by remember { mutableStateOf("") }
     val focusRequester = remember { FocusRequester() }
-    val keyboardController = LocalSoftwareKeyboardController.current
     val listState = rememberLazyListState()
     val gestureHandler = remember { GestureHandler() }
 
-    // Suppress the second bounce when a fling reaches the top of the list, while still
-    // allowing the user's deliberate drag-to-dismiss gesture on the surrounding sheet.
-    //
-    // The two cases produce identical signals once the list is pinned at scroll = 0 — both
-    // forward a downward residual to the parent. They differ in what came before:
-    //   • Deliberate dismiss: at least one onPostScroll(Drag) before release.
-    //   • Fling-to-top:       only onPostScroll(Fling) ticks, no preceding Drag.
-    //
-    // We watch for a Drag tick during the gesture and only let the post-fling velocity
-    // propagate when we saw one. The Drag-source post-scroll itself we always pass through
-    // so the sheet can drag along with the user's finger.
-    val absorbResidualScroll = remember {
+    // The list previously lived inside a ModalBottomSheet, which provided drag-to-dismiss.
+    // Now that the drawer is a plain composable, this nested-scroll connection takes over both
+    // jobs: it swallows the fling bounce at the top, and turns a deliberate downward drag once
+    // the list is pinned at the top into a close gesture (pull down to dismiss).
+    val density = LocalDensity.current
+    val pullToCloseThresholdPx = with(density) { 72.dp.toPx() }
+    val currentOnPullDown by rememberUpdatedState(onNotificationPullDown)
+    val topOverscrollHandler = remember(pullToCloseThresholdPx) {
         object : NestedScrollConnection {
             private var sawUserDrag = false
+            private var pulled = 0f
 
             override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-                if (source == NestedScrollSource.Drag) sawUserDrag = true
+                if (source == NestedScrollSource.Drag) {
+                    sawUserDrag = true
+                    // Scrolling back up cancels any pending pull-to-close.
+                    if (available.y < 0f) pulled = 0f
+                }
                 return Offset.Zero
             }
 
@@ -254,7 +255,19 @@ fun AppDrawer(
                 consumed: Offset,
                 available: Offset,
                 source: NestedScrollSource
-            ): Offset = if (source == NestedScrollSource.Fling) available else Offset.Zero
+            ): Offset {
+                if (source == NestedScrollSource.Drag && available.y > 0f) {
+                    // The list is pinned at the top and can't take the downward drag — treat the
+                    // accumulated pull as a dismiss, and consume it so there's no overscroll glow.
+                    pulled += available.y
+                    if (pulled >= pullToCloseThresholdPx) {
+                        pulled = 0f
+                        currentOnPullDown()
+                    }
+                    return available
+                }
+                return if (source == NestedScrollSource.Fling) available else Offset.Zero
+            }
 
             override suspend fun onPostFling(
                 consumed: Velocity,
@@ -262,6 +275,7 @@ fun AppDrawer(
             ): Velocity {
                 val swallow = !sawUserDrag
                 sawUserDrag = false
+                pulled = 0f
                 return if (swallow) available else Velocity.Zero
             }
         }
@@ -274,26 +288,38 @@ fun AppDrawer(
     var showUninstallDialog by remember { mutableStateOf<AppInfo?>(null) }
     var showResetCounterDialog by remember { mutableStateOf<AppInfo?>(null) }
 
-    LaunchedEffect(Unit) {
-        focusRequester.requestFocus()
-        keyboardController?.show()
-    }
-
-    // Hide the keyboard while scrolling; restore it once the list settles back at the top.
-    // Snapshotting `isScrollInProgress` (instead of `firstVisibleItemScrollOffset`) means we only
-    // react to user-driven scroll-start / scroll-stop transitions — not to layout shifts triggered
-    // by the IME show/hide that we cause ourselves, which previously fed back into a second bounce.
+    // Keyboard visibility follows the scroll position: visible near the top (to search), hidden
+    // once you scroll down to browse. This is declarative and driven by *focus* rather than
+    // SoftwareKeyboardController — gaining/losing focus is the reliable way to show/hide the IME,
+    // and it sidesteps the show↔hide insets feedback loop the earlier event-based versions fought.
+    //
+    // Because it reacts continuously to the scroll offset (not to drag-release), a gentle scroll
+    // back toward the top brings the keyboard up exactly like a fast fling does — no need to land
+    // pixel-perfect at offset 0. Hysteresis (show under ~160dp from the top, hide only past ~420dp)
+    // keeps it from flickering around a single threshold.
+    val focusManager = LocalFocusManager.current
+    val showKeyboardOffsetPx = with(density) { 160.dp.roundToPx() }
+    val hideKeyboardOffsetPx = with(density) { 420.dp.roundToPx() }
+    var keyboardWanted by remember { mutableStateOf(true) }
     LaunchedEffect(listState) {
-        snapshotFlow { listState.isScrollInProgress }
-            .collect { isScrolling ->
-                if (isScrolling) {
-                    keyboardController?.hide()
-                } else {
-                    val atTop = listState.firstVisibleItemIndex == 0 &&
-                        listState.firstVisibleItemScrollOffset == 0
-                    if (atTop) keyboardController?.show()
-                }
+        snapshotFlow {
+            // Distance of the list from the very top, in px (large once past the first item).
+            if (listState.firstVisibleItemIndex > 0) Int.MAX_VALUE
+            else listState.firstVisibleItemScrollOffset
+        }.collect { distanceFromTop ->
+            if (distanceFromTop <= showKeyboardOffsetPx) {
+                keyboardWanted = true
+            } else if (distanceFromTop >= hideKeyboardOffsetPx) {
+                keyboardWanted = false
             }
+        }
+    }
+    LaunchedEffect(keyboardWanted) {
+        if (keyboardWanted) {
+            focusRequester.requestFocus()
+        } else {
+            focusManager.clearFocus()
+        }
     }
 
     // Auto-launch when there's exactly one match in the filtered list
@@ -370,7 +396,7 @@ fun AppDrawer(
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                     modifier = Modifier
                         .fillMaxSize()
-                        .nestedScroll(absorbResidualScroll)
+                        .nestedScroll(topOverscrollHandler)
                 ) {
                     items(filteredApps, key = { it.usageKey }) { app ->
                         AppItem(
@@ -396,10 +422,11 @@ fun AppDrawer(
                                 showUninstallDialog = app
                                 appShowingMenu = null // Auto-dismiss
                             },
-                            onResetCounter = { 
+                            onResetCounter = {
                                 showResetCounterDialog = app
                                 appShowingMenu = null // Auto-dismiss
-                            }
+                            },
+                            leftHanded = leftHanded
                         )
                     }
                 }
@@ -461,7 +488,8 @@ private fun AppItem(
     onSettings: () -> Unit = {},
     onUninstall: () -> Unit = {},
     onResetCounter: () -> Unit = {},
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    leftHanded: Boolean = false
 ) {
     Column(
         modifier = modifier.fillMaxWidth()
@@ -469,7 +497,7 @@ private fun AppItem(
         // App name row
         Box(
             modifier = Modifier.fillMaxWidth(),
-            contentAlignment = Alignment.CenterEnd
+            contentAlignment = if (leftHanded) Alignment.CenterStart else Alignment.CenterEnd
         ) {
             Text(
                 text = app.appName,
@@ -477,7 +505,7 @@ private fun AppItem(
                 color = MaterialTheme.colorScheme.onBackground,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                textAlign = TextAlign.End,
+                textAlign = if (leftHanded) TextAlign.Start else TextAlign.End,
                 modifier = Modifier
                     .fillMaxWidth() // Fill width to be part of scrollable area
                     .padding(start = 16.dp, end = 16.dp)
@@ -497,7 +525,7 @@ private fun AppItem(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(start = 16.dp, end = 16.dp, top = 8.dp),
-                horizontalArrangement = Arrangement.End,
+                horizontalArrangement = if (leftHanded) Arrangement.Start else Arrangement.End,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 // Settings button

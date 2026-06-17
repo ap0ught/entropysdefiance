@@ -50,7 +50,8 @@ Entropy's Defiance represents an exploration of how software can be created when
 - Configure how many days of events to show
 
 ### ⚙️ Customization Options
-- Toggle dark/light theme
+- Accent color — follow the system Material You palette, pick a preset, or set a custom color
+- Left-handed mode — mirror the controls to the left
 - Enable/disable calendar widget
 - Select which calendars to display
 - Configure double-tap for dialer option

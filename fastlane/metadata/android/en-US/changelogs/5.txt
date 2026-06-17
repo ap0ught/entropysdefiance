@@ -1,0 +1,10 @@
+A big update across reliability, speed, and design.
+
+• Fixed tasks vanishing: an unreadable or mid-sync task file is no longer mistaken for an empty one, so your tasks are never wiped by a momentary hiccup.
+• Much snappier: the app drawer keyboard and closing the drawer are now instant, and unused per-app icon loading was removed.
+• Prompts to be set as the default launcher, and adds a "Default launcher" entry in Permissions (helps on phones that never ask).
+• Calendar agenda redesigned: clear dates, proper multi-day spans, a progress bar on ongoing events, and 12/24-hour times that follow your phone.
+• Accent colour: follow your system's Material You palette, pick a preset, or set a custom colour.
+• Left-handed mode mirrors the controls to the left.
+• Refreshed, consistent design for task creation, settings, and the alignment screen.
+• Expanded introduction; removed the unused dark-mode toggle.

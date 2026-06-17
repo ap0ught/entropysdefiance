@@ -1,9 +1,8 @@
 package com.hwanderer.entropysdefiance.ui.components
 
 import androidx.compose.foundation.layout.*
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -30,69 +29,36 @@ fun FreeTimeSettingsScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 16.dp)
+                .padding(horizontal = 24.dp)
         ) {
-            // Header
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 50.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(onClick = onBack) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = "Back",
-                        tint = MaterialTheme.colorScheme.onBackground
-                    )
-                }
+            ScreenHeader(title = "Free Time", onBack = onBack)
 
-                Spacer(modifier = Modifier.width(8.dp))
+            val onBg = MaterialTheme.colorScheme.onBackground
+            val muted = onBg.copy(alpha = 0.6f)
+            val hairline = onBg.copy(alpha = 0.12f)
 
-                Text(
-                    text = "Free Time Calculation",
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onBackground
-                )
-            }
-            
-            // Content
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f)
+                    .verticalScroll(rememberScrollState())
                     .padding(vertical = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                verticalArrangement = Arrangement.spacedBy(24.dp)
             ) {
-            // Productivity Ratio Setting
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surface
-                )
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
+                // Productive time ratio
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
                         text = "Productive Time Ratio",
                         style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurface
+                        color = onBg
                     )
-                    
                     Text(
-                        text = "What percentage of your day do you use for productive activities? " +
-                               "The rest is assumed to be sleep, meals, and personal time.",
+                        text = "What share of your day is productive time? " +
+                            "The rest is assumed to be sleep, meals, and personal time.",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                        color = muted
                     )
-                    
-                    Spacer(modifier = Modifier.height(8.dp))
-                    
+                    Spacer(modifier = Modifier.height(4.dp))
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -103,125 +69,60 @@ fun FreeTimeSettingsScreen(
                             style = MaterialTheme.typography.headlineSmall,
                             color = MaterialTheme.colorScheme.primary
                         )
-                        
                         Text(
                             text = "${(appSettings.productivityRatio * 24).roundToInt()}h / day",
                             style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                            color = muted
                         )
                     }
-                    
                     Slider(
                         value = appSettings.productivityRatio,
                         onValueChange = onProductivityRatioChange,
                         valueRange = 0.1f..1.0f,
-                        steps = 17, // 10%, 15%, 20%, ..., 95%, 100%
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = SliderDefaults.colors(
-                            thumbColor = MaterialTheme.colorScheme.primary,
-                            activeTrackColor = MaterialTheme.colorScheme.primary,
-                            inactiveTrackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.24f)
-                        )
+                        steps = 17,
+                        modifier = Modifier.fillMaxWidth()
                     )
-                    
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Text(
-                            text = "10%",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
-                        )
-                        Text(
-                            text = "100%",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
-                        )
+                        Text("10%", style = MaterialTheme.typography.bodySmall, color = onBg.copy(alpha = 0.5f))
+                        Text("100%", style = MaterialTheme.typography.bodySmall, color = onBg.copy(alpha = 0.5f))
                     }
                 }
-            }
-            
-            // Calculation Calendars Setting
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surface
-                ),
-                onClick = onCalculationCalendarSelectionClick
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(
-                        modifier = Modifier.weight(1f),
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        Text(
-                            text = "Calculation Calendars",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        
-                        val calendarCountText = if (appSettings.calculationCalendarIds.isEmpty()) {
-                            "Using all display calendars"
-                        } else {
-                            "${appSettings.calculationCalendarIds.size} calendars selected"
-                        }
-                        
-                        Text(
-                            text = calendarCountText,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-                        )
-                    }
-                    
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                        contentDescription = "Select calendars",
-                        tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
-                    )
+
+                HorizontalDivider(thickness = 0.5.dp, color = hairline)
+
+                // Calculation calendars
+                val calendarCountText = if (appSettings.calculationCalendarIds.isEmpty()) {
+                    "Using all display calendars"
+                } else {
+                    "${appSettings.calculationCalendarIds.size} calendars selected"
                 }
-            }
-            
-                // Info Card
-                OutlinedCard(
-                    modifier = Modifier.fillMaxWidth(),
-                    border = androidx.compose.foundation.BorderStroke(
-                        1.dp,
-                        MaterialTheme.colorScheme.primary
-                    ),
-                    colors = CardDefaults.outlinedCardColors(
-                        containerColor = MaterialTheme.colorScheme.background
+                SettingsActionItem(
+                    title = "Calculation Calendars",
+                    description = calendarCountText,
+                    onClick = onCalculationCalendarSelectionClick
+                )
+
+                HorizontalDivider(thickness = 0.5.dp, color = hairline)
+
+                // How it works
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "How it works",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = onBg
                     )
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Text(
-                            text = "How it works",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onBackground
-                        )
-                        
-                        Text(
-                            text = "Free time is calculated as:\n" +
-                                   "• Total hours from now until end of time horizon\n" +
-                                   "• Minus hours with calendar events (overlaps counted once)\n" +
-                                   "• Multiplied by your productivity ratio\n\n" +
-                                   "This gives you the productive hours available for the current time horizon.",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onBackground
-                        )
-                    }
+                    Text(
+                        text = "Free time is calculated as:\n" +
+                            "• Total hours from now until the end of the time horizon\n" +
+                            "• Minus hours with calendar events (overlaps counted once)\n" +
+                            "• Multiplied by your productivity ratio\n\n" +
+                            "That gives the productive hours available for the current horizon.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = muted
+                    )
                 }
             }
         }

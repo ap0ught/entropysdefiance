@@ -29,33 +29,10 @@ fun BackupSettingsScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 16.dp)
+                .padding(horizontal = 24.dp)
         ) {
-            // Header with back button and title
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 50.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(onClick = onBack) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = "Back to Settings",
-                        tint = MaterialTheme.colorScheme.onBackground
-                    )
-                }
-                
-                Spacer(modifier = Modifier.width(8.dp))
-                
-                Text(
-                    text = "Backup Settings",
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onBackground
-                )
-            }
-            
+            ScreenHeader(title = "Backup & Import", onBack = onBack)
+
             // Main content
             Column(
                 modifier = Modifier

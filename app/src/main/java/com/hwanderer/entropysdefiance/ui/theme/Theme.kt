@@ -1,9 +1,12 @@
 package com.hwanderer.entropysdefiance.ui.theme
 
+import android.content.Context
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 
 // Modern dark theme colors
 private val md_theme_dark_primary = Color(0xFF487E4A)  // Material green
@@ -44,10 +47,55 @@ fun EntropysDefianceTheme(
     content: @Composable () -> Unit
 ) {
     val colorScheme = createDarkColorScheme(colorPalette)
-    
+
     MaterialTheme(
         colorScheme = colorScheme,
         typography = Typography,
         content = content
     )
+}
+
+/** Sentinel [AppSettings.colorTheme] value meaning "follow the system / Material You accent". */
+const val SYSTEM_COLOR_THEME = "System"
+
+/**
+ * Build a full [ColorPalette] from a single seed (accent) color, deriving lighter secondary and
+ * tertiary variants so the FAB gradient stays consistent, and a contrasting onPrimary.
+ */
+fun paletteFromSeed(seed: Color, name: String): ColorPalette {
+    fun lighten(c: Color, fraction: Float) = Color(
+        red = c.red + (1f - c.red) * fraction,
+        green = c.green + (1f - c.green) * fraction,
+        blue = c.blue + (1f - c.blue) * fraction,
+        alpha = 1f
+    )
+    return ColorPalette(
+        primary = seed,
+        onPrimary = if (seed.luminance() > 0.5f) Color(0xFF1A1A1A) else Color.White,
+        secondary = lighten(seed, 0.20f),
+        tertiary = lighten(seed, 0.40f),
+        displayName = name
+    )
+}
+
+/** Parse a "#RRGGBB" (or "#AARRGGBB") string to a [Color], or null if invalid. */
+fun parseHexColor(hex: String): Color? = try {
+    Color(android.graphics.Color.parseColor(hex.trim()))
+} catch (e: IllegalArgumentException) {
+    null
+}
+
+/**
+ * Resolve a stored [AppSettings.colorTheme] string into a [ColorPalette]:
+ *  - [SYSTEM_COLOR_THEME] → Material You accent derived from the wallpaper (Android 12+),
+ *  - a "#RRGGBB" string → a custom palette seeded from that color,
+ *  - otherwise a named preset (falling back to Green).
+ */
+fun resolveColorPalette(theme: String, context: Context): ColorPalette = when {
+    theme == SYSTEM_COLOR_THEME ->
+        paletteFromSeed(dynamicDarkColorScheme(context).primary, SYSTEM_COLOR_THEME)
+    theme.startsWith("#") ->
+        parseHexColor(theme)?.let { paletteFromSeed(it, theme) } ?: GreenPalette
+    else ->
+        availableColorPalettes.find { it.displayName == theme } ?: GreenPalette
 }

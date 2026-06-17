@@ -1,5 +1,6 @@
 package com.hwanderer.entropysdefiance.ui.components
 
+import android.text.format.DateFormat
 import android.util.Log
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -16,8 +17,13 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import com.hwanderer.entropysdefiance.model.CalendarEvent
 import java.time.LocalDate
@@ -83,15 +89,19 @@ fun CalendarAgendaWidget(
     events: List<CalendarEvent>,
     onEventClick: (CalendarEvent) -> Unit,
     modifier: Modifier = Modifier,
+    leftHanded: Boolean = false,
     maxEvents: Int = Int.MAX_VALUE // Allow all events with scrolling
 ) {
     val currentDate = remember { LocalDate.now() }
     val currentDateTime = remember { LocalDateTime.now() }
     
-    // Group events by day for easier processing when rendering
-    val eventsByDay = remember(events, currentDateTime) {
+    // Group events by day. An event that already started (a multi-day or all-day event still
+    // running) belongs under *today*, not its past start date — otherwise it lands in its own
+    // earlier day-group and a divider wrongly separates it from today's other events. Clamping
+    // the grouping key to today merges those ongoing events into the current day.
+    val eventsByDay = remember(events, currentDate) {
         events
-            .groupBy { it.startTime.toLocalDate() }
+            .groupBy { maxOf(it.startTime.toLocalDate(), currentDate) }
             .mapValues { (_, dayEvents) ->
                 dayEvents.sortedWith(compareBy<CalendarEvent> { it.isAllDay }.thenBy { it.startTime })
             }
@@ -103,8 +113,9 @@ fun CalendarAgendaWidget(
         eventsByDay.flatMap { it.value }
     }
 
-    // Create a constrained hitbox for the calendar widget that leaves space for the FAB and gesture areas
-    // This creates a visual-only "cut" on the right side without affecting the actual layout
+    // Create a constrained hitbox for the calendar widget that leaves space for the FAB and gesture
+    // areas. This is a visual-only "cut" on the side where the FAB/drawer-swipe live — the right
+    // edge normally, mirrored to the left in left-handed mode.
     Box(
         modifier = modifier.fillMaxSize()
     ) {
@@ -114,8 +125,8 @@ fun CalendarAgendaWidget(
                 .fillMaxSize()
                 .padding(bottom = 16.dp), // Add bottom padding to the column itself
             contentPadding = PaddingValues(
-                start = 24.dp,
-                end = 80.dp, // Increased end padding to match the overlay width
+                start = if (leftHanded) 80.dp else 24.dp,
+                end = if (leftHanded) 24.dp else 80.dp, // Reserve the FAB/gesture side
                 top = 24.dp, // Increase top padding for better visibility
                 bottom = 120.dp // Substantial bottom padding to ensure content is visible above app drawer
             ),
@@ -127,11 +138,11 @@ fun CalendarAgendaWidget(
                     text = "UPCOMING EVENTS",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
+                    textAlign = if (leftHanded) TextAlign.End else TextAlign.Start,
                     modifier = Modifier
-                        .padding(start = 8.dp, bottom = 8.dp)
-                        .clickable { 
-                            android.util.Log.d("CalendarAgendaWidget", "Header clicked")
-                        }
+                        .fillMaxWidth()
+                        .padding(horizontal = 8.dp, vertical = 0.dp)
+                        .padding(bottom = 8.dp)
                 )
             }
             
@@ -200,7 +211,8 @@ fun CalendarAgendaWidget(
                                         event.color?.let { Color(it) } ?: MaterialTheme.colorScheme.secondary
                                     // For all other events, use the event's original color
                                     else -> event.color?.let { Color(it) } ?: MaterialTheme.colorScheme.primary
-                                }
+                                },
+                                leftHanded = leftHanded
                             )
                         }
                     }
@@ -208,12 +220,13 @@ fun CalendarAgendaWidget(
             }
         }
         
-        // Add an overlay to the right side that doesn't capture clicks but visually cuts off the list
+        // Overlay that visually cuts off the list on the FAB/gesture side (right by default,
+        // left in left-handed mode), without capturing clicks.
         Box(
             modifier = Modifier
                 .fillMaxHeight()
                 .width(80.dp) // Exact 80.dp to match the gesture detection area in MainActivity
-                .align(Alignment.CenterEnd)
+                .align(if (leftHanded) Alignment.CenterStart else Alignment.CenterEnd)
                 .background(MaterialTheme.colorScheme.background)
                 .pointerInput(Unit) {} // Empty pointer input to prevent this box from intercepting clicks
         )
@@ -227,76 +240,118 @@ private fun CalendarEventItemContent(
     currentDate: LocalDate,
     currentDateTime: LocalDateTime,
     statusColor: Color,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    leftHanded: Boolean = false
 ) {
-    val eventDate = event.startTime.toLocalDate()
-    val dayDifference = ChronoUnit.DAYS.between(currentDate, eventDate)
-    
-    // Format date based on how far in the future it is
-    val dateText = when {
-        dayDifference == 0L -> "Today"
-        dayDifference == 1L -> "Tomorrow"
-        dayDifference in 2..6 -> event.startTime.format(DateTimeFormatter.ofPattern("EEEE")) // Day name
-        else -> event.startTime.format(DateTimeFormatter.ofPattern("EEE, MMM d")) // Short format
+    val context = LocalContext.current
+    val is24Hour = remember { DateFormat.is24HourFormat(context) }
+    val clockFmt = remember(is24Hour) {
+        DateTimeFormatter.ofPattern(if (is24Hour) "HH:mm" else "h:mm a")
     }
-    
-    // Determine if the event is ongoing
-    val isEventOngoing = currentDateTime.isAfter(event.startTime) && currentDateTime.isBefore(event.endTime)
-    
-    // Calculate minutes until event start or end
-    val minutesUntilStart = ChronoUnit.MINUTES.between(currentDateTime, event.startTime)
-    val minutesUntilEnd = ChronoUnit.MINUTES.between(currentDateTime, event.endTime)
-    
-    // Calculate hours and minutes for display
-    val hoursUntilStart = minutesUntilStart / 60
-    val remainingMinutesUntilStart = minutesUntilStart % 60
-    
-    val hoursUntilEnd = minutesUntilEnd / 60
-    val remainingMinutesUntilEnd = minutesUntilEnd % 60
-    
-    // Format time components - dynamic for close events (< 6 hours), static for others
-    val (relativeTimeText, actualTimeText) = when {
-        // For all-day events - check first to avoid time calculations
-        event.isAllDay -> Pair("All day", null)
-        
-        // If event is ongoing, show "ends in X hours Y minutes" + actual times
-        isEventOngoing -> {
-            val relativeTime = when {
-                hoursUntilEnd > 0 -> "ends in ${hoursUntilEnd}h ${remainingMinutesUntilEnd}min"
-                else -> "ends in ${remainingMinutesUntilEnd}min"
-            }
-            val actualTimes = "${event.startTime.format(DateTimeFormatter.ofPattern("HH:mm"))} - ${event.endTime.format(DateTimeFormatter.ofPattern("HH:mm"))}"
-            Pair(relativeTime, actualTimes)
-        }
-        
-        // If event is within 6 hours, show "in X hours Y minutes" + actual times
-        minutesUntilStart in 1..360 -> {
-            val relativeTime = when {
-                hoursUntilStart > 0 -> "in ${hoursUntilStart}h ${remainingMinutesUntilStart}min"
-                else -> "in ${remainingMinutesUntilStart}min"
-            }
-            val actualTimes = "${event.startTime.format(DateTimeFormatter.ofPattern("HH:mm"))} - ${event.endTime.format(DateTimeFormatter.ofPattern("HH:mm"))}"
-            Pair(relativeTime, actualTimes)
-        }
-        
-        // For regular future events, show standard time with 24-hour format and include end time
-        else -> {
-            val startFormat = DateTimeFormatter.ofPattern("HH:mm")
-            val endFormat = DateTimeFormatter.ofPattern("HH:mm")
-            val timeText = "${event.startTime.format(startFormat)} - ${event.endTime.format(endFormat)}"
-            Pair(timeText, null)
+    val shortDayFmt = remember { DateTimeFormatter.ofPattern("EEE d") }
+    val longDayFmt = remember { DateTimeFormatter.ofPattern("EEE, MMM d") }
+
+    val startDate = event.startTime.toLocalDate()
+    // All-day events store an exclusive end (next-day midnight); the real last day is one less.
+    val lastDate = if (event.isAllDay) {
+        event.endTime.toLocalDate().minusDays(1)
+    } else {
+        event.endTime.toLocalDate()
+    }
+    val isMultiDay = lastDate.isAfter(startDate)
+    val isOngoing = currentDateTime.isAfter(event.startTime) && currentDateTime.isBefore(event.endTime)
+
+    // Friendly label for a single date: Today / Tomorrow / Yesterday, else "Mon, Jun 15".
+    fun dayLabel(date: LocalDate): String = when (ChronoUnit.DAYS.between(currentDate, date)) {
+        0L -> "Today"
+        1L -> "Tomorrow"
+        -1L -> "Yesterday"
+        else -> date.format(longDayFmt)
+    }
+
+    fun durationShort(totalMinutes: Long): String {
+        val mins = totalMinutes.coerceAtLeast(0)
+        val h = mins / 60
+        val m = mins % 60
+        return when {
+            h > 0 && m > 0 -> "${h}h ${m}min"
+            h > 0 -> "${h}h"
+            else -> "${m}min"
         }
     }
-    
-    // New minimal design - replaces the Surface with border approach
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .defaultMinSize(minHeight = 64.dp) // Ensure minimum height for better tap target
-            .padding(vertical = 12.dp, horizontal = 6.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        // Vertical colored indicator bar - thin elegant line
+
+    // Optional trailing hint: how long an ongoing event still runs, or how soon one starts.
+    val urgency: String? = when {
+        event.isAllDay && isOngoing -> when (val d = ChronoUnit.DAYS.between(currentDate, lastDate)) {
+            0L -> "ends today"
+            1L -> "ends tomorrow"
+            else -> "ends in $d days"
+        }
+        isOngoing -> {
+            val minutesToEnd = ChronoUnit.MINUTES.between(currentDateTime, event.endTime)
+            if (minutesToEnd < 24 * 60) {
+                "ends in ${durationShort(minutesToEnd)}"
+            } else when (val d = ChronoUnit.DAYS.between(currentDate, event.endTime.toLocalDate())) {
+                1L -> "ends tomorrow"
+                else -> "ends in $d days"
+            }
+        }
+        !event.isAllDay -> {
+            val minutesToStart = ChronoUnit.MINUTES.between(currentDateTime, event.startTime)
+            when {
+                minutesToStart == 0L -> "now"
+                minutesToStart in 1..360 -> "in ${durationShort(minutesToStart)}"
+                else -> null
+            }
+        }
+        else -> null
+    }
+
+    // The "when" segments. Multi-day events carry the day on both ends so a span is never
+    // read as a single backwards day. Pair.second marks an accent (anchor) segment.
+    val segments: List<Pair<String, Boolean>> = buildList {
+        if (isMultiDay) {
+            if (event.isAllDay) {
+                add("${startDate.format(shortDayFmt)} – ${lastDate.format(shortDayFmt)}" to true)
+                add("All day" to false)
+            } else {
+                add(
+                    ("${startDate.format(shortDayFmt)}, ${event.startTime.format(clockFmt)}" +
+                        " → ${lastDate.format(shortDayFmt)}, ${event.endTime.format(clockFmt)}") to true
+                )
+            }
+        } else {
+            add(dayLabel(startDate) to true)
+            add(
+                (if (event.isAllDay) "All day"
+                else "${event.startTime.format(clockFmt)}–${event.endTime.format(clockFmt)}") to false
+            )
+        }
+        urgency?.let { add(it to false) }
+    }
+
+    val backgroundColor = MaterialTheme.colorScheme.background
+    val mutedColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
+    val separatorColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.3f)
+
+    val metaText = buildAnnotatedString {
+        segments.forEachIndexed { index, (text, isAnchor) ->
+            if (index > 0) {
+                withStyle(SpanStyle(color = separatorColor)) { append("  ·  ") }
+            }
+            withStyle(
+                SpanStyle(
+                    color = if (isAnchor) statusColor else mutedColor,
+                    fontWeight = if (isAnchor) FontWeight.Medium else FontWeight.Normal
+                )
+            ) { append(text) }
+        }
+    }
+
+    val contentAlign = if (leftHanded) TextAlign.End else TextAlign.Start
+    // The colored indicator bar sits on the outer edge — left normally, right in left-handed mode
+    // where the agenda hugs the right side — and the text aligns to match.
+    val indicatorBar = @Composable {
         Box(
             modifier = Modifier
                 .width(3.dp)
@@ -306,131 +361,103 @@ private fun CalendarEventItemContent(
                     shape = MaterialTheme.shapes.small
                 )
         )
-        
-        // Event content
-        Column(
+    }
+
+    Column(modifier = modifier.fillMaxWidth()) {
+        Row(
             modifier = Modifier
-                .weight(1f)
-                .padding(start = 12.dp)
+                .fillMaxWidth()
+                .defaultMinSize(minHeight = 64.dp) // Ensure minimum height for better tap target
+                .padding(vertical = 12.dp, horizontal = 6.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            // Get the background color for contrast calculation
-            val backgroundColor = MaterialTheme.colorScheme.background
-            
-            // Event title - with enhanced contrast if needed
-            val titleStyle = getContrastEnhancedTextStyle(
-                baseStyle = MaterialTheme.typography.bodyLarge,
-                textColor = MaterialTheme.colorScheme.onBackground,
-                backgroundColor = backgroundColor
-            )
-            
-            Text(
-                text = event.title,
-                style = titleStyle,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            
-            // Spacer for visual separation
-            Spacer(modifier = Modifier.height(4.dp))
-            
-            // Time row with improved spacing
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            if (!leftHanded) indicatorBar()
+
+            // Event content
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(
+                        start = if (leftHanded) 0.dp else 12.dp,
+                        end = if (leftHanded) 12.dp else 0.dp
+                    )
             ) {
-                // Date pill - with contrast enhancement and pill-shaped background
-                val dateTextStyle = getContrastEnhancedTextStyle(
-                    baseStyle = MaterialTheme.typography.labelSmall,
-                    textColor = statusColor,
+                // Event title - with enhanced contrast if needed
+                val titleStyle = getContrastEnhancedTextStyle(
+                    baseStyle = MaterialTheme.typography.bodyLarge,
+                    textColor = MaterialTheme.colorScheme.onBackground,
                     backgroundColor = backgroundColor
                 )
-                
-                // If the background is dark and the event color is also dark, make a more visible pill
-                val pillColor = if (backgroundColor.isDark() && statusColor.isDark()) {
-                    // Use a lightened version of the status color
-                    Color.White.copy(alpha = 0.2f)
-                } else {
-                    // Otherwise use the status color with low opacity
-                    statusColor.copy(alpha = 0.15f)
-                }
-                
-                Surface(
-                    color = pillColor,
-                    shape = MaterialTheme.shapes.extraSmall
-                ) {
-                    Text(
-                        text = dateText,
-                        style = dateTextStyle,
-                        fontWeight = FontWeight.Medium,
-                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                    )
-                }
-                
-                // Subtle dot separator
-                Box(
-                    modifier = Modifier
-                        .size(3.dp)
-                        .background(
-                            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.3f),
-                            shape = CircleShape
-                        )
-                )
-                
-                // Time text - unified style with contrast enhancement
-                val timeTextStyle = getContrastEnhancedTextStyle(
-                    baseStyle = MaterialTheme.typography.labelSmall,
-                    textColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
-                    backgroundColor = backgroundColor
-                )
-                
+
                 Text(
-                    text = relativeTimeText,
-                    style = timeTextStyle
+                    text = event.title,
+                    style = titleStyle,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    textAlign = contentAlign,
+                    modifier = Modifier.fillMaxWidth()
                 )
-                
-                // Show actual times with visual separator if available
-                actualTimeText?.let { actualTimes ->
-                    // Subtle dot separator
-                    Box(
-                        modifier = Modifier
-                            .size(3.dp)
-                            .background(
-                                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.3f),
-                                shape = CircleShape
-                            )
-                    )
-                    
-                    // Actual time text with contrast enhancement
-                    val actualTimeTextStyle = getContrastEnhancedTextStyle(
-                        baseStyle = MaterialTheme.typography.labelSmall,
-                        textColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
-                        backgroundColor = backgroundColor
-                    )
-                    
-                    Text(
-                        text = actualTimes,
-                        style = actualTimeTextStyle
-                    )
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                // Single meta line: day · time · urgency, consistent across every event type.
+                Text(
+                    text = metaText,
+                    style = MaterialTheme.typography.labelSmall,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    textAlign = contentAlign,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                // Event location if available - only show if location exists
+                event.location?.let { location ->
+                    if (location.isNotBlank()) {
+                        val locationTextStyle = getContrastEnhancedTextStyle(
+                            baseStyle = MaterialTheme.typography.bodySmall,
+                            textColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f),
+                            backgroundColor = backgroundColor
+                        )
+
+                        Text(
+                            text = location,
+                            style = locationTextStyle,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            textAlign = contentAlign,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 2.dp)
+                        )
+                    }
                 }
             }
-            
-            // Event location if available - only show if location exists
-            event.location?.let { location ->
-                if (location.isNotBlank()) {
-                    val locationTextStyle = getContrastEnhancedTextStyle(
-                        baseStyle = MaterialTheme.typography.bodySmall,
-                        textColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f),
-                        backgroundColor = backgroundColor
-                    )
-                    
-                    Text(
-                        text = location,
-                        style = locationTextStyle,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.padding(top = 2.dp)
-                    )
-                }
+
+            if (leftHanded) indicatorBar()
+        }
+
+        // Ongoing events get a thin full-width progress line at the bottom edge of the row,
+        // showing how far through the event we currently are.
+        if (isOngoing) {
+            val totalSeconds = ChronoUnit.SECONDS.between(event.startTime, event.endTime)
+                .coerceAtLeast(1L)
+            val elapsedSeconds = ChronoUnit.SECONDS.between(event.startTime, currentDateTime)
+                .coerceIn(0L, totalSeconds)
+            val progress = elapsedSeconds.toFloat() / totalSeconds.toFloat()
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 6.dp)
+                    .height(2.dp)
+                    .background(statusColor.copy(alpha = 0.15f))
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(progress)
+                        .height(2.dp)
+                        .background(statusColor.copy(alpha = 0.85f))
+                )
             }
         }
     }

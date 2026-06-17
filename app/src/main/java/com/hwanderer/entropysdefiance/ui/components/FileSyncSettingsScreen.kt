@@ -38,239 +38,121 @@ fun FileSyncSettingsScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 16.dp)
+                .padding(horizontal = 24.dp)
         ) {
-            // Header
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 50.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(onClick = onBack) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = "Back",
-                        tint = MaterialTheme.colorScheme.onBackground
-                    )
-                }
-                
-                Spacer(modifier = Modifier.width(8.dp))
-                
-                Text(
-                    text = "File Sync",
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onBackground
-                )
-            }
-            
-            // Content
+            ScreenHeader(title = "File Sync", onBack = onBack)
+
+            val onBg = MaterialTheme.colorScheme.onBackground
+            val accent = MaterialTheme.colorScheme.primary
+            val muted = onBg.copy(alpha = 0.6f)
+            val hairline = onBg.copy(alpha = 0.12f)
+            val configured = appSettings.taskFilePath.isNotEmpty()
+
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f)
                     .verticalScroll(rememberScrollState())
                     .padding(vertical = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                verticalArrangement = Arrangement.spacedBy(24.dp)
             ) {
-                // Info card
-                OutlinedCard(
-                    modifier = Modifier.fillMaxWidth(),
-                    border = androidx.compose.foundation.BorderStroke(
-                        1.dp,
-                        MaterialTheme.colorScheme.primary
-                    ),
-                    colors = CardDefaults.outlinedCardColors(
-                        containerColor = MaterialTheme.colorScheme.background
+                // Intro
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "Sync tasks with an external file",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = onBg
                     )
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Info,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary
+                    Text(
+                        text = "Configure a JSON file location to sync your tasks — edit them on a " +
+                            "laptop and sync across devices with tools like Syncthing.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = muted
+                    )
+                }
+
+                HorizontalDivider(thickness = 0.5.dp, color = hairline)
+
+                // Setup / location
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        text = if (configured) "File sync location" else "Set up file sync",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = onBg
+                    )
+
+                    if (!configured) {
+                        Text(
+                            text = "Not set up yet. Choose a folder where tasks.json will be created " +
+                                "and kept in sync with your tasks.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = muted
                         )
-                        Column {
-                            Text(
-                                text = "Sync tasks with external file",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onBackground
+                        TextButton(
+                            onClick = onSetupFileSync,
+                            contentPadding = PaddingValues(0.dp)
+                        ) {
+                            Text("Choose folder…", color = accent, fontWeight = FontWeight.Medium)
+                        }
+                    } else {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.CheckCircle,
+                                contentDescription = null,
+                                tint = accent,
+                                modifier = Modifier.size(20.dp)
                             )
-                            Spacer(modifier = Modifier.height(4.dp))
+                            Spacer(modifier = Modifier.width(10.dp))
                             Text(
-                                text = "Configure a JSON file location to sync your tasks. " +
-                                        "This enables editing tasks on your laptop and syncing " +
-                                        "with tools like Syncthing.",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onBackground
+                                text = if (appSettings.taskFilePath.startsWith("content://")) {
+                                    val uri = android.net.Uri.parse(appSettings.taskFilePath)
+                                    val path = uri.path
+                                    if (path != null && path.contains(":")) {
+                                        val parts = path.split(":")
+                                        if (parts.size > 1) "/storage/emulated/0/" + parts[1] else "Selected location"
+                                    } else {
+                                        "Selected location"
+                                    }
+                                } else {
+                                    appSettings.taskFilePath
+                                },
+                                style = MaterialTheme.typography.bodySmall,
+                                color = muted,
+                                modifier = Modifier.weight(1f)
                             )
+                        }
+                        TextButton(
+                            onClick = onSetupFileSync,
+                            contentPadding = PaddingValues(0.dp)
+                        ) {
+                            Text("Change folder", color = accent, fontWeight = FontWeight.Medium)
                         }
                     }
                 }
-                
-                // Setup section
-                Column(
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text(
-                        text = if (appSettings.taskFilePath.isEmpty()) "Setup File Sync" else "File Sync Location",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onBackground
-                    )
-                    
-                    Spacer(modifier = Modifier.height(8.dp))
-                    
-                    OutlinedCard(
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(16.dp)
-                        ) {
-                            if (appSettings.taskFilePath.isEmpty()) {
-                                // Not configured yet
-                                Text(
-                                    text = "File sync is not set up yet. Choose a folder where tasks.json will be created and kept in sync with your tasks.",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                
-                                Spacer(modifier = Modifier.height(12.dp))
-                                
-                                Button(
-                                    onClick = onSetupFileSync,
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Edit,
-                                        contentDescription = null
-                                    )
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text("Choose Folder & Setup")
-                                }
-                            } else {
-                                // Already configured
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.CheckCircle,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.size(24.dp)
-                                    )
-                                    
-                                    Spacer(modifier = Modifier.width(12.dp))
-                                    
-                                    Column(modifier = Modifier.weight(1f)) {
-                                        Text(
-                                            text = "Configured",
-                                            style = MaterialTheme.typography.titleSmall,
-                                            fontWeight = FontWeight.Bold,
-                                            color = MaterialTheme.colorScheme.onSurface
-                                        )
-                                        
-                                        Spacer(modifier = Modifier.height(4.dp))
-                                        
-                                        Text(
-                                            text = if (appSettings.taskFilePath.startsWith("content://")) {
-                                                val uri = android.net.Uri.parse(appSettings.taskFilePath)
-                                                val path = uri.path
-                                                if (path != null && path.contains(":")) {
-                                                    val parts = path.split(":")
-                                                    if (parts.size > 1) {
-                                                        "/storage/emulated/0/" + parts[1]
-                                                    } else {
-                                                        "Selected file location"
-                                                    }
-                                                } else {
-                                                    "Selected file location"
-                                                }
-                                            } else {
-                                                appSettings.taskFilePath
-                                            },
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                    }
-                                }
-                                
-                                Spacer(modifier = Modifier.height(12.dp))
-                                
-                                OutlinedButton(
-                                    onClick = onSetupFileSync,
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Edit,
-                                        contentDescription = null
-                                    )
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text("Change Folder")
-                                }
+
+                if (configured) {
+                    HorizontalDivider(thickness = 0.5.dp, color = hairline)
+
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            text = "Manual sync",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = onBg
+                        )
+                        Text(
+                            text = "Tasks sync automatically when you add, edit, or complete them — " +
+                                "use these only if needed.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = muted
+                        )
+                        Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+                            TextButton(onClick = onSyncFromFile, contentPadding = PaddingValues(0.dp)) {
+                                Text("Load from file", color = accent, fontWeight = FontWeight.Medium)
+                            }
+                            TextButton(onClick = onSyncToFile, contentPadding = PaddingValues(0.dp)) {
+                                Text("Save to file", color = accent, fontWeight = FontWeight.Medium)
                             }
                         }
-                    }
-                }
-                
-                // Sync actions - only show if file sync is configured
-                if (appSettings.taskFilePath.isNotEmpty()) {
-                    Column(
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text(
-                            text = "Manual Sync",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onBackground
-                        )
-                        
-                        Spacer(modifier = Modifier.height(8.dp))
-                        
-                        OutlinedButton(
-                            onClick = onSyncFromFile,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Refresh,
-                                contentDescription = null
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("Load from File")
-                        }
-                        
-                        Spacer(modifier = Modifier.height(8.dp))
-                        
-                        OutlinedButton(
-                            onClick = onSyncToFile,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Refresh,
-                                contentDescription = null
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("Save to File")
-                        }
-                        
-                        Spacer(modifier = Modifier.height(8.dp))
-                        
-                        Text(
-                            text = "Note: Tasks are automatically synced when you add, edit, or complete them. " +
-                                    "Use manual sync only if needed.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
                     }
                 }
             }

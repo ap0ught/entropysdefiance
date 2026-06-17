@@ -3,9 +3,11 @@ package com.hwanderer.entropysdefiance.ui.components
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -27,7 +29,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.hwanderer.entropysdefiance.model.AppSettings
 import com.hwanderer.entropysdefiance.model.DeviceCalendar
 
@@ -43,34 +47,27 @@ fun SettingsDialog(
     onBackupSettingsClick: () -> Unit,
     onStatisticsClick: () -> Unit,
     onStartTutorial: () -> Unit,
+    onToggleLeftHanded: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     
-    // Full screen layout
     Surface(
         modifier = Modifier.fillMaxSize(),
         color = MaterialTheme.colorScheme.background
     ) {
+        val context = LocalContext.current
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 16.dp)
+                .padding(horizontal = 24.dp)
         ) {
-            // Header with title and close button
+            // Minimal header — just a way back.
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 50.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
+                    .padding(top = 40.dp, bottom = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = "Settings",
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onBackground
-                )
-                
                 IconButton(onClick = onDismiss) {
                     Icon(
                         imageVector = Icons.Default.Close,
@@ -79,110 +76,107 @@ fun SettingsDialog(
                     )
                 }
             }
-            
-            // Main content in a scrollable column
+
+            // Centered, typographic menu.
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f)
-                    .verticalScroll(rememberScrollState())
-                    .padding(vertical = 8.dp)
+                    .verticalScroll(rememberScrollState()),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Tutorial Section
-                SettingsSectionButton(
-                    title = "Introduction",
-                    description = "Restart the interactive tutorial to learn the basics",
-                    icon = Icons.Default.PlayArrow,
-                    onClick = onStartTutorial
-                )
-
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Calendar Settings Section
-                SettingsSectionButton(
-                    title = "Calendar",
-                    description = "Calendar widget, days to show, calendar selection",
-                    icon = Icons.Default.DateRange,
-                    onClick = onCalendarSettingsClick
-                )
-                
-                Spacer(modifier = Modifier.height(16.dp))
-                
-                // Appearance Settings Section
-                SettingsSectionButton(
-                    title = "Appearance",
-                    description = "Color themes and visual customization",
-                    icon = Icons.Default.Settings,
-                    onClick = onAppearanceSettingsClick
-                )
-                
-                Spacer(modifier = Modifier.height(16.dp))
-                
-                // Free Time Settings Section
-                SettingsSectionButton(
-                    title = "Free Time Calculation",
-                    description = "Productivity ratio, calculation calendars",
-                    icon = Icons.Default.DateRange,
-                    onClick = onFreeTimeSettingsClick
-                )
-                
-                Spacer(modifier = Modifier.height(16.dp))
-                
-                // File Sync Settings Section
-                SettingsSectionButton(
-                    title = "File Sync",
-                    description = "Sync tasks with external file for laptop editing",
-                    icon = Icons.Default.Refresh,
-                    onClick = onFileSyncSettingsClick
+                MenuTextItem("Introduction", onClick = onStartTutorial)
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                MenuToggleItem(
+                    text = "Left-handed mode",
+                    checked = appSettings.leftHanded,
+                    onToggle = onToggleLeftHanded
                 )
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(20.dp))
 
-                // Permissions Settings Section
-                SettingsSectionButton(
-                    title = "Permissions",
-                    description = "Manage calendar permission",
-                    icon = Icons.Default.Lock,
-                    onClick = onPermissionsSettingsClick
-                )
+                MenuTextItem("Calendar", onClick = onCalendarSettingsClick)
+                MenuTextItem("Appearance", onClick = onAppearanceSettingsClick)
+                MenuTextItem("Free Time", onClick = onFreeTimeSettingsClick)
+                MenuTextItem("File Sync", onClick = onFileSyncSettingsClick)
+                MenuTextItem("Permissions", onClick = onPermissionsSettingsClick)
+                MenuTextItem("Backup & Import", onClick = onBackupSettingsClick)
+                MenuTextItem("Statistics", onClick = onStatisticsClick)
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(20.dp))
 
-                // Backup & Import Settings Section
-                SettingsSectionButton(
-                    title = "Backup & Import",
-                    description = "Export/import tasks from CSV files",
-                    icon = Icons.Default.Refresh,
-                    onClick = onBackupSettingsClick
-                )
+                MenuTextItem("Support development", onClick = {
+                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(DONATE_URL))
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    runCatching { context.startActivity(intent) }
+                })
 
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Statistics Section
-                SettingsSectionButton(
-                    title = "Statistics",
-                    description = "Task counts, completion rates, and more",
-                    icon = Icons.Default.Info,
-                    onClick = onStatisticsClick
-                )
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                val context = LocalContext.current
-                SettingsSectionButton(
-                    title = "Support development",
-                    description = "Buy the developer a coffee",
-                    icon = Icons.Default.Favorite,
-                    onClick = {
-                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(DONATE_URL))
-                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                        runCatching { context.startActivity(intent) }
-                    }
-                )
-
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(32.dp))
             }
         }
+    }
+}
+
+/** A centered, borderless menu entry in the app's typographic style. */
+@Composable
+private fun MenuTextItem(
+    text: String,
+    onClick: () -> Unit,
+    color: Color = MaterialTheme.colorScheme.onBackground
+) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.titleLarge.copy(fontSize = 24.sp),
+        fontWeight = FontWeight.Light,
+        color = color,
+        textAlign = TextAlign.Center,
+        modifier = Modifier
+            .clickable(onClick = onClick)
+            .padding(vertical = 10.dp, horizontal = 24.dp)
+    )
+}
+
+/** A centered menu toggle: a small dot fills with the accent when on; the label follows suit. */
+@Composable
+private fun MenuToggleItem(
+    text: String,
+    checked: Boolean,
+    onToggle: () -> Unit
+) {
+    val accent = MaterialTheme.colorScheme.primary
+    Row(
+        modifier = Modifier
+            .clickable(onClick = onToggle)
+            .padding(vertical = 10.dp, horizontal = 24.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(14.dp)
+                .clip(CircleShape)
+                .then(
+                    if (checked) {
+                        Modifier.background(accent)
+                    } else {
+                        Modifier.border(
+                            1.5.dp,
+                            MaterialTheme.colorScheme.onBackground.copy(alpha = 0.4f),
+                            CircleShape
+                        )
+                    }
+                )
+        )
+        Text(
+            text = text,
+            style = MaterialTheme.typography.titleLarge.copy(fontSize = 24.sp),
+            fontWeight = FontWeight.Light,
+            color = if (checked) accent else MaterialTheme.colorScheme.onBackground
+        )
     }
 }
 

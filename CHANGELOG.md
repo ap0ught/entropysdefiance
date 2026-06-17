@@ -4,6 +4,34 @@ All notable changes to Entropy's Defiance are documented here. The format follow
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project adheres
 to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.1.0] — 2026-06-17
+
+### Added
+- Default-launcher prompt after onboarding, plus a "Default launcher" entry in
+  Permissions — for OEMs (e.g. Samsung One UI) that never ask to switch home apps.
+- Accent colour options: follow the system Material You palette, choose a preset,
+  or enter a custom hex colour.
+- Left-handed mode (a top-level Settings toggle) that mirrors the floating button,
+  the app-drawer swipe zone, the app-list alignment, and the calendar to the left.
+
+### Changed
+- Redesigned the calendar agenda: real dates on every row, correct multi-day spans,
+  a progress bar on ongoing events, 12/24-hour times following the device setting,
+  and ongoing events grouped under today (no stray day-separator).
+- Refreshed task creation, the settings menu and sub-screens, and the alignment
+  screen to a consistent, borderless typographic style.
+- Expanded the introduction (peek, swipe-to-move tasks, gestures, file sync).
+- Removed the non-functional dark-mode toggle.
+
+### Fixed
+- Tasks no longer vanish when the task file is momentarily unreadable or mid-sync:
+  a failed/partial read is no longer treated as "no tasks", and an empty list is
+  never written back over a failed read.
+- App-drawer keyboard now reappears immediately when scrolling back to the top
+  (previously a 3–4 s delay), and closing the drawer is instant.
+- Removed wasteful per-app icon loading on the main thread (the launcher is
+  text-only), improving cold-start/unlock responsiveness.
+
 ## [3.0.1] — 2026-06-09
 
 ### Fixed

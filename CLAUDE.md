@@ -6,6 +6,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Entropy's Defiance** is a minimalist Android launcher and task management app. Tasks are organized into five time horizons (Today, ThisWeek, ThisMonth, ThisYear, ThisLife) and synced to a JSON file for cross-device use via Syncthing. There is also a Python terminal UI for laptop access.
 
+## Releasing
+
+This app is published in the main F-Droid repo, which **rebuilds every version from
+this GitLab source** and proposes updates via a bot watching git tags. Cutting a
+release has strict requirements (versionCode/changelog/tag alignment, no proprietary
+deps, build-tooling caution). **Before working on any release or version bump, read
+[`RELEASING.md`](RELEASING.md) and follow its checklist.**
+
 ## Build & Test Commands
 
 ```bash

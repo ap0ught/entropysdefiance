@@ -1,41 +1,40 @@
 package com.hwanderer.entropysdefiance.ui.components
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import com.hwanderer.entropysdefiance.model.Task
-import com.hwanderer.entropysdefiance.model.TimeHorizon
-import androidx.compose.foundation.clickable
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.heightIn
+import com.hwanderer.entropysdefiance.model.Task
+import com.hwanderer.entropysdefiance.model.TimeHorizon
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
 /**
- * Custom dialog with strong dimming effect
+ * A full-screen dialog with a strong dimming scrim, used for the alignment screen's sub-dialogs.
  */
 @Composable
 private fun StrongDimDialog(
@@ -51,19 +50,18 @@ private fun StrongDimDialog(
         )
     ) {
         Box(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxSize()
+                .imePadding(),
             contentAlignment = Alignment.Center
         ) {
-            // Dark scrim that covers the entire screen
-            // This is placed behind the dialog content
             Surface(
                 modifier = Modifier
                     .fillMaxSize()
                     .clickable(onClick = onDismissRequest),
-                color = Color.Black.copy(alpha = 0.9f) // Very dark dimming to hide background
+                color = Color.Black.copy(alpha = 0.9f)
             ) {}
-            
-            // Dialog content
+
             Box(modifier = Modifier.fillMaxWidth(0.9f)) {
                 content()
             }
@@ -72,7 +70,7 @@ private fun StrongDimDialog(
 }
 
 /**
- * A full screen component for the Alignment mode workflow
+ * A full screen component for the Alignment mode workflow.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -85,14 +83,12 @@ fun AlignmentScreen(
     onAddDeadlineTask: (String, LocalDate, Int) -> Unit = { _, _, _ -> },
     onDeleteTask: (String) -> Unit,
     onMoveTask: (String, TimeHorizon) -> Unit,
-    onUpdateTask: (String, String, TimeHorizon) -> Unit = { id, title, horizon -> 
-        // Default implementation for backward compatibility
+    onUpdateTask: (String, String, TimeHorizon) -> Unit = { id, title, horizon ->
         onDeleteTask(id)
         onAddTask(title, horizon)
     },
     modifier: Modifier = Modifier
 ) {
-    // State for add/edit task dialog
     var showTaskDialog by remember { mutableStateOf(false) }
     var taskTitle by remember { mutableStateOf("") }
     var isEditMode by remember { mutableStateOf(false) }
@@ -101,8 +97,7 @@ fun AlignmentScreen(
     var selectedDeadline by remember { mutableStateOf<LocalDate?>(null) }
     var daysNeeded by remember { mutableStateOf("") }
     var showDatePicker by remember { mutableStateOf(false) }
-    
-    // Create guidance message based on current horizon
+
     val guidanceMessage = when (currentHorizon) {
         TimeHorizon.ThisLife -> "Consider your life goals. What do you want to accomplish?"
         TimeHorizon.ThisYear -> "What are your goals for this year that align with your life vision?"
@@ -110,81 +105,66 @@ fun AlignmentScreen(
         TimeHorizon.ThisWeek -> "What can you accomplish this week to progress on your monthly objectives?"
         TimeHorizon.Today -> "What specific tasks can you do today to advance your weekly goals?"
     }
-    
+
+    val accent = MaterialTheme.colorScheme.primary
+    val onBg = MaterialTheme.colorScheme.onBackground
+    val muted = onBg.copy(alpha = 0.5f)
+
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
-            // Custom top bar implementation for true centering
-            Surface(
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.fillMaxWidth()
+            // Transparent header: a small ALIGNMENT label over the horizon name in the accent.
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 40.dp, bottom = 12.dp)
             ) {
-                Box(
+                IconButton(
+                    onClick = onClose,
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 32.dp, bottom = 12.dp) // Increased top padding significantly
+                        .align(Alignment.CenterStart)
+                        .padding(start = 4.dp)
                 ) {
-                    // Left-aligned close button
-                    IconButton(
-                        onClick = onClose,
-                        modifier = Modifier
-                            .align(Alignment.CenterStart)
-                            .padding(start = 4.dp)
-                    ) {
-                        Icon(
-                            Icons.Default.Close,
-                            contentDescription = "Close Alignment",
-                            tint = MaterialTheme.colorScheme.onPrimary
-                        )
-                    }
-                    
-                    // Truly centered title - now with more top padding through the parent Box
-                    Column(
-                        modifier = Modifier
-                            .align(Alignment.Center)
-                            .padding(vertical = 4.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(2.dp)
-                    ) {
-                        Text(
-                            text = "ALIGNMENT",
-                            style = MaterialTheme.typography.labelLarge.copy(
-                                fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
-                                letterSpacing = 1.sp
-                            ),
-                            color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.85f)
-                        )
-                        Text(
-                            text = currentHorizon.title,
-                            style = MaterialTheme.typography.titleMedium.copy(
-                                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
-                            ),
-                            color = MaterialTheme.colorScheme.onPrimary
-                        )
-                    }
+                    Icon(Icons.Default.Close, contentDescription = "Close Alignment", tint = onBg)
+                }
+
+                Column(
+                    modifier = Modifier.align(Alignment.Center),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                ) {
+                    Text(
+                        text = "ALIGNMENT",
+                        style = MaterialTheme.typography.labelMedium.copy(letterSpacing = 2.sp),
+                        color = muted
+                    )
+                    Text(
+                        text = currentHorizon.title,
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Light,
+                        color = accent
+                    )
                 }
             }
         },
         floatingActionButton = {
             Column(
                 horizontalAlignment = Alignment.End,
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // Add task button
                 SmallFloatingActionButton(
-                    onClick = { 
+                    onClick = {
                         taskTitle = ""
                         isEditMode = false
                         isDeadlineTask = false
                         selectedDeadline = null
                         daysNeeded = ""
-                        showTaskDialog = true 
+                        showTaskDialog = true
                     },
                     containerColor = MaterialTheme.colorScheme.secondary
                 ) {
-                    Icon(Icons.Default.Edit, contentDescription = "Add Task")
+                    Icon(Icons.Default.Add, contentDescription = "Add Task")
                 }
-                
-                // Next horizon button
                 FloatingActionButton(
                     onClick = onNext,
                     containerColor = MaterialTheme.colorScheme.primary
@@ -198,29 +178,23 @@ fun AlignmentScreen(
             modifier = modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(horizontal = 16.dp)
+                .padding(horizontal = 24.dp)
         ) {
-            // Guidance text
-            Surface(
-                color = MaterialTheme.colorScheme.surfaceVariant,
-                shape = MaterialTheme.shapes.medium,
+            // Guidance — borderless, centered, quiet.
+            Text(
+                text = guidanceMessage,
+                style = MaterialTheme.typography.bodyLarge,
+                textAlign = TextAlign.Center,
+                color = muted,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 8.dp)
-            ) {
-                Text(
-                    text = guidanceMessage,
-                    style = MaterialTheme.typography.bodyLarge,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.padding(16.dp)
-                )
-            }
-            
-            // Tasks for current horizon
+                    .padding(vertical = 16.dp)
+            )
+
             val horizonTasks = remember(tasks, currentHorizon) {
                 tasks.filter { it.timeHorizon == currentHorizon }
             }
-            
+
             if (horizonTasks.isEmpty()) {
                 Box(
                     modifier = Modifier
@@ -229,10 +203,10 @@ fun AlignmentScreen(
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = "No tasks for ${currentHorizon.title}.\nAdd some to proceed with alignment.",
+                        text = "Nothing here yet.\nAdd what belongs to ${currentHorizon.title.lowercase()}.",
                         textAlign = TextAlign.Center,
                         style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                        color = muted
                     )
                 }
             } else {
@@ -240,15 +214,14 @@ fun AlignmentScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .weight(1f),
-                    contentPadding = PaddingValues(vertical = 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                    contentPadding = PaddingValues(vertical = 8.dp)
                 ) {
                     items(horizonTasks, key = { it.id }) { task ->
                         AlignmentTaskItem(
                             task = task,
                             onDelete = { onDeleteTask(task.id) },
                             onMove = { newHorizon -> onMoveTask(task.id, newHorizon) },
-                            onEdit = { 
+                            onEdit = {
                                 currentEditTaskId = task.id
                                 taskTitle = task.title
                                 isEditMode = true
@@ -264,128 +237,160 @@ fun AlignmentScreen(
             }
         }
     }
-    
-    // Dialog for adding or editing a task
+
+    // Add / edit task dialog
     if (showTaskDialog) {
+        val editingTask = tasks.find { it.id == currentEditTaskId }
+        val canConfirm = taskTitle.isNotBlank() && (
+            isEditMode || !isDeadlineTask ||
+                (selectedDeadline != null && (daysNeeded.toIntOrNull() ?: 0) > 0)
+            )
+
+        fun confirm() {
+            if (!canConfirm) return
+            if (isEditMode) {
+                onUpdateTask(currentEditTaskId, taskTitle, currentHorizon)
+            } else if (isDeadlineTask) {
+                onAddDeadlineTask(taskTitle, selectedDeadline!!, daysNeeded.toInt())
+            } else {
+                onAddTask(taskTitle, currentHorizon)
+            }
+            taskTitle = ""
+            isDeadlineTask = false
+            selectedDeadline = null
+            daysNeeded = ""
+            showTaskDialog = false
+        }
+
         StrongDimDialog(onDismissRequest = { showTaskDialog = false }) {
-            AlertDialog(
-                onDismissRequest = { showTaskDialog = false },
-                title = { Text(if (isEditMode) "Edit Task" else "Add Task") },
-                text = {
-                    Column(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
-                        OutlinedTextField(
-                            value = taskTitle,
-                            onValueChange = { taskTitle = it },
-                            label = { Text("Task") },
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                        
-                        if (!isEditMode) {
-                            // Task type selection - compact design using FilterChip
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = MaterialTheme.shapes.large,
+                color = MaterialTheme.colorScheme.surface
+            ) {
+                val dialogOnSurface = MaterialTheme.colorScheme.onSurface
+                val dialogMuted = dialogOnSurface.copy(alpha = 0.4f)
+                Column(
+                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 28.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(24.dp)
+                ) {
+                    Text(
+                        text = if (isEditMode) "Edit task" else "New task",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = accent
+                    )
+
+                    UnderlinedInput(
+                        value = taskTitle,
+                        onValueChange = { taskTitle = it },
+                        placeholder = "Task",
+                        accent = accent,
+                        textColor = dialogOnSurface,
+                        placeholderColor = dialogMuted,
+                        textStyle = MaterialTheme.typography.titleLarge.copy(
+                            textAlign = TextAlign.Center,
+                            fontWeight = FontWeight.Light
+                        ),
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                        keyboardActions = KeyboardActions(onDone = { confirm() })
+                    )
+
+                    if (!isEditMode) {
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(32.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            ModeLabel(
+                                text = "Time Horizon",
+                                selected = !isDeadlineTask,
+                                accent = accent,
+                                mutedColor = dialogMuted,
+                                onClick = { isDeadlineTask = false }
+                            )
+                            ModeLabel(
+                                text = "Deadline",
+                                selected = isDeadlineTask,
+                                accent = accent,
+                                mutedColor = dialogMuted,
+                                onClick = { isDeadlineTask = true }
+                            )
+                        }
+
+                        if (isDeadlineTask) {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(8.dp),
+                                modifier = Modifier.fillMaxWidth()
                             ) {
-                                FilterChip(
-                                    selected = !isDeadlineTask,
-                                    onClick = { isDeadlineTask = false },
-                                    label = { Text("Time Horizon") },
-                                    modifier = Modifier.weight(1f)
-                                )
-                                FilterChip(
-                                    selected = isDeadlineTask,
-                                    onClick = { isDeadlineTask = true },
-                                    label = { Text("Deadline") },
-                                    modifier = Modifier.weight(1f)
-                                )
-                            }
-                            
-                            if (isDeadlineTask) {
-                                // Deadline task fields
-                                OutlinedButton(
-                                    onClick = { showDatePicker = true },
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Text(
-                                            text = selectedDeadline?.format(DateTimeFormatter.ISO_LOCAL_DATE) ?: "Select Deadline",
-                                            style = MaterialTheme.typography.bodyLarge
-                                        )
-                                        Icon(Icons.Default.Edit, contentDescription = "Select Date")
-                                    }
-                                }
-                                
-                                OutlinedTextField(
-                                    value = daysNeeded,
-                                    onValueChange = { daysNeeded = it },
-                                    label = { Text("Days Needed") },
-                                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = KeyboardType.Number),
-                                    modifier = Modifier.fillMaxWidth()
-                                )
-                            }
-                        }
-                        
-                        if (isEditMode) {
-                            val editingTask = tasks.find { it.id == currentEditTaskId }
-                            if (editingTask?.isDeadlineTask == true) {
-                                // Show deadline info for deadline tasks being edited
                                 Text(
-                                    text = "Deadline: ${editingTask.deadline?.format(DateTimeFormatter.ISO_LOCAL_DATE) ?: "N/A"}",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                                    text = selectedDeadline
+                                        ?.format(DateTimeFormatter.ofPattern("EEE, d MMM yyyy"))
+                                        ?: "Select deadline",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = if (selectedDeadline != null) dialogOnSurface else dialogMuted,
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable { showDatePicker = true }
+                                        .padding(vertical = 4.dp)
+                                )
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(1.5.dp)
+                                        .background(accent.copy(alpha = 0.6f))
                                 )
                             }
+
+                            UnderlinedInput(
+                                value = daysNeeded,
+                                onValueChange = { new -> daysNeeded = new.filter { it.isDigit() }.take(4) },
+                                placeholder = "Days needed",
+                                accent = accent,
+                                textColor = dialogOnSurface,
+                                placeholderColor = dialogMuted,
+                                textStyle = MaterialTheme.typography.titleMedium.copy(
+                                    textAlign = TextAlign.Center,
+                                    fontWeight = FontWeight.Light
+                                ),
+                                keyboardOptions = KeyboardOptions(
+                                    keyboardType = KeyboardType.Number,
+                                    imeAction = ImeAction.Done
+                                ),
+                                keyboardActions = KeyboardActions(onDone = { confirm() })
+                            )
                         }
+                    } else if (editingTask?.isDeadlineTask == true) {
+                        Text(
+                            text = "Deadline: ${editingTask.deadline?.format(DateTimeFormatter.ISO_LOCAL_DATE) ?: "N/A"}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = dialogMuted
+                        )
                     }
-                },
-                confirmButton = {
-                    Button(
-                        onClick = {
-                            if (taskTitle.isNotBlank()) {
-                                if (isEditMode) {
-                                    // Use the update task method
-                                    onUpdateTask(currentEditTaskId, taskTitle, currentHorizon)
-                                } else {
-                                    if (isDeadlineTask) {
-                                        val deadline = selectedDeadline
-                                        val days = daysNeeded.toIntOrNull()
-                                        if (deadline != null && days != null && days > 0) {
-                                            onAddDeadlineTask(taskTitle, deadline, days)
-                                        }
-                                    } else {
-                                        // For add, just add new task
-                                        onAddTask(taskTitle, currentHorizon)
-                                    }
-                                }
-                                taskTitle = ""
-                                isDeadlineTask = false
-                                selectedDeadline = null
-                                daysNeeded = ""
-                                showTaskDialog = false
-                            }
-                        },
-                        enabled = taskTitle.isNotBlank() && (!isDeadlineTask || (selectedDeadline != null && daysNeeded.toIntOrNull() != null && daysNeeded.toIntOrNull()!! > 0))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(if (isEditMode) "Update" else "Add")
-                    }
-                },
-                dismissButton = {
-                    TextButton(onClick = { showTaskDialog = false }) {
-                        Text("Cancel")
+                        TextButton(onClick = { showTaskDialog = false }) {
+                            Text("Cancel", color = dialogMuted)
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        TextButton(onClick = { confirm() }, enabled = canConfirm) {
+                            Text(
+                                text = if (isEditMode) "Update" else "Add",
+                                color = if (canConfirm) accent else dialogMuted,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
                     }
                 }
-            )
+            }
         }
     }
-    
+
     // Date picker dialog
     if (showDatePicker) {
         val datePickerState = androidx.compose.material3.rememberDatePickerState(
@@ -395,18 +400,17 @@ fun AlignmentScreen(
             yearRange = (java.time.Year.now().value)..(java.time.Year.now().value + 10),
             initialDisplayedMonthMillis = null
         )
-        
+
         StrongDimDialog(onDismissRequest = { showDatePicker = false }) {
             Surface(
-                modifier = Modifier.fillMaxWidth(0.95f),
+                modifier = Modifier.fillMaxWidth(),
                 shape = MaterialTheme.shapes.large,
                 color = MaterialTheme.colorScheme.surface
             ) {
                 Column(
                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 16.dp)
                 ) {
-                    // Scrollable date picker
-                    val scrollState = androidx.compose.foundation.rememberScrollState()
+                    val scrollState = rememberScrollState()
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -415,7 +419,7 @@ fun AlignmentScreen(
                     ) {
                         androidx.compose.material3.DatePicker(state = datePickerState)
                     }
-                    
+
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -456,114 +460,83 @@ private fun AlignmentTaskItem(
     modifier: Modifier = Modifier
 ) {
     var showMoveDialog by remember { mutableStateOf(false) }
-    
-    Surface(
-        modifier = modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.small,
-        border = BorderStroke(
-            width = 1.dp,
-            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
-        )
-    ) {
+    val onBg = MaterialTheme.colorScheme.onBackground
+
+    Column(modifier = modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .clickable(onClick = onEdit) // Make the entire row clickable for edit
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
+                .padding(vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Task title with deadline if applicable
             Text(
                 text = if (task.isDeadlineTask && task.deadline != null) {
-                    "${task.deadline.format(DateTimeFormatter.ofPattern("dd.MM.yyyy"))} | ${task.title}"
+                    "${task.deadline.format(DateTimeFormatter.ofPattern("dd.MM."))}  ·  ${task.title}"
                 } else {
                     task.title
                 },
-                style = MaterialTheme.typography.bodyLarge,
-                modifier = Modifier.weight(1f),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Light,
+                color = onBg,
+                modifier = Modifier
+                    .weight(1f)
+                    .clickable(onClick = onEdit)
+                    .padding(vertical = 8.dp),
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
-            
-            // Action buttons
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+
+            if (!task.isDeadlineTask) {
+                IconButton(onClick = { showMoveDialog = true }) {
+                    Icon(
+                        Icons.AutoMirrored.Filled.ArrowForward,
+                        contentDescription = "Move Task",
+                        tint = onBg.copy(alpha = 0.45f)
+                    )
+                }
+            }
+            IconButton(onClick = onDelete) {
+                Icon(
+                    Icons.Default.Close,
+                    contentDescription = "Delete Task",
+                    tint = onBg.copy(alpha = 0.45f)
+                )
+            }
+        }
+        HorizontalDivider(thickness = 0.5.dp, color = onBg.copy(alpha = 0.12f))
+    }
+
+    if (showMoveDialog) {
+        StrongDimDialog(onDismissRequest = { showMoveDialog = false }) {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                // Move button - hidden for deadline tasks
-                if (!task.isDeadlineTask) {
-                    IconButton(
-                        onClick = { showMoveDialog = true }
-                    ) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowForward,
-                            contentDescription = "Move Task",
-                            tint = MaterialTheme.colorScheme.primary
+                Text(
+                    text = "Move to",
+                    style = MaterialTheme.typography.labelMedium.copy(letterSpacing = 2.sp),
+                    color = onBg.copy(alpha = 0.6f),
+                    modifier = Modifier.padding(bottom = 12.dp)
+                )
+                TimeHorizon.entries.forEach { horizon ->
+                    if (horizon != currentHorizon) {
+                        Text(
+                            text = horizon.title,
+                            style = MaterialTheme.typography.titleLarge.copy(fontSize = 26.sp),
+                            fontWeight = FontWeight.Light,
+                            color = onBg,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier
+                                .clickable {
+                                    onMove(horizon)
+                                    showMoveDialog = false
+                                }
+                                .padding(vertical = 8.dp, horizontal = 24.dp)
                         )
                     }
-                }
-                
-                // Delete button
-                IconButton(onClick = onDelete) {
-                    Icon(
-                        Icons.Default.Close,
-                        contentDescription = "Delete Task",
-                        tint = MaterialTheme.colorScheme.error
-                    )
                 }
             }
         }
     }
-    
-    // Dialog for moving a task to another time horizon
-    if (showMoveDialog) {
-        StrongDimDialog(onDismissRequest = { showMoveDialog = false }) {
-            AlertDialog(
-                onDismissRequest = { showMoveDialog = false },
-                title = { Text("Move Task") },
-                text = {
-                    Column {
-                        Text(
-                            "Move task to another time horizon:",
-                            style = MaterialTheme.typography.bodyMedium,
-                            modifier = Modifier.padding(bottom = 8.dp)
-                        )
-                        
-                        TimeHorizon.entries.forEach { horizon ->
-                            if (horizon != currentHorizon) {
-                                Surface(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(vertical = 4.dp),
-                                    color = Color.Transparent
-                                ) {
-                                    Row(
-                                        modifier = Modifier
-                                            .clickable {
-                                                onMove(horizon)
-                                                showMoveDialog = false
-                                            }
-                                            .padding(8.dp)
-                                            .fillMaxWidth(),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Text(
-                                            text = horizon.title,
-                                            style = MaterialTheme.typography.bodyLarge
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-                },
-                confirmButton = {},
-                dismissButton = {
-                    TextButton(onClick = { showMoveDialog = false }) {
-                        Text("Cancel")
-                    }
-                }
-            )
-        }
-    }
-} 
+}

@@ -335,10 +335,20 @@ private val welcomePages = listOf(
         showHorizonsDiagram = true
     ),
     WelcomePage(
+        title = "Move with a swipe",
+        body = "Swipe a task left or right to carry it across horizons — " +
+            "pull it into today, or let it drift toward this life."
+    ),
+    WelcomePage(
         title = "Top-down",
         body = "Long-press the horizon title to align — from life, " +
             "down through the year, the month, the week, into today. " +
             "The smaller scales serve the larger ones."
+    ),
+    WelcomePage(
+        title = "Peek ahead",
+        body = "Press and hold the + button to peek into the next horizon — " +
+            "glimpse what's coming without leaving where you are."
     ),
     WelcomePage(
         title = "One task at a time",
@@ -351,6 +361,17 @@ private val welcomePages = listOf(
         body = "The bar shows time left in the horizon. " +
             "The number below shows hours actually available — " +
             "your calendar deducted, your productivity ratio applied."
+    ),
+    WelcomePage(
+        title = "By gesture",
+        body = "Swipe up for your apps, then type to find one. " +
+            "Double-tap to dial. Long-press the home screen for settings."
+    ),
+    WelcomePage(
+        title = "Yours to keep",
+        body = "Tasks are plain text in a folder you choose. " +
+            "Sync it with Syncthing, or edit from a laptop. " +
+            "No account, no cloud, no lock-in."
     ),
     WelcomePage(
         title = "Begin",

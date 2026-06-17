@@ -10,6 +10,7 @@ import com.hwanderer.entropysdefiance.EntropysDefianceApplication
 import com.hwanderer.entropysdefiance.data.DatabaseMigrationHelper
 import com.hwanderer.entropysdefiance.data.TaskData
 import com.hwanderer.entropysdefiance.data.TaskFileRepository
+import com.hwanderer.entropysdefiance.data.TaskReadResult
 import com.hwanderer.entropysdefiance.model.Task
 import com.hwanderer.entropysdefiance.model.TimeHorizon
 import com.hwanderer.entropysdefiance.utils.calculateTimeHorizonFromDate
@@ -130,17 +131,22 @@ class TaskViewModel(application: Application) : AndroidViewModel(application) {
             val filePath = settings.taskFilePath
             
             if (filePath.isEmpty()) return
-            
-            // Read the file and compute a simple hash
-            val tasksFromFile = fileRepository.readTasksFromFile(filePath)
-            val currentHash = computeTaskListHash(tasksFromFile)
-            
+
+            // Read the file and compute a simple hash. A failed read must be ignored
+            // (not treated as an empty file) so a momentary sync hiccup never wipes tasks.
+            val result = fileRepository.readTasksFromFile(filePath)
+            if (result !is TaskReadResult.Success) {
+                Log.w(TASK_VM_TAG, "Skipping external-change check: task file could not be read")
+                return
+            }
+            val currentHash = computeTaskListHash(result.tasks)
+
             // If hash changed, reload tasks
             if (currentHash != lastFileHash && lastFileHash != 0) {
                 Log.d(TASK_VM_TAG, "External file change detected, reloading tasks")
                 loadTasksFromFile()
             }
-            
+
             lastFileHash = currentHash
         } catch (e: Exception) {
             Log.e(TASK_VM_TAG, "Error checking for external changes: ${e.message}", e)
@@ -170,10 +176,15 @@ class TaskViewModel(application: Application) : AndroidViewModel(application) {
             }
             
             Log.d(TASK_VM_TAG, "Loading tasks from file: $filePath")
-            
-            val tasksFromFile = fileRepository.readTasksFromFile(filePath)
+
+            val result = fileRepository.readTasksFromFile(filePath)
+            if (result !is TaskReadResult.Success) {
+                Log.w(TASK_VM_TAG, "Could not read task file; keeping current tasks to avoid data loss")
+                return
+            }
+            val tasksFromFile = result.tasks
             _taskDataList.value = tasksFromFile
-            
+
             // Convert to Task models and filter out completed tasks, then sort
             val pendingTasks = tasksFromFile
                 .filter { !it.isCompleted }
@@ -198,8 +209,7 @@ class TaskViewModel(application: Application) : AndroidViewModel(application) {
             Log.d(TASK_VM_TAG, "Loaded ${tasksFromFile.size} total tasks, ${pendingTasks.size} pending")
         } catch (e: Exception) {
             Log.e(TASK_VM_TAG, "Error loading tasks from file: ${e.message}", e)
-            _taskDataList.value = emptyList()
-            _tasks.value = emptyList()
+            // Preserve whatever is currently loaded rather than wiping the UI on an error.
         }
     }
     
@@ -220,9 +230,15 @@ class TaskViewModel(application: Application) : AndroidViewModel(application) {
             
             val tasks = _taskDataList.value
             Log.d(TASK_VM_TAG, "Writing ${tasks.size} tasks to file: $filePath")
-            
-            fileRepository.writeTasksToFile(tasks, filePath)
-            lastFileHash = computeTaskListHash(tasks)
+
+            // Only advance the change-detection baseline if the write actually succeeded;
+            // otherwise the next poll would see the unchanged file and reload stale data
+            // over the in-memory changes.
+            if (fileRepository.writeTasksToFile(tasks, filePath)) {
+                lastFileHash = computeTaskListHash(tasks)
+            } else {
+                Log.e(TASK_VM_TAG, "Write failed; in-memory tasks kept, file left unchanged")
+            }
         } catch (e: Exception) {
             Log.e(TASK_VM_TAG, "Error writing tasks to file: ${e.message}", e)
         } finally {

@@ -33,9 +33,9 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
     private object PreferencesKeys {
         val SHOW_CALENDAR_WIDGET = booleanPreferencesKey("show_calendar_widget")
         val CALENDAR_DAYS_TO_SHOW = intPreferencesKey("calendar_days_to_show")
-        val USE_DARK_THEME = booleanPreferencesKey("use_dark_theme")
         val ENABLE_DOUBLE_TAP_DIALER = booleanPreferencesKey("enable_double_tap_dialer")
         val COLOR_THEME = stringPreferencesKey("color_theme")
+        val LEFT_HANDED = booleanPreferencesKey("left_handed")
         val ENABLE_AUTOMATIC_BACKUP = booleanPreferencesKey("enable_automatic_backup")
         val BACKUP_INTERVAL_HOURS = intPreferencesKey("backup_interval_hours")
         
@@ -72,9 +72,9 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
             // Map preferences to AppSettings
             val showCalendarWidget = preferences[PreferencesKeys.SHOW_CALENDAR_WIDGET] ?: true
             val calendarDaysToShow = preferences[PreferencesKeys.CALENDAR_DAYS_TO_SHOW] ?: 7
-            val useDarkTheme = preferences[PreferencesKeys.USE_DARK_THEME] ?: false
             val enableDoubleTapForDialer = preferences[PreferencesKeys.ENABLE_DOUBLE_TAP_DIALER] ?: true
             val colorTheme = preferences[PreferencesKeys.COLOR_THEME] ?: "Green"
+            val leftHanded = preferences[PreferencesKeys.LEFT_HANDED] ?: false
             val enableAutomaticBackup = preferences[PreferencesKeys.ENABLE_AUTOMATIC_BACKUP] ?: false
             val backupIntervalHours = preferences[PreferencesKeys.BACKUP_INTERVAL_HOURS] ?: 24
             val productivityRatio = preferences[PreferencesKeys.PRODUCTIVITY_RATIO] ?: 0.5f
@@ -92,20 +92,13 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
             val calculationCalendarIds = calculationCalendarIdStrings
                 .mapNotNull { it.toLongOrNull() }
                 .toSet()
-            
-            Log.d(TAG, "Loading settings: showCalendar=$showCalendarWidget, days=$calendarDaysToShow, " +
-                       "darkTheme=$useDarkTheme, doubleTap=$enableDoubleTapForDialer, " +
-                       "colorTheme=$colorTheme, backup=$enableAutomaticBackup, " +
-                       "selectedCalendars=${selectedCalendarIds.size}, " +
-                       "calculationCalendars=${calculationCalendarIds.size}, " +
-                       "productivityRatio=$productivityRatio, tutorialCompleted=$tutorialCompleted")
-            
+
             AppSettings(
                 showCalendarWidget = showCalendarWidget,
                 calendarDaysToShow = calendarDaysToShow,
-                useDarkTheme = useDarkTheme,
                 enableDoubleTapForDialer = enableDoubleTapForDialer,
                 colorTheme = colorTheme,
+                leftHanded = leftHanded,
                 selectedCalendarIds = selectedCalendarIds,
                 calculationCalendarIds = calculationCalendarIds,
                 productivityRatio = productivityRatio,
@@ -125,9 +118,7 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
             dataStore.edit { preferences ->
                 preferences[PreferencesKeys.SHOW_CALENDAR_WIDGET] = show
             }
-            Log.d(TAG, "Successfully saved showCalendarWidget")
-            dumpDataStoreContents() // Debug - dump contents after updating
-        } catch (e: Exception) {
+            Log.d(TAG, "Successfully saved showCalendarWidget")        } catch (e: Exception) {
             Log.e(TAG, "Error saving showCalendarWidget: ${e.message}", e)
         }
     }
@@ -141,26 +132,8 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
             dataStore.edit { preferences ->
                 preferences[PreferencesKeys.CALENDAR_DAYS_TO_SHOW] = days
             }
-            Log.d(TAG, "Successfully saved calendarDaysToShow")
-            dumpDataStoreContents() // Debug - dump contents after updating
-        } catch (e: Exception) {
+            Log.d(TAG, "Successfully saved calendarDaysToShow")        } catch (e: Exception) {
             Log.e(TAG, "Error saving calendarDaysToShow: ${e.message}", e)
-        }
-    }
-
-    /**
-     * Update dark theme setting
-     */
-    suspend fun updateUseDarkTheme(useDarkTheme: Boolean) {
-        Log.d(TAG, "Saving useDarkTheme: $useDarkTheme")
-        try {
-            dataStore.edit { preferences ->
-                preferences[PreferencesKeys.USE_DARK_THEME] = useDarkTheme
-            }
-            Log.d(TAG, "Successfully saved useDarkTheme")
-            dumpDataStoreContents() // Debug - dump contents after updating
-        } catch (e: Exception) {
-            Log.e(TAG, "Error saving useDarkTheme: ${e.message}", e)
         }
     }
 
@@ -173,9 +146,7 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
             dataStore.edit { preferences ->
                 preferences[PreferencesKeys.ENABLE_DOUBLE_TAP_DIALER] = enable
             }
-            Log.d(TAG, "Successfully saved enableDoubleTapDialer")
-            dumpDataStoreContents() // Debug - dump contents after updating
-        } catch (e: Exception) {
+            Log.d(TAG, "Successfully saved enableDoubleTapDialer")        } catch (e: Exception) {
             Log.e(TAG, "Error saving enableDoubleTapDialer: ${e.message}", e)
         }
     }
@@ -190,12 +161,24 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
                 preferences[PreferencesKeys.COLOR_THEME] = theme
             }
             Log.d(TAG, "Successfully saved colorTheme")
-            dumpDataStoreContents() // Debug - dump contents after updating
         } catch (e: Exception) {
             Log.e(TAG, "Error saving colorTheme: ${e.message}", e)
         }
     }
-    
+
+    /**
+     * Update left-handed (mirrored layout) setting
+     */
+    suspend fun updateLeftHanded(leftHanded: Boolean) {
+        try {
+            dataStore.edit { preferences ->
+                preferences[PreferencesKeys.LEFT_HANDED] = leftHanded
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error saving leftHanded: ${e.message}", e)
+        }
+    }
+
     /**
      * Update selected calendar IDs
      */
@@ -208,9 +191,7 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
             dataStore.edit { preferences ->
                 preferences[PreferencesKeys.SELECTED_CALENDAR_IDS] = calendarIdStrings
             }
-            Log.d(TAG, "Successfully saved selectedCalendarIds")
-            dumpDataStoreContents() // Debug - dump contents after updating
-        } catch (e: Exception) {
+            Log.d(TAG, "Successfully saved selectedCalendarIds")        } catch (e: Exception) {
             Log.e(TAG, "Error saving selectedCalendarIds: ${e.message}", e)
         }
     }
@@ -227,9 +208,7 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
             dataStore.edit { preferences ->
                 preferences[PreferencesKeys.CALCULATION_CALENDAR_IDS] = calendarIdStrings
             }
-            Log.d(TAG, "Successfully saved calculationCalendarIds")
-            dumpDataStoreContents() // Debug - dump contents after updating
-        } catch (e: Exception) {
+            Log.d(TAG, "Successfully saved calculationCalendarIds")        } catch (e: Exception) {
             Log.e(TAG, "Error saving calculationCalendarIds: ${e.message}", e)
         }
     }
@@ -243,9 +222,7 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
             dataStore.edit { preferences ->
                 preferences[PreferencesKeys.PRODUCTIVITY_RATIO] = ratio.coerceIn(0f, 1f)
             }
-            Log.d(TAG, "Successfully saved productivityRatio")
-            dumpDataStoreContents() // Debug - dump contents after updating
-        } catch (e: Exception) {
+            Log.d(TAG, "Successfully saved productivityRatio")        } catch (e: Exception) {
             Log.e(TAG, "Error saving productivityRatio: ${e.message}", e)
         }
     }
@@ -263,9 +240,9 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
             dataStore.edit { preferences ->
                 preferences[PreferencesKeys.SHOW_CALENDAR_WIDGET] = settings.showCalendarWidget
                 preferences[PreferencesKeys.CALENDAR_DAYS_TO_SHOW] = settings.calendarDaysToShow
-                preferences[PreferencesKeys.USE_DARK_THEME] = settings.useDarkTheme
                 preferences[PreferencesKeys.ENABLE_DOUBLE_TAP_DIALER] = settings.enableDoubleTapForDialer
                 preferences[PreferencesKeys.COLOR_THEME] = settings.colorTheme
+                preferences[PreferencesKeys.LEFT_HANDED] = settings.leftHanded
                 preferences[PreferencesKeys.ENABLE_AUTOMATIC_BACKUP] = settings.enableAutomaticBackup
                 preferences[PreferencesKeys.BACKUP_INTERVAL_HOURS] = settings.backupIntervalHours
                 preferences[PreferencesKeys.SELECTED_CALENDAR_IDS] = calendarIdStrings
@@ -274,9 +251,7 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
                 preferences[PreferencesKeys.TASK_FILE_PATH] = settings.taskFilePath
                 preferences[PreferencesKeys.TUTORIAL_COMPLETED] = settings.tutorialCompleted
             }
-            Log.d(TAG, "Successfully saved all settings")
-            dumpDataStoreContents() // Debug - dump contents after updating
-        } catch (e: Exception) {
+            Log.d(TAG, "Successfully saved all settings")        } catch (e: Exception) {
             Log.e(TAG, "Error saving all settings: ${e.message}", e)
         }
     }
@@ -319,7 +294,6 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
                 preferences[PreferencesKeys.TASK_FILE_PATH] = path
             }
             Log.d(TAG, "Successfully saved taskFilePath")
-            dumpDataStoreContents()
         } catch (e: Exception) {
             Log.e(TAG, "Error saving taskFilePath: ${e.message}", e)
         }
@@ -352,14 +326,12 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
             // Check for our specific keys
             val showCalendar = preferences[PreferencesKeys.SHOW_CALENDAR_WIDGET]
             val days = preferences[PreferencesKeys.CALENDAR_DAYS_TO_SHOW]
-            val darkTheme = preferences[PreferencesKeys.USE_DARK_THEME]
             val doubleTap = preferences[PreferencesKeys.ENABLE_DOUBLE_TAP_DIALER]
             val colorTheme = preferences[PreferencesKeys.COLOR_THEME]
             val calendarIdStrings = preferences[PreferencesKeys.SELECTED_CALENDAR_IDS]
             
             Log.d(TAG, "SHOW_CALENDAR_WIDGET: $showCalendar")
             Log.d(TAG, "CALENDAR_DAYS_TO_SHOW: $days")
-            Log.d(TAG, "USE_DARK_THEME: $darkTheme")
             Log.d(TAG, "ENABLE_DOUBLE_TAP_DIALER: $doubleTap")
             Log.d(TAG, "COLOR_THEME: $colorTheme")
             Log.d(TAG, "SELECTED_CALENDAR_IDS: $calendarIdStrings")

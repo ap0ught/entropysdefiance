@@ -33,7 +33,6 @@ class SettingsRepositoryTest {
     // Test keys that match the ones in SettingsRepository
     private val SHOW_CALENDAR_WIDGET = booleanPreferencesKey("show_calendar_widget")
     private val CALENDAR_DAYS_TO_SHOW = intPreferencesKey("calendar_days_to_show")
-    private val USE_DARK_THEME = booleanPreferencesKey("use_dark_theme")
     private val ENABLE_DOUBLE_TAP_DIALER = booleanPreferencesKey("enable_double_tap_dialer")
 
     @get:Rule
@@ -60,7 +59,6 @@ class SettingsRepositoryTest {
         val expected = AppSettings(
             showCalendarWidget = true,  // default is true in SettingsRepository
             calendarDaysToShow = 7,
-            useDarkTheme = false,
             enableDoubleTapForDialer = true,  // default is true in SettingsRepository
             colorTheme = "Green",
             selectedCalendarIds = emptySet(),
@@ -79,7 +77,6 @@ class SettingsRepositoryTest {
         dataStore.edit { preferences ->
             preferences[SHOW_CALENDAR_WIDGET] = false
             preferences[CALENDAR_DAYS_TO_SHOW] = 14
-            preferences[USE_DARK_THEME] = true
             preferences[ENABLE_DOUBLE_TAP_DIALER] = false
         }
         
@@ -90,7 +87,6 @@ class SettingsRepositoryTest {
         val expected = AppSettings(
             showCalendarWidget = false,
             calendarDaysToShow = 14,
-            useDarkTheme = true,
             enableDoubleTapForDialer = false,
             colorTheme = "Green",  // default value
             selectedCalendarIds = emptySet(),  // default value
@@ -128,7 +124,6 @@ class SettingsRepositoryTest {
         val newSettings = AppSettings(
             showCalendarWidget = false,
             calendarDaysToShow = 10,
-            useDarkTheme = true,
             enableDoubleTapForDialer = false,
             colorTheme = "Blue",
             selectedCalendarIds = setOf(1L, 2L),

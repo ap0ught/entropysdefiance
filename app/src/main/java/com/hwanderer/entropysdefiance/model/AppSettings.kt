@@ -14,9 +14,9 @@ data class AppSettings(
     val productivityRatio: Float = 0.5f, // How much of time is productive (0.0 to 1.0)
     
     // Appearance settings
-    val useDarkTheme: Boolean = false,
     val colorTheme: String = "Green", // Default to Green theme
-    
+    val leftHanded: Boolean = false, // Mirror controls (FAB, drawer swipe zone, calendar cut) to the left
+
     // Gesture settings
     val enableDoubleTapForDialer: Boolean = true,
     

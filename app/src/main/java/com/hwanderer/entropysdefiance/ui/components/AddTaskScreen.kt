@@ -1,24 +1,25 @@
 package com.hwanderer.entropysdefiance.ui.components
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.*
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.heightIn
@@ -28,7 +29,6 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.runtime.LaunchedEffect
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
-import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -45,25 +45,28 @@ fun AddTaskScreen(
     var showDatePicker by remember { mutableStateOf(false) }
     val focusRequester = remember { FocusRequester() }
 
+    val canSubmit = taskTitle.isNotBlank() && (
+        !isDeadlineTask ||
+            (selectedDeadline != null && (daysNeeded.toIntOrNull() ?: 0) > 0)
+        )
+
     fun submitTask() {
-        if (taskTitle.isNotBlank()) {
-            if (isDeadlineTask) {
-                val deadline = selectedDeadline
-                val days = daysNeeded.toIntOrNull()
-                if (deadline != null && days != null && days > 0) {
-                    onAddDeadlineTask(taskTitle, deadline, days)
-                    onDismiss()
-                }
-            } else {
-                onAddTask(taskTitle, selectedTimeHorizon)
-                onDismiss()
-            }
+        if (!canSubmit) return
+        if (isDeadlineTask) {
+            onAddDeadlineTask(taskTitle, selectedDeadline!!, daysNeeded.toInt())
+        } else {
+            onAddTask(taskTitle, selectedTimeHorizon)
         }
+        onDismiss()
     }
 
     LaunchedEffect(Unit) {
         focusRequester.requestFocus()
     }
+
+    val accent = MaterialTheme.colorScheme.primary
+    val onBg = MaterialTheme.colorScheme.onBackground
+    val muted = onBg.copy(alpha = 0.4f)
 
     Scaffold(
         topBar = {
@@ -73,25 +76,26 @@ fun AddTaskScreen(
                         Icon(
                             Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Go Back",
-                            tint = MaterialTheme.colorScheme.onBackground
+                            tint = onBg
                         )
                     }
                 },
                 title = { },
                 actions = {
-                    Button(
+                    TextButton(
                         onClick = { submitTask() },
-                        enabled = taskTitle.isNotBlank() && (!isDeadlineTask || (selectedDeadline != null && daysNeeded.toIntOrNull() != null && daysNeeded.toIntOrNull()!! > 0)),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.primary,
-                            contentColor = MaterialTheme.colorScheme.onPrimary
-                        )
+                        enabled = canSubmit
                     ) {
-                        Text("Add")
+                        Text(
+                            text = "Add",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Medium,
+                            color = if (canSubmit) accent else muted
+                        )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background
+                    containerColor = Color.Transparent
                 )
             )
         },
@@ -102,137 +106,113 @@ fun AddTaskScreen(
                 .fillMaxSize()
                 .padding(padding)
                 .verticalScroll(rememberScrollState())
-                .padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+                .padding(horizontal = 24.dp, vertical = 8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(36.dp)
         ) {
-            OutlinedTextField(
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Task title — a borderless, centered input with a single accent underline.
+            UnderlinedInput(
                 value = taskTitle,
                 onValueChange = { taskTitle = it },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .focusRequester(focusRequester),
-                placeholder = { Text("Enter note") },
-                colors = OutlinedTextFieldDefaults.colors(
-                    unfocusedBorderColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.4f)
+                placeholder = "What needs doing?",
+                accent = accent,
+                textColor = onBg,
+                placeholderColor = muted,
+                modifier = Modifier.focusRequester(focusRequester),
+                textStyle = MaterialTheme.typography.headlineSmall.copy(
+                    textAlign = TextAlign.Center,
+                    fontWeight = FontWeight.Light
                 ),
-                keyboardOptions = KeyboardOptions(
-                    imeAction = ImeAction.Done
-                ),
-                keyboardActions = KeyboardActions(
-                    onDone = {
-                        submitTask()
-                    }
-                ),
-                singleLine = true
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                keyboardActions = KeyboardActions(onDone = { submitTask() })
             )
 
-            // Task type selection - compact design using FilterChip
+            // Mode toggle — plain text, active one in the accent with a short underline.
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(32.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                FilterChip(
+                ModeLabel(
+                    text = "Time Horizon",
                     selected = !isDeadlineTask,
-                    onClick = { isDeadlineTask = false },
-                    label = { Text("Time Horizon") },
-                    modifier = Modifier.weight(1f)
+                    accent = accent,
+                    mutedColor = muted,
+                    onClick = { isDeadlineTask = false }
                 )
-                FilterChip(
+                ModeLabel(
+                    text = "Deadline",
                     selected = isDeadlineTask,
-                    onClick = { isDeadlineTask = true },
-                    label = { Text("Deadline") },
-                    modifier = Modifier.weight(1f)
+                    accent = accent,
+                    mutedColor = muted,
+                    onClick = { isDeadlineTask = true }
                 )
             }
-            
+
             if (isDeadlineTask) {
-                // Deadline task fields
-                OutlinedButton(
-                    onClick = { showDatePicker = true },
+                // Deadline date — a tappable, centered field with the same underline treatment.
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = selectedDeadline?.format(DateTimeFormatter.ISO_LOCAL_DATE) ?: "Select Deadline",
-                            style = MaterialTheme.typography.bodyLarge
-                        )
-                        Icon(Icons.Default.Edit, contentDescription = "Select Date")
-                    }
+                    Text(
+                        text = selectedDeadline
+                            ?.format(DateTimeFormatter.ofPattern("EEE, d MMM yyyy"))
+                            ?: "Select deadline",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Light,
+                        color = if (selectedDeadline != null) onBg else muted,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { showDatePicker = true }
+                            .padding(vertical = 4.dp)
+                    )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(1.5.dp)
+                            .background(accent.copy(alpha = 0.6f))
+                    )
                 }
-                
-                OutlinedTextField(
+
+                UnderlinedInput(
                     value = daysNeeded,
-                    onValueChange = { daysNeeded = it },
-                    label = { Text("Days Needed") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    modifier = Modifier.fillMaxWidth()
+                    onValueChange = { new -> daysNeeded = new.filter { it.isDigit() }.take(4) },
+                    placeholder = "Days needed",
+                    accent = accent,
+                    textColor = onBg,
+                    placeholderColor = muted,
+                    textStyle = MaterialTheme.typography.titleLarge.copy(
+                        textAlign = TextAlign.Center,
+                        fontWeight = FontWeight.Light
+                    ),
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Number,
+                        imeAction = ImeAction.Done
+                    ),
+                    keyboardActions = KeyboardActions(onDone = { submitTask() })
                 )
             } else {
-                // Time horizon selection in 2-column grid
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(
-                        "Time Horizon",
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
-                    )
-                    
-                    // Two-column grid layout
-                    val horizons = TimeHorizon.values().toList()
-                    
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        // Display horizons in rows of 2
-                        horizons.chunked(2).forEach { rowHorizons: List<TimeHorizon> ->
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = if (rowHorizons.size == 1) Arrangement.Center else Arrangement.spacedBy(8.dp)
-                            ) {
-                                rowHorizons.forEach { horizon: TimeHorizon ->
-                                    Surface(
-                                        modifier = Modifier
-                                            .then(
-                                                if (rowHorizons.size == 1) {
-                                                    Modifier.wrapContentWidth()
-                                                } else {
-                                                    Modifier.weight(1f)
-                                                }
-                                            )
-                                            .clickable { selectedTimeHorizon = horizon },
-                                        color = MaterialTheme.colorScheme.background
-                                    ) {
-                                        Row(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .padding(vertical = 16.dp, horizontal = 20.dp),
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            RadioButton(
-                                                selected = selectedTimeHorizon == horizon,
-                                                onClick = { selectedTimeHorizon = horizon },
-                                                colors = RadioButtonDefaults.colors(
-                                                    selectedColor = MaterialTheme.colorScheme.primary
-                                                )
-                                            )
-                                            Spacer(modifier = Modifier.width(8.dp))
-                                            Text(
-                                                text = horizon.title,
-                                                style = MaterialTheme.typography.bodyLarge,
-                                                color = MaterialTheme.colorScheme.onBackground
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                        }
+                // Horizon picker — the five scales as a centered vertical list of large text.
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    TimeHorizon.entries.forEach { horizon ->
+                        SelectableTextRow(
+                            text = horizon.title,
+                            selected = selectedTimeHorizon == horizon,
+                            onClick = { selectedTimeHorizon = horizon }
+                        )
                     }
                 }
             }
         }
     }
-    
+
     // Date picker dialog
     if (showDatePicker) {
         val datePickerState = androidx.compose.material3.rememberDatePickerState(
@@ -242,10 +222,9 @@ fun AddTaskScreen(
             yearRange = (java.time.Year.now().value)..(java.time.Year.now().value + 10),
             initialDisplayedMonthMillis = null
         )
-        
+
         val scrollState = androidx.compose.foundation.rememberScrollState()
-        
-        // Custom dialog with dark background to hide underlying content
+
         androidx.compose.ui.window.Dialog(
             onDismissRequest = { showDatePicker = false },
             properties = androidx.compose.ui.window.DialogProperties(
@@ -258,15 +237,13 @@ fun AddTaskScreen(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
             ) {
-                // Very dark scrim to hide background
                 Surface(
                     modifier = Modifier
                         .fillMaxSize()
                         .clickable { showDatePicker = false },
                     color = Color.Black.copy(alpha = 0.9f)
                 ) {}
-                
-                // Date picker content
+
                 Surface(
                     modifier = Modifier.fillMaxWidth(0.95f),
                     shape = MaterialTheme.shapes.large,
@@ -283,7 +260,7 @@ fun AddTaskScreen(
                         ) {
                             androidx.compose.material3.DatePicker(state = datePickerState)
                         }
-                        
+
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -313,4 +290,5 @@ fun AddTaskScreen(
             }
         }
     }
-} 
+}
+

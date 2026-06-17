@@ -5,14 +5,16 @@ sync cleanly with Syncthing or any folder-sync tool, and a small terminal UI is
 available for editing the same file from a Linux laptop.
 
 <b>Features</b>
-* Time-horizon task list — swipe between horizons, peek at what's next
+* Time-horizon task list — peek at the next horizon, swipe a task left or right to move it across horizons
 * Minimalist home screen with a focused task view
 * App drawer with frequency-ranked apps and instant text search
-* Optional double-tap to launch the dialer
 * Calendar widget with free-time calculation across selected calendars
 * Zen Mode for distraction-free focus on a single task
+* Optional double-tap to launch the dialer
+* Accent colour — follow your system's Material You palette, pick a preset, or set a custom colour
+* Left-handed mode — mirror the controls to the left
 * Plain-JSON storage that syncs over Syncthing
-* Interactive in-app tutorial — replayable from Settings → Introduction
+* Guided intro to the five-horizon philosophy — replayable from Settings → Introduction
 
 <b>Permissions</b>
 * <i>Query all packages</i> — needed to list installed apps in the drawer

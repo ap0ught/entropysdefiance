@@ -130,19 +130,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             repository.updateCalendarDaysToShow(days)
         }
     }
-    
-    /**
-     * Toggle dark theme
-     */
-    fun toggleDarkTheme() {
-        Log.d(TAG, "Toggling dark theme")
-        viewModelScope.launch {
-            val newValue = !_settings.value.useDarkTheme
-            Log.d(TAG, "New useDarkTheme value: $newValue")
-            repository.updateUseDarkTheme(newValue)
-        }
-    }
-    
+
     /**
      * Toggle double tap for dialer
      */
@@ -204,7 +192,16 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             repository.updateColorTheme(theme)
         }
     }
-    
+
+    /**
+     * Toggle left-handed (mirrored) layout
+     */
+    fun toggleLeftHanded() {
+        viewModelScope.launch {
+            repository.updateLeftHanded(!_settings.value.leftHanded)
+        }
+    }
+
     /**
      * Show color palette selection
      */

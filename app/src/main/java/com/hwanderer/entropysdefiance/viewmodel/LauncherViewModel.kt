@@ -10,9 +10,11 @@ import android.os.Process
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.hwanderer.entropysdefiance.model.AppInfo
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class LauncherViewModel(application: Application) : AndroidViewModel(application) {
     private val _apps = MutableStateFlow<List<AppInfo>>(emptyList())
@@ -30,28 +32,30 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     private fun loadApps() {
         viewModelScope.launch {
             val context = getApplication<Application>()
-            val pm = context.packageManager
-            val intent = Intent(Intent.ACTION_MAIN, null)
-            intent.addCategory(Intent.CATEGORY_LAUNCHER)
+            // Enumerate apps and shortcuts off the main thread. queryIntentActivities and
+            // loadLabel do IPC/resource work per app; running them on the main thread caused
+            // launcher jank on cold start (this runs in init) and after each launch.
+            val sortedAppList = withContext(Dispatchers.Default) {
+                val pm = context.packageManager
+                val intent = Intent(Intent.ACTION_MAIN, null)
+                intent.addCategory(Intent.CATEGORY_LAUNCHER)
 
-            val resolveInfoList = pm.queryIntentActivities(intent, PackageManager.MATCH_ALL)
-            val appList = resolveInfoList.map { resolveInfo ->
-                AppInfo(
-                    packageName = resolveInfo.activityInfo.packageName,
-                    appName = resolveInfo.loadLabel(pm).toString(),
-                    icon = resolveInfo.loadIcon(pm),
-                    launchIntent = resolveInfo.activityInfo.name
-                )
-            }
+                val resolveInfoList = pm.queryIntentActivities(intent, PackageManager.MATCH_ALL)
+                val appList = resolveInfoList.map { resolveInfo ->
+                    AppInfo(
+                        packageName = resolveInfo.activityInfo.packageName,
+                        appName = resolveInfo.loadLabel(pm).toString(),
+                        launchIntent = resolveInfo.activityInfo.name
+                    )
+                }
 
-            // Query pinned shortcuts (PWAs and website shortcuts)
-            val shortcutList = loadPinnedShortcuts(context)
+                // Query pinned shortcuts (PWAs and website shortcuts)
+                val shortcutList = loadPinnedShortcuts(context)
 
-            val combined = appList + shortcutList
-
-            // Sort by usage count (most used first)
-            val sortedAppList = combined.sortedByDescending { app ->
-                appUsagePrefs.getInt(app.usageKey, 0)
+                // Sort by usage count (most used first)
+                (appList + shortcutList).sortedByDescending { app ->
+                    appUsagePrefs.getInt(app.usageKey, 0)
+                }
             }
 
             _apps.value = sortedAppList
@@ -64,20 +68,12 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
             val query = LauncherApps.ShortcutQuery().apply {
                 setQueryFlags(LauncherApps.ShortcutQuery.FLAG_MATCH_PINNED)
             }
-            val density = context.resources.displayMetrics.densityDpi
             launcherApps.getShortcuts(query, Process.myUserHandle())?.map { shortcut ->
-                val icon = try {
-                    launcherApps.getShortcutIconDrawable(shortcut, density)
-                        ?: context.packageManager.getApplicationIcon(shortcut.`package`)
-                } catch (e: Exception) {
-                    context.packageManager.getApplicationIcon(shortcut.`package`)
-                }
                 AppInfo(
                     packageName = shortcut.`package`,
                     appName = shortcut.shortLabel?.toString()
                         ?: shortcut.longLabel?.toString()
                         ?: shortcut.`package`,
-                    icon = icon,
                     launchIntent = "",
                     shortcutId = shortcut.id
                 )
