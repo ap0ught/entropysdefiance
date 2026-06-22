@@ -1,0 +1,4 @@
+This release is about licensing and availability — there are no changes to the app itself.
+
+• Relicensed from MIT to the Mozilla Public License 2.0 (MPL-2.0). The app stays fully free and open source; the source remains here and on F-Droid.
+• Entropy's Defiance is now also available as a small paid app on Google Play, for anyone who'd like to support development. It is, and always will be, free here and on F-Droid.

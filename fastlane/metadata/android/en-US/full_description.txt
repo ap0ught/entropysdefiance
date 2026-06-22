@@ -24,7 +24,7 @@ available for editing the same file from a Linux laptop.
   Do Not Disturb integration
 
 The app is offline-first and contains no trackers, no analytics, and no ads.
-Source code is published under the MIT License at
+Source code is published under the Mozilla Public License 2.0 at
 https://gitlab.com/hwanderer/entropysdefiance.
 
 If you'd like to support development:

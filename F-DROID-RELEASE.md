@@ -35,7 +35,7 @@ request adding `metadata/com.hwanderer.entropysdefiance.yml`:
 ```yaml
 Categories:
   - Time
-License: MIT
+License: MPL-2.0
 SourceCode: https://gitlab.com/hwanderer/entropysdefiance
 IssueTracker: https://gitlab.com/hwanderer/entropysdefiance/-/issues
 Donate: https://buymeacoffee.com/hwanderer

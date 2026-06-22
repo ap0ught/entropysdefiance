@@ -4,6 +4,14 @@ All notable changes to Entropy's Defiance are documented here. The format follow
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project adheres
 to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.2.0] — 2026-06-22
+
+### Changed
+- Relicensed from the MIT License to the Mozilla Public License 2.0 (MPL-2.0).
+  MPL-2.0 is file-level copyleft: the source stays free and open, modifications to
+  existing files must remain MPL-2.0, but it can be combined with other code in a
+  larger work. Earlier releases remain under their original MIT terms.
+
 ## [3.1.0] — 2026-06-17
 
 ### Added
