@@ -36,9 +36,10 @@ class CalendarRepository(private val context: Context) {
             Instances.ALL_DAY,                 // 5
             Instances.DISPLAY_COLOR,           // 6
             Instances.EVENT_ID,                // 7
-            Instances.CALENDAR_ID              // 8 - Added calendar ID
+            Instances.CALENDAR_ID,             // 8 - Added calendar ID
+            Instances.STATUS                   // 9 - occurrence status (to filter cancelled)
         )
-        
+
         // Indices for the event projection array
         private const val PROJECTION_ID_INDEX = 0
         private const val PROJECTION_TITLE_INDEX = 1
@@ -49,6 +50,7 @@ class CalendarRepository(private val context: Context) {
         private const val PROJECTION_COLOR_INDEX = 6
         private const val PROJECTION_EVENT_ID_INDEX = 7
         private const val PROJECTION_CALENDAR_ID_INDEX = 8
+        private const val PROJECTION_STATUS_INDEX = 9
         
         // Projection array for calendars query
         private val CALENDAR_PROJECTION = arrayOf(
@@ -126,11 +128,19 @@ class CalendarRepository(private val context: Context) {
         
         val events = mutableListOf<CalendarEvent>()
         
+        // Exclude cancelled occurrences. When a single instance of a recurring series is deleted,
+        // the provider keeps it as an exception row with STATUS_CANCELED rather than removing it;
+        // without this filter the agenda keeps showing the deleted occurrence.
+        val statusFilter =
+            "(${Instances.STATUS} IS NULL OR ${Instances.STATUS} != ${CalendarContract.Events.STATUS_CANCELED})"
+
         // Build selection string if we're filtering by calendar IDs
         val selection = if (selectedCalendarIds.isNotEmpty()) {
             val calendarSelection = selectedCalendarIds.joinToString(",") { it.toString() }
-            "${Instances.CALENDAR_ID} IN ($calendarSelection)"
-        } else null
+            "${Instances.CALENDAR_ID} IN ($calendarSelection) AND $statusFilter"
+        } else {
+            statusFilter
+        }
         
         context.contentResolver.query(
             builder.build(),
@@ -201,7 +211,9 @@ class CalendarRepository(private val context: Context) {
             isAllDay = allDay,
             color = color,
             eventId = eventId,
-            calendarId = calendarId // Store calendar ID with each event
+            calendarId = calendarId, // Store calendar ID with each event
+            beginMillis = beginMillis, // Raw occurrence times, to open the exact instance tapped
+            endMillis = endMillis
         )
     }
 } 

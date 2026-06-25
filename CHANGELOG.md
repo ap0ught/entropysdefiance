@@ -4,6 +4,25 @@ All notable changes to Entropy's Defiance are documented here. The format follow
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project adheres
 to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.3.0] — 2026-06-25
+
+### Fixed
+- App drawer no longer crashes the launcher while filtering: a package exposing more
+  than one launcher activity produced duplicate list keys (`IllegalArgumentException`
+  in `LazyColumn`), which only surfaced once a search narrowed the list. Drawer entries
+  now use a key that includes the launch activity, so they stay unique.
+- App-drawer "Uninstall" action now opens the system uninstall dialog. It silently
+  did nothing before because the `REQUEST_DELETE_PACKAGES` permission was not declared.
+- Calendar agenda no longer shows a deleted occurrence of a recurring series (cancelled
+  exception rows are now filtered by `STATUS`).
+- Tapping a calendar event opens the tapped occurrence instead of the series' first
+  occurrence: the per-occurrence begin/end times are now forwarded to the calendar app.
+
+### Changed
+- The default accent colour now follows the system Material You palette (was a fixed
+  green). Existing installs keep their saved colour; presets and a custom hex colour
+  remain available in Settings.
+
 ## [3.2.0] — 2026-06-22
 
 ### Changed

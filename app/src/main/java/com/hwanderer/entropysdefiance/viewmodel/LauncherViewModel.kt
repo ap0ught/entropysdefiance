@@ -13,6 +13,7 @@ import android.content.pm.LauncherApps
 import android.content.pm.PackageManager
 import android.content.SharedPreferences
 import android.os.Process
+import android.provider.CalendarContract
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.hwanderer.entropysdefiance.model.AppInfo
@@ -58,10 +59,14 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
                 // Query pinned shortcuts (PWAs and website shortcuts)
                 val shortcutList = loadPinnedShortcuts(context)
 
-                // Sort by usage count (most used first)
-                (appList + shortcutList).sortedByDescending { app ->
-                    appUsagePrefs.getInt(app.usageKey, 0)
-                }
+                // Drop any exact-duplicate launcher activities (same package + activity), then
+                // sort by usage count (most used first). distinctBy on the unique listKey is a
+                // belt-and-braces guard so the drawer never carries colliding list keys.
+                (appList + shortcutList)
+                    .distinctBy { it.listKey }
+                    .sortedByDescending { app ->
+                        appUsagePrefs.getInt(app.usageKey, 0)
+                    }
             }
 
             _apps.value = sortedAppList
@@ -111,16 +116,21 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
             return
         }
 
-        // Increment usage count for this app
-        val currentCount = appUsagePrefs.getInt(packageName, 0)
-        appUsagePrefs.edit().putInt(packageName, currentCount + 1).apply()
-
-        // Launch the app
+        // Launch the app. Guard startActivity: the activity may be stale/unlaunchable (e.g. the
+        // auto-launch-on-single-match path in AppDrawer can fire on an entry that no longer
+        // resolves), and an uncaught exception here would crash the launcher process.
         val intent = Intent().apply {
             setClassName(packageName, launchIntent)
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
-        context.startActivity(intent)
+        try {
+            context.startActivity(intent)
+            // Increment usage count only after a successful launch.
+            val currentCount = appUsagePrefs.getInt(packageName, 0)
+            appUsagePrefs.edit().putInt(packageName, currentCount + 1).apply()
+        } catch (e: Exception) {
+            android.util.Log.e("LauncherViewModel", "Failed to launch app $packageName: ${e.message}", e)
+        }
 
         // Refresh the app list with updated usage counts
         loadApps()
@@ -263,21 +273,29 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     
     /**
      * Launch a specific calendar event by its ID
-     * @param eventId The event ID
+     * @param eventId The event ID (master series ID for recurring events)
      * @param calendarId The calendar ID
+     * @param beginMillis The tapped occurrence's start time (epoch millis), used to pin a recurring
+     *                    series to the right instance instead of opening its first occurrence
+     * @param endMillis The tapped occurrence's end time (epoch millis)
      */
-    fun openCalendarEvent(eventId: Long?, calendarId: Long?) {
+    fun openCalendarEvent(
+        eventId: Long?,
+        calendarId: Long?,
+        beginMillis: Long? = null,
+        endMillis: Long? = null
+    ) {
         val context = getApplication<Application>()
-        
+
         android.util.Log.d("LauncherViewModel", "Opening calendar event: eventId=$eventId, calendarId=$calendarId")
-        
+
         // If we don't have a valid event ID, fall back to opening the calendar app
         if (eventId == null) {
             android.util.Log.d("LauncherViewModel", "No eventId provided, falling back to calendar app")
             launchCalendarApp()
             return
         }
-        
+
         try {
             // Create an intent to view the specific event
             val viewEventIntent = Intent(Intent.ACTION_VIEW).apply {
@@ -285,6 +303,15 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
                 val uri = android.net.Uri.parse("content://com.android.calendar/events/$eventId")
                 data = uri
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                // Pin to the tapped occurrence of a recurring series. Without these extras the
+                // calendar opens the series at its first occurrence regardless of which date was
+                // tapped, since eventId is the same for every occurrence.
+                if (beginMillis != null) {
+                    putExtra(CalendarContract.EXTRA_EVENT_BEGIN_TIME, beginMillis)
+                }
+                if (endMillis != null) {
+                    putExtra(CalendarContract.EXTRA_EVENT_END_TIME, endMillis)
+                }
             }
             android.util.Log.d("LauncherViewModel", "Launching intent with URI: content://com.android.calendar/events/$eventId")
             context.startActivity(viewEventIntent)
@@ -323,7 +350,9 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     }
 
     /**
-     * Uninstall an app by launching the system uninstall dialog
+     * Uninstall an app by launching the system uninstall dialog. The user confirms in the
+     * system UI; this only opens it. Requires the REQUEST_DELETE_PACKAGES permission declared in
+     * the manifest — without it the system rejects ACTION_DELETE and the dialog never appears.
      * @param packageName The package name of the app
      */
     fun uninstallApp(packageName: String) {

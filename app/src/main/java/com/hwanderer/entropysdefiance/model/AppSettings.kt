@@ -20,7 +20,7 @@ data class AppSettings(
     val productivityRatio: Float = 0.5f, // How much of time is productive (0.0 to 1.0)
     
     // Appearance settings
-    val colorTheme: String = "Green", // Default to Green theme
+    val colorTheme: String = "System", // Default to the system Material You accent ("System" = SYSTEM_COLOR_THEME)
     val leftHanded: Boolean = false, // Mirror controls (FAB, drawer swipe zone, calendar cut) to the left
 
     // Gesture settings

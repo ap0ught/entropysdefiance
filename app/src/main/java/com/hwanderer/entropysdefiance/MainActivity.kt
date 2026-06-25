@@ -1002,8 +1002,14 @@ fun TaskApp(
                                         CalendarAgendaWidget(
                                             events = calendarEvents,
                                             onEventClick = { event ->
-                                                // Open the specific calendar event
-                                                launcherViewModel.openCalendarEvent(event.eventId, event.calendarId)
+                                                // Open the specific calendar event, pinned to the
+                                                // tapped occurrence for recurring series.
+                                                launcherViewModel.openCalendarEvent(
+                                                    event.eventId,
+                                                    event.calendarId,
+                                                    event.beginMillis,
+                                                    event.endMillis
+                                                )
                                             },
                                             leftHanded = appSettings.leftHanded,
                                             modifier = Modifier.fillMaxSize()

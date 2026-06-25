@@ -5,6 +5,9 @@
     <!-- Launcher needs to enumerate all installed apps to populate the app drawer. -->
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"
         tools:ignore="QueryAllPackagesPermission" />
+    <!-- Lets the drawer's long-press "Uninstall" action open the system uninstall dialog.
+         Normal (install-time) permission, auto-granted; the user still confirms in the system UI. -->
+    <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" />
     <uses-permission android:name="android.permission.SET_WALLPAPER" />
     <uses-permission android:name="android.permission.READ_CALENDAR" />
 

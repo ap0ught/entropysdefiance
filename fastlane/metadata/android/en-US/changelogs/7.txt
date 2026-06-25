@@ -1,0 +1,6 @@
+Bug fixes and a new default look.
+
+• Fixed a launcher crash when searching the app drawer — packages with more than one launcher activity no longer collide and take down the launcher.
+• The app drawer's "Uninstall" action now works: it opens the system uninstall dialog as intended.
+• Calendar agenda: a deleted occurrence of a recurring event no longer lingers, and tapping an event now opens that exact date instead of the series' first occurrence.
+• The default accent now follows your system's Material You colours (you can still pick a preset or a custom colour in Settings).

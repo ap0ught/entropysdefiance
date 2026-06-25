@@ -20,5 +20,10 @@ data class CalendarEvent(
     val isAllDay: Boolean = false,
     val color: Int? = null,
     val eventId: Long? = null,
-    val calendarId: Long? = null
-) 
+    val calendarId: Long? = null,
+    // Raw provider instance times (epoch millis) for this specific occurrence. eventId is the
+    // master series ID — identical for every occurrence — so these are needed to open the exact
+    // instance of a recurring event the user tapped.
+    val beginMillis: Long? = null,
+    val endMillis: Long? = null
+)

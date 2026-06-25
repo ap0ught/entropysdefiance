@@ -404,7 +404,7 @@ fun AppDrawer(
                         .fillMaxSize()
                         .nestedScroll(topOverscrollHandler)
                 ) {
-                    items(filteredApps, key = { it.usageKey }) { app ->
+                    items(filteredApps, key = { it.listKey }) { app ->
                         AppItem(
                             app = app,
                             onClick = {
@@ -412,14 +412,16 @@ fun AppDrawer(
                                 appShowingMenu = null // Close menu when app is clicked
                             },
                             onLongPress = {
-                                // Toggle the action menu for this app
-                                appShowingMenu = if (appShowingMenu == app.packageName) {
+                                // Toggle the action menu for this app. Keyed by the unique listKey
+                                // so packages with multiple launcher activities don't open menus
+                                // on every sibling entry at once.
+                                appShowingMenu = if (appShowingMenu == app.listKey) {
                                     null
                                 } else {
-                                    app.packageName
+                                    app.listKey
                                 }
                             },
-                            isShowingMenu = appShowingMenu == app.packageName,
+                            isShowingMenu = appShowingMenu == app.listKey,
                             onSettings = { 
                                 onAppSettings(app)
                                 appShowingMenu = null // Auto-dismiss

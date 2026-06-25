@@ -17,5 +17,18 @@ data class AppInfo(
     val launchIntent: String,
     val shortcutId: String? = null
 ) {
+    /**
+     * Stable key for persisted usage counts (SharedPreferences). Intentionally per-package
+     * rather than per-activity: launching any launcher activity of a package counts toward the
+     * same app. Changing this format would orphan existing counters, so it must stay stable.
+     */
     val usageKey: String get() = if (shortcutId != null) "shortcut:$packageName:$shortcutId" else packageName
+
+    /**
+     * Genuinely unique key for list rendering. A single package can expose multiple launcher
+     * activities — each a separate AppInfo with the same packageName — so keying a LazyColumn by
+     * [usageKey] alone throws on duplicate keys (and crashes the launcher). Folding in the launch
+     * activity name keeps every drawer entry distinct without disturbing the usage-count key.
+     */
+    val listKey: String get() = if (shortcutId != null) "shortcut:$packageName:$shortcutId" else "$packageName/$launchIntent"
 }

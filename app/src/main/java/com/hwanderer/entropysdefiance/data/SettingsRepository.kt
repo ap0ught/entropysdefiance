@@ -79,7 +79,7 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
             val showCalendarWidget = preferences[PreferencesKeys.SHOW_CALENDAR_WIDGET] ?: true
             val calendarDaysToShow = preferences[PreferencesKeys.CALENDAR_DAYS_TO_SHOW] ?: 7
             val enableDoubleTapForDialer = preferences[PreferencesKeys.ENABLE_DOUBLE_TAP_DIALER] ?: true
-            val colorTheme = preferences[PreferencesKeys.COLOR_THEME] ?: "Green"
+            val colorTheme = preferences[PreferencesKeys.COLOR_THEME] ?: "System"
             val leftHanded = preferences[PreferencesKeys.LEFT_HANDED] ?: false
             val enableAutomaticBackup = preferences[PreferencesKeys.ENABLE_AUTOMATIC_BACKUP] ?: false
             val backupIntervalHours = preferences[PreferencesKeys.BACKUP_INTERVAL_HOURS] ?: 24

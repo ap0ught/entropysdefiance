@@ -66,7 +66,7 @@ class SettingsRepositoryTest {
             showCalendarWidget = true,  // default is true in SettingsRepository
             calendarDaysToShow = 7,
             enableDoubleTapForDialer = true,  // default is true in SettingsRepository
-            colorTheme = "Green",
+            colorTheme = "System",
             selectedCalendarIds = emptySet(),
             enableAutomaticBackup = false,
             backupIntervalHours = 24
@@ -94,7 +94,7 @@ class SettingsRepositoryTest {
             showCalendarWidget = false,
             calendarDaysToShow = 14,
             enableDoubleTapForDialer = false,
-            colorTheme = "Green",  // default value
+            colorTheme = "System",  // default value
             selectedCalendarIds = emptySet(),  // default value
             enableAutomaticBackup = false,  // default value
             backupIntervalHours = 24  // default value
