@@ -15,7 +15,12 @@ data class AppInfo(
     val packageName: String,
     val appName: String,
     val launchIntent: String,
-    val shortcutId: String? = null
+    val shortcutId: String? = null,
+    /**
+     * The label the system reports, kept even when [appName] has been overridden by a user
+     * rename — searching for what an app is actually called must keep working.
+     */
+    val originalName: String? = null
 ) {
     /**
      * Stable key for persisted usage counts (SharedPreferences). Intentionally per-package

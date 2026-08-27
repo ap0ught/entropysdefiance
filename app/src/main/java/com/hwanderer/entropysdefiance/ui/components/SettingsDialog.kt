@@ -50,6 +50,7 @@ fun SettingsDialog(
     onFreeTimeSettingsClick: () -> Unit,
     onFileSyncSettingsClick: () -> Unit,
     onPermissionsSettingsClick: () -> Unit,
+    onHiddenAppsSettingsClick: () -> Unit,
     onBackupSettingsClick: () -> Unit,
     onStatisticsClick: () -> Unit,
     onStartTutorial: () -> Unit,
@@ -127,6 +128,7 @@ fun SettingsDialog(
                 MenuTextItem("Appearance", onClick = onAppearanceSettingsClick)
                 MenuTextItem("Free Time", onClick = onFreeTimeSettingsClick)
                 MenuTextItem("File Sync", onClick = onFileSyncSettingsClick)
+                MenuTextItem("Hidden apps", onClick = onHiddenAppsSettingsClick)
                 MenuTextItem("Permissions", onClick = onPermissionsSettingsClick)
                 MenuTextItem("Backup & Import", onClick = onBackupSettingsClick)
                 MenuTextItem("Statistics", onClick = onStatisticsClick)

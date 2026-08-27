@@ -72,6 +72,9 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     private val _showPermissionsSettings = MutableStateFlow(false)
     val showPermissionsSettings: StateFlow<Boolean> = _showPermissionsSettings.asStateFlow()
 
+    private val _showHiddenAppsSettings = MutableStateFlow(false)
+    val showHiddenAppsSettings: StateFlow<Boolean> = _showHiddenAppsSettings.asStateFlow()
+
     private val _showCalculationCalendarSelection = MutableStateFlow(false)
     val showCalculationCalendarSelection: StateFlow<Boolean> = _showCalculationCalendarSelection.asStateFlow()
     
@@ -359,6 +362,19 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         _showSettingsDialog.value = true
     }
     
+    // Hidden Apps Navigation
+    fun showHiddenAppsSettings() {
+        Log.d(TAG, "Showing hidden apps settings")
+        _showSettingsDialog.value = false
+        _showHiddenAppsSettings.value = true
+    }
+
+    fun hideHiddenAppsSettings() {
+        Log.d(TAG, "Hiding hidden apps settings")
+        _showHiddenAppsSettings.value = false
+        _showSettingsDialog.value = true
+    }
+
     // Calculation Calendar Selection Navigation
     fun showCalculationCalendarSelection() {
         Log.d(TAG, "Showing calculation calendar selection")

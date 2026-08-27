@@ -32,6 +32,11 @@ data class AppSettings(
     // Priority mode still lets alarms and calls through; total silence does not.
     val dndTotalSilence: Boolean = false,
     
+    // App drawer customisation. Both are keyed by AppInfo.usageKey, which is stable across
+    // reinstalls and distinguishes pinned shortcuts from their host package.
+    val hiddenApps: Set<String> = emptySet(),
+    val appRenames: Map<String, String> = emptyMap(),
+
     // Backup settings
     val enableAutomaticBackup: Boolean = false,
     val backupIntervalHours: Int = 24,

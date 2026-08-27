@@ -16,16 +16,59 @@ import android.os.Process
 import android.provider.CalendarContract
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.hwanderer.entropysdefiance.EntropysDefianceApplication
 import com.hwanderer.entropysdefiance.model.AppInfo
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 class LauncherViewModel(application: Application) : AndroidViewModel(application) {
+    // Everything the system reports, before the user's hide/rename choices are applied.
     private val _apps = MutableStateFlow<List<AppInfo>>(emptyList())
-    val apps: StateFlow<List<AppInfo>> = _apps
+
+    private val settingsRepository =
+        (application as EntropysDefianceApplication).settingsRepository
+
+    /**
+     * The drawer's view of the world: hidden entries removed, renames applied.
+     *
+     * Derived from the raw list rather than re-enumerated, so hiding or renaming shows up
+     * immediately without paying for another `queryIntentActivities` sweep.
+     */
+    val apps: StateFlow<List<AppInfo>> =
+        combine(_apps, settingsRepository.settingsFlow) { all, settings ->
+            all.asSequence()
+                .filterNot { it.usageKey in settings.hiddenApps }
+                .map { app -> app.withRename(settings.appRenames[app.usageKey]) }
+                .toList()
+        }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    /** Hidden entries, for the "Hidden apps" settings screen. */
+    val hiddenApps: StateFlow<List<AppInfo>> =
+        combine(_apps, settingsRepository.settingsFlow) { all, settings ->
+            all.filter { it.usageKey in settings.hiddenApps }
+                // Renamed here too — an app you hid is one you know by the name you gave it.
+                .map { app -> app.withRename(settings.appRenames[app.usageKey]) }
+                .sortedBy { it.appName.lowercase() }
+        }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    private fun AppInfo.withRename(customName: String?): AppInfo =
+        if (customName.isNullOrBlank()) this
+        else copy(appName = customName, originalName = appName)
+
+    fun setAppHidden(app: AppInfo, hidden: Boolean) {
+        viewModelScope.launch { settingsRepository.setAppHidden(app.usageKey, hidden) }
+    }
+
+    /** A blank name clears the override and restores the system label. */
+    fun setAppRename(app: AppInfo, customName: String?) {
+        viewModelScope.launch { settingsRepository.setAppRename(app.usageKey, customName) }
+    }
     
     // SharedPreferences to store app usage counts
     private val appUsagePrefs: SharedPreferences = application.getSharedPreferences(

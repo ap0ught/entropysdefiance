@@ -17,8 +17,14 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import java.io.IOException
+import kotlinx.serialization.builtins.MapSerializer
+import kotlinx.serialization.builtins.serializer
+import kotlinx.serialization.json.Json
 
 private const val TAG = "SettingsRepository"
+
+/** Renames live in Preferences as a JSON object; Preferences has no map type. */
+private val APP_RENAMES_SERIALIZER = MapSerializer(String.serializer(), String.serializer())
 
 /**
  * Extension property to create a DataStore instance once for the application lifecycle
@@ -48,6 +54,9 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
         val BACKUP_INTERVAL_HOURS = intPreferencesKey("backup_interval_hours")
         
         // Use a string set to store the selected calendar IDs
+        val HIDDEN_APPS = stringSetPreferencesKey("hidden_apps")
+        // Preferences has no map type; stored as a JSON object of usageKey -> custom name.
+        val APP_RENAMES = stringPreferencesKey("app_renames")
         val SELECTED_CALENDAR_IDS = stringSetPreferencesKey("selected_calendar_ids")
         val CALCULATION_CALENDAR_IDS = stringSetPreferencesKey("calculation_calendar_ids")
         
@@ -92,6 +101,8 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
             val tutorialCompleted = preferences[PreferencesKeys.TUTORIAL_COMPLETED] ?: false
 
             // Extract selected calendar IDs from the string set
+            val hiddenApps = preferences[PreferencesKeys.HIDDEN_APPS] ?: emptySet()
+            val appRenames = decodeAppRenames(preferences[PreferencesKeys.APP_RENAMES])
             val selectedCalendarIdStrings = preferences[PreferencesKeys.SELECTED_CALENDAR_IDS] ?: emptySet()
             val selectedCalendarIds = selectedCalendarIdStrings
                 .mapNotNull { it.toLongOrNull() }
@@ -109,6 +120,8 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
                 enableDoubleTapForDialer = enableDoubleTapForDialer,
                 colorTheme = colorTheme,
                 leftHanded = leftHanded,
+                hiddenApps = hiddenApps,
+                appRenames = appRenames,
                 enableDndInZenMode = enableDndInZenMode,
                 dndTotalSilence = dndTotalSilence,
                 selectedCalendarIds = selectedCalendarIds,
@@ -188,6 +201,54 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error saving leftHanded: ${e.message}", e)
+        }
+    }
+
+    /**
+     * A malformed or truncated blob must not take the whole settings load down with it —
+     * losing renames is recoverable, failing to read any setting is not.
+     */
+    private fun decodeAppRenames(raw: String?): Map<String, String> {
+        if (raw.isNullOrBlank()) return emptyMap()
+        return try {
+            Json.decodeFromString(APP_RENAMES_SERIALIZER, raw)
+        } catch (e: Exception) {
+            Log.e(TAG, "Could not read app renames, ignoring them: ${e.message}", e)
+            emptyMap()
+        }
+    }
+
+    /**
+     * Hide or unhide one drawer entry, keyed by AppInfo.usageKey
+     */
+    suspend fun setAppHidden(usageKey: String, hidden: Boolean) {
+        try {
+            dataStore.edit { preferences ->
+                val current = preferences[PreferencesKeys.HIDDEN_APPS] ?: emptySet()
+                preferences[PreferencesKeys.HIDDEN_APPS] =
+                    if (hidden) current + usageKey else current - usageKey
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error saving hidden app: ${e.message}", e)
+        }
+    }
+
+    /**
+     * Set or clear a custom name for one drawer entry. A blank name clears the override.
+     */
+    suspend fun setAppRename(usageKey: String, customName: String?) {
+        try {
+            dataStore.edit { preferences ->
+                val current = decodeAppRenames(preferences[PreferencesKeys.APP_RENAMES])
+                val updated = if (customName.isNullOrBlank()) {
+                    current - usageKey
+                } else {
+                    current + (usageKey to customName.trim())
+                }
+                preferences[PreferencesKeys.APP_RENAMES] = Json.encodeToString(APP_RENAMES_SERIALIZER, updated)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error saving app rename: ${e.message}", e)
         }
     }
 
@@ -279,6 +340,8 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
                 preferences[PreferencesKeys.SHOW_CALENDAR_WIDGET] = settings.showCalendarWidget
                 preferences[PreferencesKeys.CALENDAR_DAYS_TO_SHOW] = settings.calendarDaysToShow
                 preferences[PreferencesKeys.ENABLE_DOUBLE_TAP_DIALER] = settings.enableDoubleTapForDialer
+                preferences[PreferencesKeys.HIDDEN_APPS] = settings.hiddenApps
+                preferences[PreferencesKeys.APP_RENAMES] = Json.encodeToString(APP_RENAMES_SERIALIZER, settings.appRenames)
                 preferences[PreferencesKeys.ENABLE_DND_IN_ZEN_MODE] = settings.enableDndInZenMode
                 preferences[PreferencesKeys.DND_TOTAL_SILENCE] = settings.dndTotalSilence
                 preferences[PreferencesKeys.COLOR_THEME] = settings.colorTheme

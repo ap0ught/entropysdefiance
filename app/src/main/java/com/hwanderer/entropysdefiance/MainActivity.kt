@@ -49,6 +49,7 @@ import com.hwanderer.entropysdefiance.ui.components.CalendarSettingsScreen
 import com.hwanderer.entropysdefiance.ui.components.AppearanceSettingsScreen
 import com.hwanderer.entropysdefiance.ui.components.FreeTimeSettingsScreen
 import com.hwanderer.entropysdefiance.ui.components.FileSyncSettingsScreen
+import com.hwanderer.entropysdefiance.ui.components.HiddenAppsSettingsScreen
 import com.hwanderer.entropysdefiance.ui.components.PermissionsSettingsScreen
 import com.hwanderer.entropysdefiance.ui.components.BackupSettingsScreen
 import com.hwanderer.entropysdefiance.ui.components.TimeHorizonProgressBar
@@ -434,6 +435,8 @@ fun TaskApp(
     val showFreeTimeSettings by settingsViewModel.showFreeTimeSettings.collectAsState()
     val showFileSyncSettings by settingsViewModel.showFileSyncSettings.collectAsState()
     val showPermissionsSettings by settingsViewModel.showPermissionsSettings.collectAsState()
+    val showHiddenAppsSettings by settingsViewModel.showHiddenAppsSettings.collectAsState()
+    val hiddenApps by launcherViewModel.hiddenApps.collectAsStateWithLifecycle(initialValue = emptyList())
     val showBackupSettings by settingsViewModel.showBackupSettings.collectAsState()
     val showCalculationCalendarSelection by settingsViewModel.showCalculationCalendarSelection.collectAsState()
 
@@ -508,6 +511,7 @@ fun TaskApp(
                 onFreeTimeSettingsClick = { settingsViewModel.showFreeTimeSettings() },
                 onFileSyncSettingsClick = { settingsViewModel.showFileSyncSettings() },
                 onPermissionsSettingsClick = { settingsViewModel.showPermissionsSettings() },
+                onHiddenAppsSettingsClick = { settingsViewModel.showHiddenAppsSettings() },
                 onBackupSettingsClick = { settingsViewModel.showBackupSettings() },
                 onStatisticsClick = { settingsViewModel.showStatisticsScreen() },
                 onStartTutorial = {
@@ -655,6 +659,16 @@ fun TaskApp(
             // Show permissions settings screen
             PermissionsSettingsScreen(
                 onBack = { settingsViewModel.hidePermissionsSettings() }
+            )
+        } else if (showHiddenAppsSettings) {
+            BackHandler {
+                settingsViewModel.hideHiddenAppsSettings()
+            }
+
+            HiddenAppsSettingsScreen(
+                hiddenApps = hiddenApps,
+                onUnhide = { app -> launcherViewModel.setAppHidden(app, hidden = false) },
+                onBack = { settingsViewModel.hideHiddenAppsSettings() }
             )
         } else if (showBackupSettings) {
             // Handle back press for backup settings
@@ -1124,6 +1138,12 @@ fun TaskApp(
                     },
                     onResetAppCounter = { app ->
                         launcherViewModel.resetAppCounter(app.packageName)
+                    },
+                    onAppHide = { app ->
+                        launcherViewModel.setAppHidden(app, hidden = true)
+                    },
+                    onAppRename = { app, customName ->
+                        launcherViewModel.setAppRename(app, customName)
                     },
                     leftHanded = appSettings.leftHanded,
                     // Hold the keyboard back until the drawer has actually arrived, so a slow

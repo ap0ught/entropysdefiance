@@ -58,7 +58,9 @@ import kotlinx.coroutines.launch
 import kotlin.math.abs
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -229,6 +231,9 @@ fun AppDrawer(
     onAppSettings: (AppInfo) -> Unit = {},
     onAppUninstall: (AppInfo) -> Unit = {},
     onResetAppCounter: (AppInfo) -> Unit = {},
+    onAppHide: (AppInfo) -> Unit = {},
+    /** A null or blank name clears the override and restores the system label. */
+    onAppRename: (AppInfo, String?) -> Unit = { _, _ -> },
     leftHanded: Boolean = false,
     /**
      * Whether the search field may take focus. False while the drawer is still being dragged
@@ -298,6 +303,8 @@ fun AppDrawer(
     // Confirmation dialog states
     var showUninstallDialog by remember { mutableStateOf<AppInfo?>(null) }
     var showResetCounterDialog by remember { mutableStateOf<AppInfo?>(null) }
+    var showHideDialog by remember { mutableStateOf<AppInfo?>(null) }
+    var showRenameDialog by remember { mutableStateOf<AppInfo?>(null) }
 
     // Keyboard visibility follows the scroll position: visible near the top (to search), hidden
     // once you scroll down to browse. This is declarative and driven by *focus* rather than
@@ -338,7 +345,8 @@ fun AppDrawer(
         apps
     } else {
         apps.filter { app ->
-            app.appName.contains(searchQuery, ignoreCase = true)
+            app.appName.contains(searchQuery, ignoreCase = true) ||
+                app.originalName?.contains(searchQuery, ignoreCase = true) == true
         }
     }
     
@@ -439,6 +447,14 @@ fun AppDrawer(
                                 showResetCounterDialog = app
                                 appShowingMenu = null // Auto-dismiss
                             },
+                            onRename = {
+                                showRenameDialog = app
+                                appShowingMenu = null // Auto-dismiss
+                            },
+                            onHide = {
+                                showHideDialog = app
+                                appShowingMenu = null // Auto-dismiss
+                            },
                             leftHanded = leftHanded
                         )
                     }
@@ -469,6 +485,76 @@ fun AppDrawer(
         )
     }
     
+    // Hide confirmation. Doubles as the only place that tells you where hidden apps go —
+    // without it, an app can vanish from the drawer with no obvious way back.
+    showHideDialog?.let { app ->
+        AlertDialog(
+            onDismissRequest = { showHideDialog = null },
+            title = { Text("Hide ${app.appName}?") },
+            text = {
+                Text(
+                    "It will no longer appear in the drawer or in search. " +
+                        "You can bring it back from Settings → Hidden apps."
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    onAppHide(app)
+                    showHideDialog = null
+                }) {
+                    Text("Hide")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showHideDialog = null }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
+    // Rename dialog
+    showRenameDialog?.let { app ->
+        var draft by remember(app.listKey) { mutableStateOf(app.appName) }
+        // Renaming an already-renamed app should offer its real name, not the override.
+        val systemName = app.originalName ?: app.appName
+        AlertDialog(
+            onDismissRequest = { showRenameDialog = null },
+            title = { Text("Rename") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = draft,
+                        onValueChange = { draft = it },
+                        singleLine = true,
+                        label = { Text("Name in the drawer") }
+                    )
+                    Text(
+                        text = "Installed as \"$systemName\". Searching for that still finds it.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    // Blank, or back to the system label, means "no override" rather than
+                    // storing a redundant rename.
+                    val trimmed = draft.trim()
+                    onAppRename(app, if (trimmed.isEmpty() || trimmed == systemName) null else trimmed)
+                    showRenameDialog = null
+                }) {
+                    Text("Save")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showRenameDialog = null }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
     // Reset counter confirmation dialog
     showResetCounterDialog?.let { app ->
         AlertDialog(
@@ -501,6 +587,8 @@ private fun AppItem(
     onSettings: () -> Unit = {},
     onUninstall: () -> Unit = {},
     onResetCounter: () -> Unit = {},
+    onRename: () -> Unit = {},
+    onHide: () -> Unit = {},
     modifier: Modifier = Modifier,
     leftHanded: Boolean = false
 ) {
@@ -579,6 +667,36 @@ private fun AppItem(
                     Icon(
                         imageVector = Icons.Default.Refresh,
                         contentDescription = "Reset Open Counter",
+                        tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                // Rename button
+                IconButton(
+                    onClick = onRename,
+                    modifier = Modifier.size(40.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Edit,
+                        contentDescription = "Rename App",
+                        tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                // Hide button
+                IconButton(
+                    onClick = onHide,
+                    modifier = Modifier.size(40.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Clear,
+                        contentDescription = "Hide App",
                         tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
                         modifier = Modifier.size(24.dp)
                     )
