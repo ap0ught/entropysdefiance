@@ -229,7 +229,12 @@ fun AppDrawer(
     onAppSettings: (AppInfo) -> Unit = {},
     onAppUninstall: (AppInfo) -> Unit = {},
     onResetAppCounter: (AppInfo) -> Unit = {},
-    leftHanded: Boolean = false
+    leftHanded: Boolean = false,
+    /**
+     * Whether the search field may take focus. False while the drawer is still being dragged
+     * open — otherwise the keyboard springs up on the first few pixels of a slow swipe.
+     */
+    keyboardEnabled: Boolean = true
 ) {
     var searchQuery by remember { mutableStateOf("") }
     val focusRequester = remember { FocusRequester() }
@@ -320,8 +325,8 @@ fun AppDrawer(
             }
         }
     }
-    LaunchedEffect(keyboardWanted) {
-        if (keyboardWanted) {
+    LaunchedEffect(keyboardWanted, keyboardEnabled) {
+        if (keyboardWanted && keyboardEnabled) {
             focusRequester.requestFocus()
         } else {
             focusManager.clearFocus()

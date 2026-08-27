@@ -38,6 +38,10 @@ import com.hwanderer.entropysdefiance.model.TimeHorizon
 import com.hwanderer.entropysdefiance.ui.components.TaskList
 import com.hwanderer.entropysdefiance.ui.components.AddTaskScreen
 import com.hwanderer.entropysdefiance.ui.components.AppDrawer
+import com.hwanderer.entropysdefiance.ui.components.DrawerTransition
+import com.hwanderer.entropysdefiance.ui.components.detectDrawerSwipe
+import com.hwanderer.entropysdefiance.ui.components.rememberDrawerNestedScrollConnection
+import com.hwanderer.entropysdefiance.ui.components.rememberDrawerSwipeState
 import com.hwanderer.entropysdefiance.ui.components.CalendarAgendaWidget
 import com.hwanderer.entropysdefiance.ui.components.CalendarSelectionDialog
 import com.hwanderer.entropysdefiance.ui.components.SettingsDialog
@@ -71,19 +75,19 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.ParcelFileDescriptor
 import com.hwanderer.entropysdefiance.data.BackupRepository
-import androidx.compose.foundation.gestures.detectDragGestures
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.pointerInput
 import kotlin.math.abs
-import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.systemGestureExclusion
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.background
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.onSizeChanged
 import android.util.Log
 import com.hwanderer.entropysdefiance.viewmodel.CalendarViewModel
 import androidx.compose.runtime.collectAsState
@@ -187,7 +191,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalComposeUiApi::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalComposeUiApi::class, ExperimentalFoundationApi::class)
 @Composable
 fun TaskApp(
     taskViewModel: TaskViewModel,
@@ -202,8 +206,6 @@ fun TaskApp(
     val tasks by taskViewModel.tasks.collectAsStateWithLifecycle(initialValue = emptyList())
     val apps by launcherViewModel.apps.collectAsStateWithLifecycle(initialValue = emptyList())
     var isPeeking by remember { mutableStateOf(false) }
-    var showAppDrawer by remember { mutableStateOf(false) }
-    var dragStart by remember { mutableStateOf(Offset.Zero) }
     
     // FAB expanded state
     var isFabExpanded by remember { mutableStateOf(false) }
@@ -242,6 +244,19 @@ fun TaskApp(
 
     val backupRepository = remember { BackupRepository(context) }
     val coroutineScope = rememberCoroutineScope()
+
+    // The app drawer is a continuous transition, not a boolean flip: `drawerSwipe.progress`
+    // runs 0f (home) to 1f (drawer), so a half-finished swipe shows a half-open drawer and
+    // can be abandoned. It is driven either by the dedicated swipe zones (Layer 1) or, once
+    // the list under the finger has no scroll left to give, by the nested-scroll gate
+    // (Layer 2). See ui/components/AppDrawerSwipe.kt.
+    val drawerSwipe = rememberDrawerSwipeState(coroutineScope)
+    val drawerNestedScroll = rememberDrawerNestedScrollConnection(drawerSwipe)
+    // The home screen stays composed underneath the drawer (it has to, to be dragged over),
+    // so its gesture handlers must stand down while the drawer is showing — otherwise a tap
+    // on empty drawer space reaches double-tap-for-dialer. These are runtime guards rather
+    // than pointerInput keys on purpose: changing a key restarts the modifier, which would
+    // cancel the in-flight drag that is opening the drawer.
     
     // File picker launchers for CSV export/import
     val exportCsvLauncher = rememberLauncherForActivityResult(
@@ -442,7 +457,12 @@ fun TaskApp(
 
     val isWelcomeVisible by tutorialViewModel.isWelcomeVisible.collectAsState()
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            // The drawer travels the full height of this container; the swipe maths needs it in px.
+            .onSizeChanged { drawerSwipe.sheetHeightPx = it.height.toFloat() }
+    ) {
         // Dark scrim overlay - bottom layer (visual dimming, doesn't block touches)
         if (!zenModeState.isActive) {
             Surface(
@@ -471,40 +491,6 @@ fun TaskApp(
                 },
                 onDismiss = { showAddScreen = false }
             )
-        } else if (showAppDrawer) {
-            // Full-screen app drawer rendered as a plain composable, consistent with the other
-            // screens. It previously used a ModalBottomSheet, whose hide animation and IME-inset
-            // handling caused a multi-second lag on close and delayed the keyboard re-showing.
-            BackHandler {
-                showAppDrawer = false
-            }
-
-            Surface(
-                modifier = Modifier.fillMaxSize(),
-                color = MaterialTheme.colorScheme.background
-            ) {
-                AppDrawer(
-                    modifier = Modifier.fillMaxSize(),
-                    apps = apps,
-                    onAppClick = { app ->
-                        launcherViewModel.launchApp(app.packageName, app.launchIntent, app.shortcutId)
-                        showAppDrawer = false
-                    },
-                    onNotificationPullDown = {
-                        showAppDrawer = false
-                    },
-                    onAppSettings = { app ->
-                        launcherViewModel.openAppSettings(app.packageName)
-                    },
-                    onAppUninstall = { app ->
-                        launcherViewModel.uninstallApp(app.packageName)
-                    },
-                    onResetAppCounter = { app ->
-                        launcherViewModel.resetAppCounter(app.packageName)
-                    },
-                    leftHanded = appSettings.leftHanded
-                )
-            }
         } else if (showSettingsDialog) {
             // Handle back press for settings dialog
             BackHandler {
@@ -767,6 +753,13 @@ fun TaskApp(
         } else {
             // Home screen content
             Scaffold(
+                modifier = Modifier.graphicsLayer {
+                    val progress = drawerSwipe.progress
+                    if (progress > 0f) {
+                        translationY = DrawerTransition.homeTranslationY(progress, size.height)
+                        alpha = DrawerTransition.homeAlpha(progress)
+                    }
+                },
                 containerColor = Color.Transparent,
                 floatingActionButtonPosition = if (appSettings.leftHanded) FabPosition.Start else FabPosition.End,
                 topBar = {
@@ -909,21 +902,27 @@ fun TaskApp(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(padding)
+                        // Layer 2 — the nested-scroll gate. The task list and the calendar
+                        // agenda are both LazyColumns that legitimately want vertical drags,
+                        // so the drawer never takes one outright: they scroll first, and only
+                        // the delta they cannot consume opens the drawer. Standard
+                        // sheet-over-content ordering, so it needs no explaining to users.
+                        .nestedScroll(drawerNestedScroll)
                         // Add gesture detection to the main screen
                         .pointerInput(Unit) {
                             detectTapGestures(
                                 onDoubleTap = {
-                                    if (appSettings.enableDoubleTapForDialer) {
+                                    if (!drawerSwipe.isVisible && appSettings.enableDoubleTapForDialer) {
                                         launcherViewModel.launchDialerApp()
                                     }
                                 },
                                 onLongPress = {
-                                    if (!isAlignmentActive) {
+                                    if (!drawerSwipe.isVisible && !isAlignmentActive) {
                                         settingsViewModel.showSettingsDialog()
                                     }
                                 },
                                 onTap = {
-                                    if (isFabExpanded) {
+                                    if (!drawerSwipe.isVisible && isFabExpanded) {
                                         isFabExpanded = false
                                     }
                                 }
@@ -1035,113 +1034,89 @@ fun TaskApp(
                         }
                     }
                     
-                    // App drawer overlay - move to bottom area of the screen and improve gesture detection
+                    // Drawer swipe zones (Layer 1) — a guaranteed, always-available way to
+                    // open the drawer, independent of whatever is scrolling underneath.
+                    //
+                    // Both are padded above `mandatorySystemGestures`: on gesture-nav the
+                    // bottom band belongs to the system's home gesture, which wins the first
+                    // swipe and made the drawer feel like it "only works on the 2nd try".
+                    // That band cannot be excluded by an app — the fix is to sit above it.
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(100.dp) // Increased height for better detection area (was 60.dp)
                             .align(Alignment.BottomCenter)
-                            .pointerInput(Unit) {
-                                var totalDragDistance = 0f
-                                
-                                detectVerticalDragGestures(
-                                    onDragStart = { 
-                                        dragStart = it 
-                                        totalDragDistance = 0f
-                                    },
-                                    onDragEnd = { 
-                                        // If we reached a smaller threshold on drag end, also trigger
-                                        if (totalDragDistance < -20f) {
-                                            showAppDrawer = true
-                                        }
-                                    },
-                                    onDragCancel = {},
-                                    onVerticalDrag = { change, dragAmount ->
-                                        // Track total distance dragged
-                                        totalDragDistance += dragAmount
-                                        
-                                        // Use a lower threshold for more responsive detection
-                                        // Only respond to upward swipes (negative dragAmount)
-                                        if (dragAmount < -5f) {
-                                            change.consume()
-                                            
-                                            // If significant upward movement, show app drawer immediately
-                                            if (totalDragDistance < -30f) {
-                                                showAppDrawer = true
-                                            }
-                                        }
-                                    }
-                                )
-                            }
+                            .windowInsetsPadding(
+                                WindowInsets.mandatorySystemGestures.only(WindowInsetsSides.Bottom)
+                            )
+                            .height(100.dp)
+                            .pointerInput(drawerSwipe) { detectDrawerSwipe(drawerSwipe) }
                     )
-                    
-                    // Add additional FAB area gesture detection to ensure swipes in this area
-                    // trigger the app drawer rather than scrolling calendar events. Mirrors to the
-                    // left in left-handed mode, matching the FAB and the calendar's reserved edge.
+
+                    // Column beside the FAB, mirrored in left-handed mode. `systemGestureExclusion`
+                    // keeps the back gesture off it; the platform caps exclusions at 200dp per
+                    // edge, so the column is sized to what can actually be claimed.
                     Box(
                         modifier = Modifier
                             .align(if (appSettings.leftHanded) Alignment.BottomStart else Alignment.BottomEnd)
+                            .windowInsetsPadding(
+                                WindowInsets.mandatorySystemGestures.only(WindowInsetsSides.Bottom)
+                            )
+                            .padding(bottom = 100.dp)
                             .width(80.dp)
-                            .height(350.dp) // Increased from 200dp to 350dp to extend higher up the screen
-                            .padding(bottom = 100.dp) // Position above the bottom app drawer area
-                            .pointerInput(Unit) {
-                                var totalDragDistance = 0f
-
-                                detectVerticalDragGestures(
-                                    onDragStart = {
-                                        totalDragDistance = 0f
-                                    },
-                                    onDragEnd = {
-                                        if (totalDragDistance < -20f) {
-                                            showAppDrawer = true
-                                        }
-                                    },
-                                    onDragCancel = {},
-                                    onVerticalDrag = { change, dragAmount ->
-                                        change.consume() // Always consume to prevent calendar scrolling
-                                        totalDragDistance += dragAmount
-
-                                        if (totalDragDistance < -30f) {
-                                            showAppDrawer = true
-                                        }
-                                    }
-                                )
-                            }
-                    )
-                    
-                    // Add a top swipe area at the very top edge for better accessibility
-                    // The detection area is just at the edge and no longer in the middle of the screen
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.TopCenter)
-                            .fillMaxWidth()
-                            .height(24.dp) // Much thinner strip at the very top
-                            // No more offset! This places it at the top edge
-                            .pointerInput(Unit) {
-                                var totalDragDistance = 0f
-                                
-                                detectVerticalDragGestures(
-                                    onDragStart = { 
-                                        totalDragDistance = 0f
-                                    },
-                                    onDragEnd = { 
-                                        if (totalDragDistance < -20f) {
-                                            showAppDrawer = true
-                                        }
-                                    },
-                                    onDragCancel = {},
-                                    onVerticalDrag = { change, dragAmount ->
-                                        change.consume() // Always consume to prevent calendar scrolling
-                                        totalDragDistance += dragAmount
-                                        
-                                        if (totalDragDistance < -30f) {
-                                            showAppDrawer = true
-                                        }
-                                    }
-                                )
-                            }
+                            .height(200.dp)
+                            .systemGestureExclusion()
+                            .pointerInput(drawerSwipe) { detectDrawerSwipe(drawerSwipe) }
                     )
                 }
+            }
+        }
+
+        // App drawer — an overlay on the home screen rather than a replacement for it, so it
+        // can sit partly open under the finger. Composed only while it is actually on screen.
+        if (drawerSwipe.isVisible) {
+            if (drawerSwipe.isOpen) {
+                BackHandler { drawerSwipe.close() }
+            }
+
+            Surface(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .graphicsLayer {
+                        val progress = drawerSwipe.progress
+                        translationY = DrawerTransition.drawerTranslationY(progress, size.height)
+                        alpha = DrawerTransition.drawerAlpha(progress)
+                    },
+                // Transparent, not `colorScheme.background`. An opaque panel sliding over the
+                // translucent home screen is exactly what made the two read as separate
+                // screens; the full-screen 60% scrim below already carries readability, the
+                // same way it does for the home screen.
+                color = Color.Transparent,
+                contentColor = MaterialTheme.colorScheme.onBackground
+            ) {
+                AppDrawer(
+                    modifier = Modifier.fillMaxSize(),
+                    apps = apps,
+                    onAppClick = { app ->
+                        launcherViewModel.launchApp(app.packageName, app.launchIntent, app.shortcutId)
+                        drawerSwipe.close()
+                    },
+                    onNotificationPullDown = {
+                        drawerSwipe.close()
+                    },
+                    onAppSettings = { app ->
+                        launcherViewModel.openAppSettings(app.packageName)
+                    },
+                    onAppUninstall = { app ->
+                        launcherViewModel.uninstallApp(app.packageName)
+                    },
+                    onResetAppCounter = { app ->
+                        launcherViewModel.resetAppCounter(app.packageName)
+                    },
+                    leftHanded = appSettings.leftHanded,
+                    // Hold the keyboard back until the drawer has actually arrived, so a slow
+                    // swipe doesn't throw the IME up after a few pixels of travel.
+                    keyboardEnabled = drawerSwipe.isFullyOpen
+                )
             }
         }
 
