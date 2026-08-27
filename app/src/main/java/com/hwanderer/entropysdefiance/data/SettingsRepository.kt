@@ -50,6 +50,7 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
         val DND_TOTAL_SILENCE = booleanPreferencesKey("dnd_total_silence")
         val COLOR_THEME = stringPreferencesKey("color_theme")
         val LEFT_HANDED = booleanPreferencesKey("left_handed")
+        val FULLSCREEN_MODE = booleanPreferencesKey("fullscreen_mode")
         val ENABLE_AUTOMATIC_BACKUP = booleanPreferencesKey("enable_automatic_backup")
         val BACKUP_INTERVAL_HOURS = intPreferencesKey("backup_interval_hours")
         
@@ -92,6 +93,7 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
             val enableDoubleTapForDialer = preferences[PreferencesKeys.ENABLE_DOUBLE_TAP_DIALER] ?: true
             val colorTheme = preferences[PreferencesKeys.COLOR_THEME] ?: "System"
             val leftHanded = preferences[PreferencesKeys.LEFT_HANDED] ?: false
+            val fullscreenMode = preferences[PreferencesKeys.FULLSCREEN_MODE] ?: false
             val enableDndInZenMode = preferences[PreferencesKeys.ENABLE_DND_IN_ZEN_MODE] ?: false
             val dndTotalSilence = preferences[PreferencesKeys.DND_TOTAL_SILENCE] ?: false
             val enableAutomaticBackup = preferences[PreferencesKeys.ENABLE_AUTOMATIC_BACKUP] ?: false
@@ -120,6 +122,7 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
                 enableDoubleTapForDialer = enableDoubleTapForDialer,
                 colorTheme = colorTheme,
                 leftHanded = leftHanded,
+                fullscreenMode = fullscreenMode,
                 hiddenApps = hiddenApps,
                 appRenames = appRenames,
                 enableDndInZenMode = enableDndInZenMode,
@@ -215,6 +218,19 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
         } catch (e: Exception) {
             Log.e(TAG, "Could not read app renames, ignoring them: ${e.message}", e)
             emptyMap()
+        }
+    }
+
+    /**
+     * Update fullscreen (status bar hidden) mode
+     */
+    suspend fun updateFullscreenMode(fullscreen: Boolean) {
+        try {
+            dataStore.edit { preferences ->
+                preferences[PreferencesKeys.FULLSCREEN_MODE] = fullscreen
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error saving fullscreenMode: ${e.message}", e)
         }
     }
 
@@ -346,6 +362,7 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
                 preferences[PreferencesKeys.DND_TOTAL_SILENCE] = settings.dndTotalSilence
                 preferences[PreferencesKeys.COLOR_THEME] = settings.colorTheme
                 preferences[PreferencesKeys.LEFT_HANDED] = settings.leftHanded
+                preferences[PreferencesKeys.FULLSCREEN_MODE] = settings.fullscreenMode
                 preferences[PreferencesKeys.ENABLE_AUTOMATIC_BACKUP] = settings.enableAutomaticBackup
                 preferences[PreferencesKeys.BACKUP_INTERVAL_HOURS] = settings.backupIntervalHours
                 preferences[PreferencesKeys.SELECTED_CALENDAR_IDS] = calendarIdStrings

@@ -138,8 +138,9 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         WindowCompat.setDecorFitsSystemWindows(window, false)
         
+        // Bar *visibility* is driven by the fullscreen setting below, once settings have
+        // loaded; only the appearance is fixed here.
         WindowCompat.getInsetsController(window, window.decorView).apply {
-            show(WindowInsetsCompat.Type.systemBars())
             isAppearanceLightStatusBars = false
             isAppearanceLightNavigationBars = false
         }
@@ -151,6 +152,31 @@ class MainActivity : ComponentActivity() {
             // Get settings from the ViewModel
             val settingsViewModel: SettingsViewModel = viewModel(factory = viewModelFactory)
             val appSettings by settingsViewModel.settings.collectAsState(AppSettings())
+
+            // Fullscreen mode. Only the status bar is hidden — hiding the navigation bar
+            // as well would put the drawer's swipe-up in a fight with the system's
+            // transient-bar gesture at the same screen edge.
+            //
+            // BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE is what keeps notifications reachable:
+            // a swipe from the top edge brings the bar back temporarily, and the shade
+            // opens from there. That is why this does not reach for
+            // StatusBarManager.expandNotificationsPanel() by reflection the way some
+            // launchers do — a hidden API that may simply be blocked is a poor trade for a
+            // gesture the platform already supports.
+            val view = LocalView.current
+            LaunchedEffect(appSettings.fullscreenMode) {
+                val activityWindow = (view.context as? android.app.Activity)?.window
+                    ?: return@LaunchedEffect
+                WindowCompat.getInsetsController(activityWindow, view).apply {
+                    if (appSettings.fullscreenMode) {
+                        systemBarsBehavior =
+                            WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+                        hide(WindowInsetsCompat.Type.statusBars())
+                    } else {
+                        show(WindowInsetsCompat.Type.statusBars())
+                    }
+                }
+            }
 
             // Resolve the accent palette: a preset name, a "#RRGGBB" custom color, or the
             // Material You system accent.
@@ -608,7 +634,8 @@ fun TaskApp(
             AppearanceSettingsScreen(
                 appSettings = appSettings,
                 onBack = { settingsViewModel.hideAppearanceSettings() },
-                onColorPaletteClick = { settingsViewModel.showColorPaletteSelection() }
+                onColorPaletteClick = { settingsViewModel.showColorPaletteSelection() },
+                onToggleFullscreen = { settingsViewModel.toggleFullscreenMode() }
             )
         } else if (showFreeTimeSettings) {
             // Handle back press for free time settings

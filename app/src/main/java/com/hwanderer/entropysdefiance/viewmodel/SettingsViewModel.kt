@@ -212,6 +212,15 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     }
 
     /**
+     * Toggle fullscreen (status bar hidden) mode
+     */
+    fun toggleFullscreenMode() {
+        viewModelScope.launch {
+            repository.updateFullscreenMode(!_settings.value.fullscreenMode)
+        }
+    }
+
+    /**
      * Toggle whether Zen Mode switches on Do Not Disturb
      */
     fun toggleDndInZenMode() {

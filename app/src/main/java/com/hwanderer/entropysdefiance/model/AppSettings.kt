@@ -22,6 +22,10 @@ data class AppSettings(
     // Appearance settings
     val colorTheme: String = "System", // Default to the system Material You accent ("System" = SYSTEM_COLOR_THEME)
     val leftHanded: Boolean = false, // Mirror controls (FAB, drawer swipe zone, calendar cut) to the left
+    // Hides the status bar so notification icons stop competing for attention. The navigation
+    // bar deliberately stays: hiding it would put the drawer's swipe-up in a fight with the
+    // system's transient-bar gesture.
+    val fullscreenMode: Boolean = false,
 
     // Gesture settings
     val enableDoubleTapForDialer: Boolean = true,

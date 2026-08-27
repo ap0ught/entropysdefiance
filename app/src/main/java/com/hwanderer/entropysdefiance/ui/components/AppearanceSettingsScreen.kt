@@ -25,6 +25,7 @@ fun AppearanceSettingsScreen(
     appSettings: AppSettings,
     onBack: () -> Unit,
     onColorPaletteClick: () -> Unit,
+    onToggleFullscreen: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Surface(
@@ -51,6 +52,15 @@ fun AppearanceSettingsScreen(
                     title = "Color Theme",
                     description = "Current theme: ${appSettings.colorTheme}",
                     onClick = onColorPaletteClick
+                )
+
+                SettingsSwitchItem(
+                    title = "Fullscreen",
+                    description = "Hide the status bar so notification icons stay out of " +
+                        "sight. Swipe down from the top edge to see them when you want to. " +
+                        "The navigation bar is left alone.",
+                    checked = appSettings.fullscreenMode,
+                    onCheckedChange = { onToggleFullscreen() }
                 )
 
                 Spacer(modifier = Modifier.height(24.dp))
