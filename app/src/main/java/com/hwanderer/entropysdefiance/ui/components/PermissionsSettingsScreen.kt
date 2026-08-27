@@ -34,6 +34,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import com.hwanderer.entropysdefiance.utils.ZenModeManager
 
 @Composable
 fun PermissionsSettingsScreen(
@@ -45,6 +46,8 @@ fun PermissionsSettingsScreen(
     // Permission states - reactive to permission changes
     var calendarPermissionGranted by remember { mutableStateOf(false) }
     var isDefaultLauncher by remember { mutableStateOf(false) }
+    var dndAccessGranted by remember { mutableStateOf(false) }
+    val zenModeManager = remember { ZenModeManager(context) }
 
     // Function to refresh permission states
     fun refreshPermissions() {
@@ -53,6 +56,7 @@ fun PermissionsSettingsScreen(
             Manifest.permission.READ_CALENDAR
         ) == PackageManager.PERMISSION_GRANTED
         isDefaultLauncher = isAppDefaultLauncher(context)
+        dndAccessGranted = zenModeManager.isDndAccessGranted()
     }
 
     // Initialize permission states on first load
@@ -70,6 +74,14 @@ fun PermissionsSettingsScreen(
 
     // Returns from the "Home app" role dialog (or Home settings) — re-check status.
     val defaultLauncherResult = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult(),
+        onResult = { refreshPermissions() }
+    )
+
+    // "Do Not Disturb access" is a special access, granted only from system settings — there
+    // is no runtime permission dialog for it, so all we can do is open that screen and
+    // re-check when the user comes back.
+    val dndAccessResult = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult(),
         onResult = { refreshPermissions() }
     )
@@ -139,6 +151,18 @@ fun PermissionsSettingsScreen(
                     isGranted = calendarPermissionGranted,
                     onRequestPermission = {
                         calendarPermissionLauncher.launch(Manifest.permission.READ_CALENDAR)
+                    }
+                )
+
+                // Do Not Disturb — needed only if Zen Mode is set to silence the phone.
+                PermissionItem(
+                    title = "Do Not Disturb",
+                    description = "Silence notifications while you focus on a task in Zen Mode. " +
+                            "Your previous Do Not Disturb setting is restored when the session ends.",
+                    isGranted = dndAccessGranted,
+                    buttonLabel = "Grant Do Not Disturb Access",
+                    onRequestPermission = {
+                        dndAccessResult.launch(zenModeManager.dndAccessSettingsIntent())
                     }
                 )
             }

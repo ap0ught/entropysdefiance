@@ -75,6 +75,7 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.ParcelFileDescriptor
 import com.hwanderer.entropysdefiance.data.BackupRepository
+import com.hwanderer.entropysdefiance.utils.ZenModeManager
 import androidx.compose.ui.input.pointer.pointerInput
 import kotlin.math.abs
 import androidx.compose.ui.platform.LocalConfiguration
@@ -243,6 +244,7 @@ fun TaskApp(
     
 
     val backupRepository = remember { BackupRepository(context) }
+    val zenModeManager = remember { ZenModeManager(context) }
     val coroutineScope = rememberCoroutineScope()
 
     // The app drawer is a continuous transition, not a boolean flip: `drawerSwipe.progress`
@@ -512,7 +514,18 @@ fun TaskApp(
                     settingsViewModel.hideSettingsDialog()
                     tutorialViewModel.startTutorial()
                 },
-                onToggleLeftHanded = { settingsViewModel.toggleLeftHanded() }
+                onToggleLeftHanded = { settingsViewModel.toggleLeftHanded() },
+                onToggleDndInZenMode = {
+                    // Turning it on is useless without "Do Not Disturb access", and that can
+                    // only be granted from system settings — so take the user straight there
+                    // rather than letting the toggle silently do nothing later.
+                    val enabling = !appSettings.enableDndInZenMode
+                    settingsViewModel.toggleDndInZenMode()
+                    if (enabling && !zenModeManager.isDndAccessGranted()) {
+                        runCatching { context.startActivity(zenModeManager.dndAccessSettingsIntent()) }
+                    }
+                },
+                onToggleDndTotalSilence = { settingsViewModel.toggleDndTotalSilence() }
             )
         } else if (showCalendarSelection) {
             // Handle back press for calendar selection

@@ -40,6 +40,8 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
         val SHOW_CALENDAR_WIDGET = booleanPreferencesKey("show_calendar_widget")
         val CALENDAR_DAYS_TO_SHOW = intPreferencesKey("calendar_days_to_show")
         val ENABLE_DOUBLE_TAP_DIALER = booleanPreferencesKey("enable_double_tap_dialer")
+        val ENABLE_DND_IN_ZEN_MODE = booleanPreferencesKey("enable_dnd_in_zen_mode")
+        val DND_TOTAL_SILENCE = booleanPreferencesKey("dnd_total_silence")
         val COLOR_THEME = stringPreferencesKey("color_theme")
         val LEFT_HANDED = booleanPreferencesKey("left_handed")
         val ENABLE_AUTOMATIC_BACKUP = booleanPreferencesKey("enable_automatic_backup")
@@ -81,6 +83,8 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
             val enableDoubleTapForDialer = preferences[PreferencesKeys.ENABLE_DOUBLE_TAP_DIALER] ?: true
             val colorTheme = preferences[PreferencesKeys.COLOR_THEME] ?: "System"
             val leftHanded = preferences[PreferencesKeys.LEFT_HANDED] ?: false
+            val enableDndInZenMode = preferences[PreferencesKeys.ENABLE_DND_IN_ZEN_MODE] ?: false
+            val dndTotalSilence = preferences[PreferencesKeys.DND_TOTAL_SILENCE] ?: false
             val enableAutomaticBackup = preferences[PreferencesKeys.ENABLE_AUTOMATIC_BACKUP] ?: false
             val backupIntervalHours = preferences[PreferencesKeys.BACKUP_INTERVAL_HOURS] ?: 24
             val productivityRatio = preferences[PreferencesKeys.PRODUCTIVITY_RATIO] ?: 0.5f
@@ -105,6 +109,8 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
                 enableDoubleTapForDialer = enableDoubleTapForDialer,
                 colorTheme = colorTheme,
                 leftHanded = leftHanded,
+                enableDndInZenMode = enableDndInZenMode,
+                dndTotalSilence = dndTotalSilence,
                 selectedCalendarIds = selectedCalendarIds,
                 calculationCalendarIds = calculationCalendarIds,
                 productivityRatio = productivityRatio,
@@ -186,6 +192,32 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
     }
 
     /**
+     * Update whether Zen Mode switches on Do Not Disturb
+     */
+    suspend fun updateEnableDndInZenMode(enabled: Boolean) {
+        try {
+            dataStore.edit { preferences ->
+                preferences[PreferencesKeys.ENABLE_DND_IN_ZEN_MODE] = enabled
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error saving enableDndInZenMode: ${e.message}", e)
+        }
+    }
+
+    /**
+     * Update whether Zen Mode's Do Not Disturb uses total silence rather than priority only
+     */
+    suspend fun updateDndTotalSilence(totalSilence: Boolean) {
+        try {
+            dataStore.edit { preferences ->
+                preferences[PreferencesKeys.DND_TOTAL_SILENCE] = totalSilence
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error saving dndTotalSilence: ${e.message}", e)
+        }
+    }
+
+    /**
      * Update selected calendar IDs
      */
     suspend fun updateSelectedCalendarIds(calendarIds: Set<Long>) {
@@ -247,6 +279,8 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
                 preferences[PreferencesKeys.SHOW_CALENDAR_WIDGET] = settings.showCalendarWidget
                 preferences[PreferencesKeys.CALENDAR_DAYS_TO_SHOW] = settings.calendarDaysToShow
                 preferences[PreferencesKeys.ENABLE_DOUBLE_TAP_DIALER] = settings.enableDoubleTapForDialer
+                preferences[PreferencesKeys.ENABLE_DND_IN_ZEN_MODE] = settings.enableDndInZenMode
+                preferences[PreferencesKeys.DND_TOTAL_SILENCE] = settings.dndTotalSilence
                 preferences[PreferencesKeys.COLOR_THEME] = settings.colorTheme
                 preferences[PreferencesKeys.LEFT_HANDED] = settings.leftHanded
                 preferences[PreferencesKeys.ENABLE_AUTOMATIC_BACKUP] = settings.enableAutomaticBackup

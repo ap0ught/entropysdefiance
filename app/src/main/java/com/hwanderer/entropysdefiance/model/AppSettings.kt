@@ -25,6 +25,12 @@ data class AppSettings(
 
     // Gesture settings
     val enableDoubleTapForDialer: Boolean = true,
+
+    // Zen Mode settings
+    // Opt-in: silencing a phone is not something to do to someone by default.
+    val enableDndInZenMode: Boolean = false,
+    // Priority mode still lets alarms and calls through; total silence does not.
+    val dndTotalSilence: Boolean = false,
     
     // Backup settings
     val enableAutomaticBackup: Boolean = false,

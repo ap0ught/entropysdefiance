@@ -9,6 +9,7 @@ package com.hwanderer.entropysdefiance
 import android.app.Application
 import android.util.Log
 import com.hwanderer.entropysdefiance.data.SettingsRepository
+import com.hwanderer.entropysdefiance.utils.ZenModeManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -42,6 +43,12 @@ class EntropysDefianceApplication : Application() {
             repository.dumpDataStoreContents()
         }
         
+        // If a previous run was killed mid-Zen-Mode, Do Not Disturb is a *global system*
+        // setting and would still be on with nothing left to turn it off. Zen Mode state is
+        // never restored across process death, so an ownership flag surviving in prefs can
+        // only mean exactly that. No-op in the normal case.
+        ZenModeManager(this).restoreDnd()
+
         Log.d("Application", "EntropysDefianceApplication initialized")
     }
 } 

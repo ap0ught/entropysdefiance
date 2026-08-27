@@ -54,6 +54,8 @@ fun SettingsDialog(
     onStatisticsClick: () -> Unit,
     onStartTutorial: () -> Unit,
     onToggleLeftHanded: () -> Unit,
+    onToggleDndInZenMode: () -> Unit,
+    onToggleDndTotalSilence: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     
@@ -102,6 +104,22 @@ fun SettingsDialog(
                     checked = appSettings.leftHanded,
                     onToggle = onToggleLeftHanded
                 )
+
+                MenuToggleItem(
+                    text = "Do Not Disturb in Zen Mode",
+                    checked = appSettings.enableDndInZenMode,
+                    onToggle = onToggleDndInZenMode
+                )
+
+                // Only meaningful once DND is on at all, so it stays hidden until then rather
+                // than sitting there as a dead option.
+                if (appSettings.enableDndInZenMode) {
+                    MenuToggleItem(
+                        text = "…total silence",
+                        checked = appSettings.dndTotalSilence,
+                        onToggle = onToggleDndTotalSilence
+                    )
+                }
 
                 Spacer(modifier = Modifier.height(20.dp))
 

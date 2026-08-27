@@ -12,6 +12,7 @@ import androidx.lifecycle.viewModelScope
 import com.hwanderer.entropysdefiance.EntropysDefianceApplication
 import com.hwanderer.entropysdefiance.model.Task
 import com.hwanderer.entropysdefiance.model.TimeHorizon
+import com.hwanderer.entropysdefiance.utils.ZenModeManager
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
@@ -44,6 +45,8 @@ class ZenModeViewModel(
     
     // We need a reference to TaskViewModel to complete tasks
     private var taskViewModel: TaskViewModel? = null
+
+    private val zenModeManager = ZenModeManager(application)
     
     fun setTaskViewModel(viewModel: TaskViewModel) {
         taskViewModel = viewModel
@@ -76,6 +79,7 @@ class ZenModeViewModel(
             currentTask = task,
             startTime = LocalDateTime.now()
         )
+        applyDndIfEnabled()
     }
     
     fun startZenMode(duration: Int = 0) { // Duration parameter kept for compatibility but not used
@@ -86,12 +90,38 @@ class ZenModeViewModel(
                 currentTask = selectedTask,
                 startTime = LocalDateTime.now()
             )
+            applyDndIfEnabled()
         }
         hideDurationDialog()
     }
     
     private fun exitZenMode() {
         _zenModeState.value = ZenModeState()
+        zenModeManager.restoreDnd()
+    }
+
+    /**
+     * Switches on Do Not Disturb for the session, if the user opted in.
+     *
+     * Silently does nothing when the setting is off or "Do Not Disturb access" was never
+     * granted — the Permissions screen is where that state is visible and fixable, and a
+     * focus session is the wrong moment to interrupt someone with a permission prompt.
+     */
+    private fun applyDndIfEnabled() {
+        viewModelScope.launch {
+            val settings = app.settingsRepository.settingsFlow.first()
+            if (settings.enableDndInZenMode) {
+                zenModeManager.enableDnd(totalSilence = settings.dndTotalSilence)
+            }
+        }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        // Never leave the phone silenced because the app went away mid-session. The cold-start
+        // check in EntropysDefianceApplication covers the case where we are killed outright
+        // and this never runs.
+        zenModeManager.restoreDnd()
     }
     
     fun completeCurrentTask() {

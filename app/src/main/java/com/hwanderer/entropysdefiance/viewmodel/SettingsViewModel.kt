@@ -209,6 +209,24 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     }
 
     /**
+     * Toggle whether Zen Mode switches on Do Not Disturb
+     */
+    fun toggleDndInZenMode() {
+        viewModelScope.launch {
+            repository.updateEnableDndInZenMode(!_settings.value.enableDndInZenMode)
+        }
+    }
+
+    /**
+     * Toggle total silence vs priority-only for Zen Mode's Do Not Disturb
+     */
+    fun toggleDndTotalSilence() {
+        viewModelScope.launch {
+            repository.updateDndTotalSilence(!_settings.value.dndTotalSilence)
+        }
+    }
+
+    /**
      * Show color palette selection
      */
     fun showColorPaletteSelection() {
