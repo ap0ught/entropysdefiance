@@ -37,9 +37,16 @@ object CalendarTimeCalculator {
         // 1. Get end of time horizon (start is always NOW)
         val horizonEnd = getTimeHorizonEnd(timeHorizon, now)
         
-        // 2. Filter events: only future events within horizon
-        val relevantEvents = events.filter { 
-            it.endTime > now && it.startTime < horizonEnd
+        // 2. Filter events: only future events within horizon.
+        //
+        // All-day events are deliberately excluded. An all-day entry is a label on a day, not
+        // an appointment that occupies every hour of it — birthdays, holidays, "someone is
+        // visiting", a trip. Counting them as busy time is catastrophic rather than merely
+        // inaccurate: a single all-day event spanning a fortnight blocks every hour in it, so
+        // the readout pins to "0h available" and stays there, which is what made this metric
+        // look broken. Ignoring them is at worst slightly optimistic.
+        val relevantEvents = events.filter {
+            !it.isAllDay && it.endTime > now && it.startTime < horizonEnd
         }
         
         // 3. Clip events to the [now, horizonEnd] window
