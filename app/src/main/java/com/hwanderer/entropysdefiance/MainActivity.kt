@@ -479,6 +479,10 @@ fun TaskApp(
     }
 
     val displayedTimeHorizon = if (isPeeking) nextTimeHorizon else currentTimeHorizon
+
+    // Carries *why* the horizon changed, not just that it did: a peek dissolves in place,
+    // a real advance is given weight. See horizonTransition.
+    val horizonView = HorizonView(displayedTimeHorizon, isPeeking)
     
     // Update calendar view model with DISPLAYED time horizon for free time calculation
     // This ensures the calculation updates when peeking into the next horizon
@@ -868,10 +872,15 @@ fun TaskApp(
                     Column {
                         TopAppBar(
                             title = {
-                                val title = if (displayedTimeHorizon == TimeHorizon.Today) {
+                                AnimatedContent(
+                                    targetState = horizonView,
+                                    transitionSpec = { horizonTransition(initialState, targetState) },
+                                    label = "horizonTitle"
+                                ) { view ->
+                                val title = if (view.horizon == TimeHorizon.Today) {
                                     "Today | ${LocalDate.now().format(DateTimeFormatter.ofPattern("d. MMM."))}"
                                 } else {
-                                    displayedTimeHorizon.title
+                                    view.horizon.title
                                 }
                                     Text(
                                     text = title,
@@ -907,6 +916,7 @@ fun TaskApp(
                                         color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.9f)
                                     )
                                 )
+                                }
                             },
                             modifier = Modifier
                                 .padding(top = 12.dp),
@@ -929,10 +939,18 @@ fun TaskApp(
                                     .height(2.dp) // Make it slimmer
                                     .background(Color.White.copy(alpha = 0.15f), shape = MaterialTheme.shapes.small)
                             ) {
+                                // Animated so the bar sweeps between horizons rather than
+                                // snapping — the jump was the most obvious tell that peek was
+                                // a repaint rather than a view onto something else.
+                                val horizonProgress by animateFloatAsState(
+                                    targetValue = calculateProgress(displayedTimeHorizon),
+                                    animationSpec = Motion.standard(),
+                                    label = "horizonProgress"
+                                )
                                 Box(
                                     modifier = Modifier
                                         .fillMaxHeight()
-                                        .fillMaxWidth(calculateProgress(displayedTimeHorizon))
+                                        .fillMaxWidth(horizonProgress)
                                         .background(MaterialTheme.colorScheme.primary, shape = MaterialTheme.shapes.small)
                                 )
                             }
@@ -1035,37 +1053,39 @@ fun TaskApp(
                     Column(
                         modifier = Modifier.fillMaxSize()
                     ) {
-                        // Calculate the filtered tasks for the current time horizon
-                        val currentTasks = remember(tasks, displayedTimeHorizon) {
-                            tasks.filter { it.timeHorizon == displayedTimeHorizon }
-                        }
-                        
-                        // Get screen height for calculations
+                        // The list is the body of a peek, so it dissolves with the title
+                        // rather than cutting. Height is computed per horizon inside the
+                        // transition, so the container settles into its new size instead of
+                        // snapping when the two horizons hold different numbers of tasks.
                         val availableScreenHeight = LocalConfiguration.current.screenHeightDp.dp
-                        
-                        // Calculate the task list height based on number of tasks
-                        // Give each task ~76dp (card + padding) and limit to 1/2 of screen height
-                        val taskCount = currentTasks.size
-                        val estimatedTaskHeight = 76.dp * taskCount + 48.dp // Add padding
-                        val maxTaskListHeight = availableScreenHeight * 0.45f // Reduced to 45% to ensure space for whitespace
-                        val taskListHeight = estimatedTaskHeight.coerceAtMost(maxTaskListHeight)
-                                    
-                        // TaskList with dynamic height based on content
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(taskListHeight)
-                        ) {
-                            TaskList(
-                                modifier = Modifier.fillMaxSize(),
-                                timeHorizon = displayedTimeHorizon,
-                                tasks = tasks,
-                                onCompleteTask = taskViewModel::completeTask,
-                                onMoveTask = taskViewModel::moveTask,
-                                onLongPressTask = { task ->
-                                    zenModeViewModel.startZenModeDirectly(task)
-                                }
-                            )
+                        val maxTaskListHeight = availableScreenHeight * 0.45f // keep whitespace
+
+                        AnimatedContent(
+                            targetState = horizonView,
+                            transitionSpec = { horizonTransition(initialState, targetState) },
+                            label = "horizonTasks"
+                        ) { view ->
+                            val horizonTaskCount = tasks.count { it.timeHorizon == view.horizon }
+                            // ~76dp per card plus padding, capped so the calendar keeps its room.
+                            val taskListHeight = (76.dp * horizonTaskCount + 48.dp)
+                                .coerceAtMost(maxTaskListHeight)
+
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(taskListHeight)
+                            ) {
+                                TaskList(
+                                    modifier = Modifier.fillMaxSize(),
+                                    timeHorizon = view.horizon,
+                                    tasks = tasks,
+                                    onCompleteTask = taskViewModel::completeTask,
+                                    onMoveTask = taskViewModel::moveTask,
+                                    onLongPressTask = { task ->
+                                        zenModeViewModel.startZenModeDirectly(task)
+                                    }
+                                )
+                            }
                         }
                         
                         // Add mandatory spacing between task list and calendar events

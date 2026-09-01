@@ -69,6 +69,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.TextButton
+import com.hwanderer.entropysdefiance.ui.theme.Motion
+import androidx.compose.foundation.ExperimentalFoundationApi
 
 // Gesture handler class to manage different gestures
 class GestureHandler {
@@ -221,7 +223,7 @@ class GestureHandler {
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun AppDrawer(
     apps: List<AppInfo>,
@@ -435,6 +437,9 @@ fun AppDrawer(
                                 }
                             },
                             isShowingMenu = appShowingMenu == app.listKey,
+                            // Hiding an app, or filtering as you type, closes the gap rather
+                            // than snapping the rest of the list into new positions.
+                            modifier = Modifier.animateItemPlacement(Motion.standard()),
                             onSettings = { 
                                 onAppSettings(app)
                                 appShowingMenu = null // Auto-dismiss

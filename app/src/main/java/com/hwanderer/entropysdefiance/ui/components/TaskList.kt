@@ -36,7 +36,10 @@ import com.hwanderer.entropysdefiance.model.TimeHorizon
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.abs
+import androidx.compose.foundation.ExperimentalFoundationApi
+import com.hwanderer.entropysdefiance.ui.theme.Motion
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun TaskList(
     timeHorizon: TimeHorizon,
@@ -65,7 +68,11 @@ fun TaskList(
                 onMoveTask = { newTimeHorizon -> onMoveTask(task.id, newTimeHorizon) },
                 onLongPress = { onLongPressTask(task) },
                 onSwipe = {},
-                currentTimeHorizon = timeHorizon
+                currentTimeHorizon = timeHorizon,
+                // Rows close the gap instead of jumping. This matters more here than in a
+                // typical list: the task file is polled every two seconds, so edits made on
+                // the laptop TUI arrive on their own while you are looking at the screen.
+                modifier = Modifier.animateItemPlacement(Motion.standard())
             )
         }
     }

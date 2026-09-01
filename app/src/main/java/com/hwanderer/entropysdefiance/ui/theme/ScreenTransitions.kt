@@ -14,6 +14,7 @@ import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
+import com.hwanderer.entropysdefiance.model.TimeHorizon
 
 /**
  * How a screen relates to the one it replaces.
@@ -118,4 +119,40 @@ fun screenTransition(from: AppScreen, to: AppScreen): ContentTransform {
     // No SizeTransform: full-screen content never changes size, so the default clip is both
     // harmless and correct — nothing should spill outside the screen mid-slide.
     return transform
+}
+
+
+/**
+ * Which horizon the home screen is showing, and why.
+ *
+ * The distinction matters more than it looks. The home screen has no horizon navigation by
+ * design — it shows the smallest horizon that still has work in it, and peek is a
+ * press-and-hold that reverts on release, so lingering in a wider view is structurally
+ * impossible. A peek and a real advance are therefore *different events* that happen to
+ * change the same value, and they should not look alike.
+ */
+data class HorizonView(val horizon: TimeHorizon, val isPeek: Boolean)
+
+/**
+ * A peek is a pure cross-dissolve: nothing moves, because you are looking *through* to
+ * another scope rather than travelling to it, and you will be back in a moment.
+ *
+ * An advance is the opposite — you finished everything in a horizon and the launcher has
+ * moved you out to the next one. That is the whole point of the app, and it was previously
+ * indistinguishable from a repaint. It gets the emphasis duration and a small rise, so the
+ * change registers as something earned rather than something that merely happened.
+ *
+ * The rise stays small, and there is no flourish beyond it: a launcher whose identity is
+ * stillness should mark its best moment with weight, not with confetti.
+ */
+fun horizonTransition(from: HorizonView, to: HorizonView): ContentTransform {
+    val isPeekChange = from.isPeek || to.isPeek
+    return if (isPeekChange) {
+        fadeIn(Motion.quick()) togetherWith fadeOut(Motion.quick())
+    } else {
+        (
+            fadeIn(Motion.emphasis()) +
+                slideInVertically(Motion.emphasis()) { (it * Motion.SlideFraction).toInt() }
+            ) togetherWith fadeOut(Motion.emphasis())
+    }
 }
