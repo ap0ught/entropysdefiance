@@ -56,7 +56,7 @@ fun GesturesSettingsScreen(
                 Text(
                     text = "Gesture Settings",
                     style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold,
+                    fontWeight = FontWeight.Medium,
                     color = MaterialTheme.colorScheme.onBackground
                 )
             }

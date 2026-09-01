@@ -154,7 +154,7 @@ fun ScreenHeader(
         Text(
             text = title,
             style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.Light,
+            fontWeight = FontWeight.W100,
             color = MaterialTheme.colorScheme.onBackground,
             textAlign = TextAlign.Center,
             modifier = Modifier.align(Alignment.Center)
@@ -173,7 +173,7 @@ fun SelectableTextRow(
     Text(
         text = text,
         style = MaterialTheme.typography.titleLarge.copy(fontSize = 26.sp),
-        fontWeight = if (selected) FontWeight.Medium else FontWeight.Light,
+        fontWeight = if (selected) FontWeight.Medium else FontWeight.W100,
         color = if (selected) {
             MaterialTheme.colorScheme.primary
         } else {

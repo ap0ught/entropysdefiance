@@ -144,7 +144,7 @@ private fun MenuTextItem(
     Text(
         text = text,
         style = MaterialTheme.typography.titleLarge.copy(fontSize = 24.sp),
-        fontWeight = FontWeight.Light,
+        fontWeight = FontWeight.W100,
         color = color,
         textAlign = TextAlign.Center,
         modifier = Modifier
@@ -187,7 +187,7 @@ private fun MenuToggleItem(
         Text(
             text = text,
             style = MaterialTheme.typography.titleLarge.copy(fontSize = 24.sp),
-            fontWeight = FontWeight.Light,
+            fontWeight = FontWeight.W100,
             color = if (checked) accent else MaterialTheme.colorScheme.onBackground
         )
     }
@@ -359,7 +359,7 @@ fun SettingsSectionButton(
                 Text(
                     text = title,
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
+                    fontWeight = FontWeight.Medium,
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 
@@ -402,7 +402,7 @@ fun SettingsSectionHeader(
         Text(
             text = title,
             style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.SemiBold,
+            fontWeight = FontWeight.Medium,
             color = MaterialTheme.colorScheme.primary
         )
     }

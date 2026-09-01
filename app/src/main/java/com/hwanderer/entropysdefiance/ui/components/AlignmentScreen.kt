@@ -149,7 +149,7 @@ fun AlignmentScreen(
                     Text(
                         text = currentHorizon.title,
                         style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Light,
+                        fontWeight = FontWeight.W100,
                         color = accent
                     )
                 }
@@ -300,7 +300,7 @@ fun AlignmentScreen(
                         placeholderColor = dialogMuted,
                         textStyle = MaterialTheme.typography.titleLarge.copy(
                             textAlign = TextAlign.Center,
-                            fontWeight = FontWeight.Light
+                            fontWeight = FontWeight.W100
                         ),
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                         keyboardActions = KeyboardActions(onDone = { confirm() })
@@ -362,7 +362,7 @@ fun AlignmentScreen(
                                 placeholderColor = dialogMuted,
                                 textStyle = MaterialTheme.typography.titleMedium.copy(
                                     textAlign = TextAlign.Center,
-                                    fontWeight = FontWeight.Light
+                                    fontWeight = FontWeight.W100
                                 ),
                                 keyboardOptions = KeyboardOptions(
                                     keyboardType = KeyboardType.Number,
@@ -486,7 +486,7 @@ private fun AlignmentTaskItem(
                     task.title
                 },
                 style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Light,
+                fontWeight = FontWeight.W100,
                 color = onBg,
                 modifier = Modifier
                     .weight(1f)
@@ -534,7 +534,7 @@ private fun AlignmentTaskItem(
                         Text(
                             text = horizon.title,
                             style = MaterialTheme.typography.titleLarge.copy(fontSize = 26.sp),
-                            fontWeight = FontWeight.Light,
+                            fontWeight = FontWeight.W100,
                             color = onBg,
                             textAlign = TextAlign.Center,
                             modifier = Modifier

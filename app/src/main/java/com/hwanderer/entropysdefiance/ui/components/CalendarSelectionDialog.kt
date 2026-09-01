@@ -152,7 +152,7 @@ fun CalendarSelectionItem(
             Text(
                 text = calendar.name,
                 style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.SemiBold,
+                fontWeight = FontWeight.Medium,
                 color = MaterialTheme.colorScheme.onSurface
             )
             
