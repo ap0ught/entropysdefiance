@@ -56,12 +56,6 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.abs
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Clear
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
@@ -71,6 +65,8 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.TextButton
 import com.hwanderer.entropysdefiance.ui.theme.Motion
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 
 // Gesture handler class to manage different gestures
 class GestureHandler {
@@ -223,7 +219,11 @@ class GestureHandler {
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
+@OptIn(
+    ExperimentalMaterial3Api::class,
+    ExperimentalFoundationApi::class,
+    ExperimentalLayoutApi::class
+)
 @Composable
 fun AppDrawer(
     apps: List<AppInfo>,
@@ -583,6 +583,7 @@ fun AppDrawer(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun AppItem(
     app: AppInfo,
@@ -625,88 +626,69 @@ private fun AppItem(
             )
         }
         
-        // Action menu row (shown when long-pressed)
+        // Action menu row (shown when long-pressed).
+        //
+        // Words, not glyphs. Five Material icons — gear, trash, refresh, pencil, cross — have
+        // different densities and metaphors and never read as one set; worse, "hide" had to
+        // borrow the clear icon, which sat next to the trash meaning something almost but not
+        // quite the same. And an icon row is a different idiom from the rest of the app: every
+        // other place that offers a choice, from the settings menu to the add-task mode
+        // toggle, does it in words.
+        //
+        // Grouped rather than piled: what changes this drawer entry, then what acts on the
+        // package itself. Uninstall is the one destructive action, so it is the one that gets
+        // a colour.
         if (isShowingMenu) {
-            Row(
+            // FlowRow, not Row: five labels came to slightly more than the drawer's content
+            // width and a Row simply squeezed the last one, so "Uninstall" rendered as
+            // "Uninstal" with no indication anything was wrong. Wrapping onto a second line is
+            // the right failure — and it also survives a larger system font scale, which a
+            // fixed row never would.
+            FlowRow(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(start = 16.dp, end = 16.dp, top = 8.dp),
+                    .padding(horizontal = 8.dp),
                 horizontalArrangement = if (leftHanded) Arrangement.Start else Arrangement.End,
-                verticalAlignment = Alignment.CenterVertically
+                verticalArrangement = Arrangement.Center
             ) {
-                // Settings button
-                IconButton(
-                    onClick = onSettings,
-                    modifier = Modifier.size(40.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Settings,
-                        contentDescription = "App Settings",
-                        tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
-                
-                Spacer(modifier = Modifier.width(8.dp))
-                
-                // Uninstall button
-                IconButton(
-                    onClick = onUninstall,
-                    modifier = Modifier.size(40.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Delete,
-                        contentDescription = "Uninstall App",
-                        tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
-                
-                Spacer(modifier = Modifier.width(8.dp))
-                
-                // Reset counter button
-                IconButton(
-                    onClick = onResetCounter,
-                    modifier = Modifier.size(40.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Refresh,
-                        contentDescription = "Reset Open Counter",
-                        tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
+                AppAction(text = "Rename", onClick = onRename)
+                AppAction(text = "Hide", onClick = onHide)
 
-                Spacer(modifier = Modifier.width(8.dp))
+                Spacer(modifier = Modifier.width(10.dp))
 
-                // Rename button
-                IconButton(
-                    onClick = onRename,
-                    modifier = Modifier.size(40.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Edit,
-                        contentDescription = "Rename App",
-                        tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
-
-                Spacer(modifier = Modifier.width(8.dp))
-
-                // Hide button
-                IconButton(
-                    onClick = onHide,
-                    modifier = Modifier.size(40.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Clear,
-                        contentDescription = "Hide App",
-                        tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
+                AppAction(text = "Info", onClick = onSettings)
+                // "Reset count" was the label that tipped the row over the edge, and the
+                // confirmation dialog spells out what it resets anyway.
+                AppAction(text = "Reset", onClick = onResetCounter)
+                AppAction(text = "Uninstall", onClick = onUninstall, destructive = true)
             }
         }
     }
+}
+
+/**
+ * One word in the app's action row.
+ *
+ * The padding is the tap target — 40dp tall, matching the icon buttons this replaced — so the
+ * words can sit close together without becoming hard to hit.
+ */
+@Composable
+private fun AppAction(
+    text: String,
+    onClick: () -> Unit,
+    destructive: Boolean = false
+) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.bodyMedium,
+        color = if (destructive) {
+            MaterialTheme.colorScheme.error.copy(alpha = 0.75f)
+        } else {
+            MaterialTheme.colorScheme.onBackground.copy(alpha = 0.55f)
+        },
+        maxLines = 1,
+        modifier = Modifier
+            .clickable(onClick = onClick)
+            .padding(horizontal = 6.dp, vertical = 10.dp)
+    )
 } 
