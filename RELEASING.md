@@ -64,7 +64,12 @@ F-Droid rebuilds from source in a clean, network-restricted environment with
       Use the **same scheme** as existing release tags so `UpdateCheckMode: Tags`
       matches. Do **not** create stray tags that don't correspond to a
       `versionCode` bump — they confuse `fdroid checkupdates`.
-- [ ] `git push && git push --tags`.
+- [ ] `git push`, then push the tag **by name**: `git push origin v<versionName>`.
+      **Never `git push --tags`.** It republishes every local tag, which once
+      resurrected the pre-rename `v3.1`/`v3.2` short tags pointing at old
+      `com.example` commits — triggering CI, creating bogus GitLab Releases that
+      sorted above the real one, and confusing Obtainium. Cleaning that up needed the
+      `v*` protection removed and re-added.
 
 ### 6. After pushing
 - [ ] Confirm GitLab CI went green (build → test → release stages).
