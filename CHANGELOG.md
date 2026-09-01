@@ -4,6 +4,49 @@ All notable changes to Entropy's Defiance are documented here. The format follow
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project adheres
 to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.4.0] — 2026-09-01
+
+### Added
+- Zen Mode can enable Do Not Disturb for the duration of a session and restore the
+  previous filter when it ends (Settings → Zen Mode). Opt-in, priority-only by
+  default with total silence as a separate choice. A filter the user set themselves
+  is never overwritten, and a filter left on by a process death is cleared on the
+  next cold start.
+- Hide and rename apps from the app drawer's long-press menu. Hidden entries are
+  restored from Settings → Hidden apps; searching a renamed app by its installed
+  name still finds it.
+- Fullscreen option hiding the status bar (Settings → Appearance). The navigation
+  bar is left alone so it cannot compete with the drawer's swipe-up.
+- Adjustable wallpaper dim (Settings → Appearance), previously fixed at 60%.
+- A shared motion system: screen changes now express the app's own sense of scope —
+  Zen Mode collapses inward, Alignment steps back, settings push and pop by depth.
+
+### Fixed
+- App-drawer swipe is reliable. The bottom trigger sat inside Android's home-gesture
+  band, which won the first swipe on gesture navigation; commit was distance-only, so
+  a fast flick lifted before reaching it; and the swipe zones were the only way in.
+  The drawer is now finger-tracked, opens on any upward drag, and a nested-scroll gate
+  lets the task list and calendar agenda scroll first and open it with what they cannot
+  consume.
+- All-day calendar events no longer consume free time. A fortnight-long all-day entry
+  blocked every hour inside it, pinning the free-hours figure to zero for its duration.
+- Top insets are measured rather than guessed, so headers no longer crowd the status
+  bar; content stays clear of the display cutout in fullscreen.
+- The alignment task list no longer runs underneath its floating buttons.
+
+### Changed
+- The type scale is complete. Nine of Material's fifteen text styles were undefined
+  and fell back to Roboto — roughly half the text in the app, including every settings
+  title and description. Sixteen call sites also requested font weights that are not
+  bundled, two of which made Compose synthesise fake bold.
+- Tasks render as type rather than cards, matching the app drawer and the alignment
+  screen, with a left rule that aligns with the calendar agenda beneath them.
+- The accent does more work: deadlines carry it, the progress bar's track is tinted
+  with it, the free-hours figure is coloured by how much of the horizon is unclaimed,
+  and calendar colours are pulled toward it so the agenda reads as one palette.
+- The app drawer's long-press actions are words rather than icons, grouped by what
+  they act on, with Uninstall the only one marked.
+
 ## [3.3.0] — 2026-06-25
 
 ### Fixed

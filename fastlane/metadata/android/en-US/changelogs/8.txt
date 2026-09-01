@@ -1,0 +1,10 @@
+Focus, a calmer surface, and a drawer swipe that actually works.
+
+• The app-drawer swipe is reliable now. It no longer loses the first swipe to the system's navigation gesture, a quick flick works as well as a slow drag, and the drawer follows your finger instead of snapping open.
+• Zen Mode can switch on Do Not Disturb for the length of a session and put your previous setting back afterwards. Off by default; enable it under Settings → Zen Mode.
+• Hide and rename apps from the drawer's long-press menu. Hidden apps come back from Settings → Hidden apps, and searching a renamed app by its real name still finds it.
+• New fullscreen option hides the status bar so notification icons stay out of sight (Settings → Appearance).
+• Wallpaper dim is now adjustable, so the launcher stays readable over any wallpaper.
+• Screens now move rather than cut: Zen Mode collapses inward, Alignment steps back, and clearing the last task in a horizon is given a moment of its own.
+• Fixed: an all-day event no longer eats a whole day of free time, so the hours-available figure stops reading zero for the length of a holiday.
+• Fixed: headers no longer crowd the clock, and nothing hides under the camera cutout in fullscreen.
