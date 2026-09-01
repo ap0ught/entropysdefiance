@@ -38,6 +38,7 @@ import com.hwanderer.entropysdefiance.model.Task
 import com.hwanderer.entropysdefiance.model.TimeHorizon
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
+import androidx.compose.foundation.layout.windowInsetsPadding
 
 /**
  * A full-screen dialog with a strong dimming scrim, used for the alignment screen's sub-dialogs.
@@ -123,7 +124,8 @@ fun AlignmentScreen(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 40.dp, bottom = 12.dp)
+                    .windowInsetsPadding(safeTopInsets())
+                    .padding(top = 8.dp, bottom = 12.dp)
             ) {
                 IconButton(
                     onClick = onClose,
@@ -220,7 +222,9 @@ fun AlignmentScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .weight(1f),
-                    contentPadding = PaddingValues(vertical = 8.dp)
+                    // Clears the add/next FABs, which float over the list rather than
+                    // reserving space in the Scaffold.
+                    contentPadding = PaddingValues(top = 8.dp, bottom = 140.dp)
                 ) {
                     items(horizonTasks, key = { it.id }) { task ->
                         AlignmentTaskItem(

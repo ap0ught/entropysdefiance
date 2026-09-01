@@ -58,6 +58,7 @@ import androidx.compose.ui.unit.sp
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import kotlin.math.absoluteValue
+import androidx.compose.foundation.layout.windowInsetsPadding
 
 /**
  * The welcome narration. Six full-screen pages introducing the launcher's
@@ -102,7 +103,8 @@ fun WelcomeScreen(
                 exit = fadeOut(),
                 modifier = Modifier
                     .align(Alignment.TopEnd)
-                    .padding(top = 32.dp, end = 12.dp)
+                    .windowInsetsPadding(safeTopInsets())
+                    .padding(top = 4.dp, end = 12.dp)
             ) {
                 TextButton(onClick = onComplete) {
                     Text(

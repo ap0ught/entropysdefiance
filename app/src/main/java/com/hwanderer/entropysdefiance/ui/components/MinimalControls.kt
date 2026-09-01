@@ -28,6 +28,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.windowInsetsPadding
 
 /**
  * Shared "minimal" controls that give the app its typographic look: borderless inputs with a
@@ -131,7 +136,8 @@ fun ScreenHeader(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .padding(top = 40.dp, bottom = 12.dp)
+            .windowInsetsPadding(safeTopInsets())
+            .padding(top = 8.dp, bottom = 12.dp)
     ) {
         IconButton(
             onClick = onBack,
@@ -179,3 +185,19 @@ fun SelectableTextRow(
             .padding(vertical = 8.dp, horizontal = 24.dp)
     )
 }
+
+
+/**
+ * The top inset to keep content clear of, measured rather than guessed.
+ *
+ * `statusBarsPadding()` is not enough on its own: fullscreen mode hides the status bar, so
+ * that inset collapses to zero and content slides up under the camera cutout. `safeDrawing`
+ * keeps the cutout in the calculation, so hiding the bar reclaims the bar's height and
+ * nothing more.
+ *
+ * The window draws edge to edge, so this has to be applied by each screen — and it replaces
+ * the hardcoded 40dp top paddings that were previously standing in for it and falling short
+ * on taller status bars.
+ */
+@Composable
+fun safeTopInsets(): WindowInsets = WindowInsets.safeDrawing.only(WindowInsetsSides.Top)

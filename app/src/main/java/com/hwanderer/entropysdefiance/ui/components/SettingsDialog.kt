@@ -40,6 +40,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.hwanderer.entropysdefiance.model.AppSettings
 import com.hwanderer.entropysdefiance.model.DeviceCalendar
+import androidx.compose.foundation.layout.windowInsetsPadding
 
 @Composable
 fun SettingsDialog(
@@ -51,12 +52,12 @@ fun SettingsDialog(
     onFileSyncSettingsClick: () -> Unit,
     onPermissionsSettingsClick: () -> Unit,
     onHiddenAppsSettingsClick: () -> Unit,
+    onZenModeSettingsClick: () -> Unit,
     onBackupSettingsClick: () -> Unit,
     onStatisticsClick: () -> Unit,
     onStartTutorial: () -> Unit,
     onToggleLeftHanded: () -> Unit,
-    onToggleDndInZenMode: () -> Unit,
-    onToggleDndTotalSilence: () -> Unit,
+
     modifier: Modifier = Modifier
 ) {
     
@@ -74,7 +75,8 @@ fun SettingsDialog(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 40.dp, bottom = 8.dp),
+                    .windowInsetsPadding(safeTopInsets())
+                    .padding(top = 8.dp, bottom = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 IconButton(onClick = onDismiss) {
@@ -106,25 +108,10 @@ fun SettingsDialog(
                     onToggle = onToggleLeftHanded
                 )
 
-                MenuToggleItem(
-                    text = "Do Not Disturb in Zen Mode",
-                    checked = appSettings.enableDndInZenMode,
-                    onToggle = onToggleDndInZenMode
-                )
-
-                // Only meaningful once DND is on at all, so it stays hidden until then rather
-                // than sitting there as a dead option.
-                if (appSettings.enableDndInZenMode) {
-                    MenuToggleItem(
-                        text = "…total silence",
-                        checked = appSettings.dndTotalSilence,
-                        onToggle = onToggleDndTotalSilence
-                    )
-                }
-
                 Spacer(modifier = Modifier.height(20.dp))
 
                 MenuTextItem("Calendar", onClick = onCalendarSettingsClick)
+                MenuTextItem("Zen Mode", onClick = onZenModeSettingsClick)
                 MenuTextItem("Appearance", onClick = onAppearanceSettingsClick)
                 MenuTextItem("Free Time", onClick = onFreeTimeSettingsClick)
                 MenuTextItem("File Sync", onClick = onFileSyncSettingsClick)

@@ -75,6 +75,9 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     private val _showHiddenAppsSettings = MutableStateFlow(false)
     val showHiddenAppsSettings: StateFlow<Boolean> = _showHiddenAppsSettings.asStateFlow()
 
+    private val _showZenModeSettings = MutableStateFlow(false)
+    val showZenModeSettings: StateFlow<Boolean> = _showZenModeSettings.asStateFlow()
+
     private val _showCalculationCalendarSelection = MutableStateFlow(false)
     val showCalculationCalendarSelection: StateFlow<Boolean> = _showCalculationCalendarSelection.asStateFlow()
     
@@ -371,6 +374,19 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         _showSettingsDialog.value = true
     }
     
+    // Zen Mode Navigation
+    fun showZenModeSettings() {
+        Log.d(TAG, "Showing zen mode settings")
+        _showSettingsDialog.value = false
+        _showZenModeSettings.value = true
+    }
+
+    fun hideZenModeSettings() {
+        Log.d(TAG, "Hiding zen mode settings")
+        _showZenModeSettings.value = false
+        _showSettingsDialog.value = true
+    }
+
     // Hidden Apps Navigation
     fun showHiddenAppsSettings() {
         Log.d(TAG, "Showing hidden apps settings")

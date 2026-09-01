@@ -35,7 +35,18 @@ object Motion {
     const val StandardMillis = 260
 
     /** Reserved for the few moments that should carry weight, like a horizon completing. */
-    const val EmphasisMillis = 420
+    const val EmphasisMillis = 560
+
+    /**
+     * How much of [EmphasisMillis] the outgoing content gets before the incoming starts.
+     *
+     * A simultaneous cross-fade is the wrong shape for a *change of content*: the two states
+     * dissolve through each other and neither is ever read cleanly. Letting the old go first
+     * and the new arrive after — Material's "fade through" — is what makes the moment
+     * legible, and it matters most where the outgoing state is nearly empty, as it is when
+     * the last task in a horizon has just been completed.
+     */
+    const val FadeThroughOutFraction = 0.35f
 
     /**
      * Everything decelerates into place and nothing arrives at speed: a fast start with a long
@@ -61,4 +72,7 @@ object Motion {
      * to the transition itself rather than to what arrived.
      */
     const val SlideFraction = 0.06f
+
+    /** A more pronounced travel, for the rare change that should be felt rather than noticed. */
+    const val EmphasisSlideFraction = 0.12f
 }

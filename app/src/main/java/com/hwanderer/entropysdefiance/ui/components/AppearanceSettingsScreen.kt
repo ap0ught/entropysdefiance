@@ -56,9 +56,7 @@ fun AppearanceSettingsScreen(
 
                 SettingsSwitchItem(
                     title = "Fullscreen",
-                    description = "Hide the status bar so notification icons stay out of " +
-                        "sight. Swipe down from the top edge to see them when you want to. " +
-                        "The navigation bar is left alone.",
+                    description = "Hide the status bar; swipe down from the top edge to see it",
                     checked = appSettings.fullscreenMode,
                     onCheckedChange = { onToggleFullscreen() }
                 )

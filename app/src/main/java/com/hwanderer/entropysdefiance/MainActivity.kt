@@ -50,9 +50,11 @@ import com.hwanderer.entropysdefiance.ui.components.AppearanceSettingsScreen
 import com.hwanderer.entropysdefiance.ui.components.FreeTimeSettingsScreen
 import com.hwanderer.entropysdefiance.ui.components.FileSyncSettingsScreen
 import com.hwanderer.entropysdefiance.ui.components.HiddenAppsSettingsScreen
+import com.hwanderer.entropysdefiance.ui.components.ZenModeSettingsScreen
 import com.hwanderer.entropysdefiance.ui.components.PermissionsSettingsScreen
 import com.hwanderer.entropysdefiance.ui.components.BackupSettingsScreen
 import com.hwanderer.entropysdefiance.ui.components.TimeHorizonProgressBar
+import com.hwanderer.entropysdefiance.ui.components.safeTopInsets
 import com.hwanderer.entropysdefiance.viewmodel.TaskViewModel
 import com.hwanderer.entropysdefiance.viewmodel.LauncherViewModel
 import com.hwanderer.entropysdefiance.viewmodel.SettingsViewModel
@@ -462,6 +464,7 @@ fun TaskApp(
     val showFileSyncSettings by settingsViewModel.showFileSyncSettings.collectAsState()
     val showPermissionsSettings by settingsViewModel.showPermissionsSettings.collectAsState()
     val showHiddenAppsSettings by settingsViewModel.showHiddenAppsSettings.collectAsState()
+    val showZenModeSettings by settingsViewModel.showZenModeSettings.collectAsState()
     val hiddenApps by launcherViewModel.hiddenApps.collectAsStateWithLifecycle(initialValue = emptyList())
     val showBackupSettings by settingsViewModel.showBackupSettings.collectAsState()
     val showCalculationCalendarSelection by settingsViewModel.showCalculationCalendarSelection.collectAsState()
@@ -483,6 +486,13 @@ fun TaskApp(
     // Carries *why* the horizon changed, not just that it did: a peek dissolves in place,
     // a real advance is given weight. See horizonTransition.
     val horizonView = HorizonView(displayedTimeHorizon, isPeeking)
+
+    // Leaving a peek looks identical to an advance if you only inspect the current values —
+    // both end with isPeek false — so the previous view has to be kept to tell them apart.
+    // Read before the SideEffect writes it, so this still holds the outgoing state.
+    val previousHorizonView = remember { mutableStateOf(horizonView) }
+    val isPeekHorizonChange = previousHorizonView.value.isPeek || horizonView.isPeek
+    SideEffect { previousHorizonView.value = horizonView }
     
     // Update calendar view model with DISPLAYED time horizon for free time calculation
     // This ensures the calculation updates when peeking into the next horizon
@@ -522,6 +532,7 @@ fun TaskApp(
             showFileSyncSettings -> AppScreen.FileSyncSettings
             showPermissionsSettings -> AppScreen.PermissionsSettings
             showHiddenAppsSettings -> AppScreen.HiddenAppsSettings
+            showZenModeSettings -> AppScreen.ZenModeSettings
             showBackupSettings -> AppScreen.BackupSettings
             showCalculationCalendarSelection -> AppScreen.CalculationCalendarSelection
             zenModeState.isActive -> AppScreen.ZenMode
@@ -582,17 +593,7 @@ fun TaskApp(
                     tutorialViewModel.startTutorial()
                 },
                 onToggleLeftHanded = { settingsViewModel.toggleLeftHanded() },
-                onToggleDndInZenMode = {
-                    // Turning it on is useless without "Do Not Disturb access", and that can
-                    // only be granted from system settings — so take the user straight there
-                    // rather than letting the toggle silently do nothing later.
-                    val enabling = !appSettings.enableDndInZenMode
-                    settingsViewModel.toggleDndInZenMode()
-                    if (enabling && !zenModeManager.isDndAccessGranted()) {
-                        runCatching { context.startActivity(zenModeManager.dndAccessSettingsIntent()) }
-                    }
-                },
-                onToggleDndTotalSilence = { settingsViewModel.toggleDndTotalSilence() }
+                onZenModeSettingsClick = { settingsViewModel.showZenModeSettings() }
             )
         }
         AppScreen.CalendarSelection -> {
@@ -731,6 +732,27 @@ fun TaskApp(
             // Show permissions settings screen
             PermissionsSettingsScreen(
                 onBack = { settingsViewModel.hidePermissionsSettings() }
+            )
+        }
+        AppScreen.ZenModeSettings -> {
+            BackHandler {
+                settingsViewModel.hideZenModeSettings()
+            }
+
+            ZenModeSettingsScreen(
+                appSettings = appSettings,
+                onToggleDndInZenMode = {
+                    // Turning it on is useless without "Do Not Disturb access", and that can
+                    // only be granted from system settings — so take the user straight there
+                    // rather than letting the toggle silently do nothing later.
+                    val enabling = !appSettings.enableDndInZenMode
+                    settingsViewModel.toggleDndInZenMode()
+                    if (enabling && !zenModeManager.isDndAccessGranted()) {
+                        runCatching { context.startActivity(zenModeManager.dndAccessSettingsIntent()) }
+                    }
+                },
+                onToggleDndTotalSilence = { settingsViewModel.toggleDndTotalSilence() },
+                onBack = { settingsViewModel.hideZenModeSettings() }
             )
         }
         AppScreen.HiddenAppsSettings -> {
@@ -920,6 +942,9 @@ fun TaskApp(
                             },
                             modifier = Modifier
                                 .padding(top = 12.dp),
+                            // Material's default here is `statusBars`, which collapses to zero
+                            // in fullscreen mode and slid the title under the camera cutout.
+                            windowInsets = safeTopInsets(),
                             colors = TopAppBarDefaults.topAppBarColors(
                                 containerColor = Color.Transparent,
                                 scrolledContainerColor = Color.Transparent
@@ -942,9 +967,15 @@ fun TaskApp(
                                 // Animated so the bar sweeps between horizons rather than
                                 // snapping — the jump was the most obvious tell that peek was
                                 // a repaint rather than a view onto something else.
+                                // Paced with whichever change is happening, so the bar is part
+                                // of the advance's beat rather than finishing well before it.
                                 val horizonProgress by animateFloatAsState(
                                     targetValue = calculateProgress(displayedTimeHorizon),
-                                    animationSpec = Motion.standard(),
+                                    animationSpec = if (isPeekHorizonChange) {
+                                        Motion.quick()
+                                    } else {
+                                        Motion.emphasis()
+                                    },
                                     label = "horizonProgress"
                                 )
                                 Box(

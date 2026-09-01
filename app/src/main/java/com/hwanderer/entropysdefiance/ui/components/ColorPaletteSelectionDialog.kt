@@ -49,29 +49,7 @@ fun ColorPaletteSelectionDialog(
                 .fillMaxSize()
                 .padding(horizontal = 16.dp)
         ) {
-            // Header with title and close button
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 50.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(
-                    text = "Color Theme",
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onBackground
-                )
-
-                IconButton(onClick = onDismiss) {
-                    Icon(
-                        imageVector = Icons.Default.Close,
-                        contentDescription = "Close Color Selection",
-                        tint = MaterialTheme.colorScheme.onBackground
-                    )
-                }
-            }
+            ScreenHeader(title = "Color Theme", onBack = onDismiss)
 
             Column(
                 modifier = Modifier

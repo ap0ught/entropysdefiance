@@ -7,6 +7,7 @@
 package com.hwanderer.entropysdefiance.ui.theme
 
 import androidx.compose.animation.ContentTransform
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
@@ -53,6 +54,7 @@ enum class AppScreen(val depth: Int, val motion: ScreenMotion = ScreenMotion.Sta
     FileSyncSettings(2),
     PermissionsSettings(2),
     HiddenAppsSettings(2),
+    ZenModeSettings(2),
     BackupSettings(2),
     Statistics(2),
 
@@ -147,12 +149,22 @@ data class HorizonView(val horizon: TimeHorizon, val isPeek: Boolean)
  */
 fun horizonTransition(from: HorizonView, to: HorizonView): ContentTransform {
     val isPeekChange = from.isPeek || to.isPeek
-    return if (isPeekChange) {
-        fadeIn(Motion.quick()) togetherWith fadeOut(Motion.quick())
-    } else {
-        (
-            fadeIn(Motion.emphasis()) +
-                slideInVertically(Motion.emphasis()) { (it * Motion.SlideFraction).toInt() }
-            ) togetherWith fadeOut(Motion.emphasis())
+    if (isPeekChange) {
+        // A glance: both states are the same content seen from a different scope, so
+        // dissolving them through each other is exactly right.
+        return fadeIn(Motion.quick()) togetherWith fadeOut(Motion.quick())
     }
+
+    // An advance. Staged rather than simultaneous: by the time the horizon flips, the list
+    // being left behind is already empty — the last task was removed first — so an overlapping
+    // cross-fade has nothing to fade out and the new horizon merely materialises over blank
+    // space. Letting the old state clear first gives the moment a beat to land in.
+    val outMillis = (Motion.EmphasisMillis * Motion.FadeThroughOutFraction).toInt()
+    val inMillis = Motion.EmphasisMillis - outMillis
+    return (
+        fadeIn(tween(inMillis, delayMillis = outMillis, easing = Motion.Easing)) +
+            slideInVertically(
+                tween(inMillis, delayMillis = outMillis, easing = Motion.Easing)
+            ) { (it * Motion.EmphasisSlideFraction).toInt() }
+        ) togetherWith fadeOut(tween(outMillis, easing = Motion.Easing))
 }

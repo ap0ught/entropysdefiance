@@ -48,34 +48,9 @@ fun CalendarSelectionDialog(
                 .fillMaxSize()
                 .padding(horizontal = 16.dp)
         ) {
-            // Header with title and back button
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    IconButton(onClick = onDismiss) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Go Back",
-                            tint = MaterialTheme.colorScheme.onBackground
-                        )
-                    }
-                    
-                    Text(
-                        text = "Select Calendars",
-                        style = MaterialTheme.typography.headlineSmall,
-                        color = MaterialTheme.colorScheme.onBackground
-                    )
-                }
-            }
-            
-            Spacer(modifier = Modifier.height(8.dp))
+            // The shared header, so this screen picks up the same insets and the same
+            // typography as every other one instead of hand-rolling both.
+            ScreenHeader(title = "Select Calendars", onBack = onDismiss)
             
             // Select All/None buttons
             Row(
