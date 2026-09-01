@@ -503,7 +503,39 @@ fun TaskApp(
         }
         
         // Main app content (bottom layer)
-        if (showAddScreen) {
+        // One motion system for every full-screen state. Which screen is showing was
+        // already decided by these flags; naming it lets the transition between any two
+        // carry the meaning the interaction already has — see ScreenTransitions.kt.
+        val currentScreen = when {
+            showAddScreen -> AppScreen.AddTask
+            showSettingsDialog -> AppScreen.Settings
+            showCalendarSelection -> AppScreen.CalendarSelection
+            showColorPaletteSelection -> AppScreen.ColorPaletteSelection
+            showStatisticsScreen -> AppScreen.Statistics
+            showCalendarSettings -> AppScreen.CalendarSettings
+            showAppearanceSettings -> AppScreen.AppearanceSettings
+            showFreeTimeSettings -> AppScreen.FreeTimeSettings
+            showFileSyncSettings -> AppScreen.FileSyncSettings
+            showPermissionsSettings -> AppScreen.PermissionsSettings
+            showHiddenAppsSettings -> AppScreen.HiddenAppsSettings
+            showBackupSettings -> AppScreen.BackupSettings
+            showCalculationCalendarSelection -> AppScreen.CalculationCalendarSelection
+            zenModeState.isActive -> AppScreen.ZenMode
+            showZenDurationDialog -> AppScreen.ZenDurationDialog
+            isAlignmentActive -> AppScreen.Alignment
+            else -> AppScreen.Home
+        }
+
+        AnimatedContent(
+            targetState = currentScreen,
+            transitionSpec = { screenTransition(initialState, targetState) },
+            modifier = Modifier.fillMaxSize(),
+            label = "screen"
+        ) { screen ->
+        // Render from `screen`, never from the flags above: while the transition runs the
+        // outgoing content is still composed and must keep showing what it was.
+        when (screen) {
+        AppScreen.AddTask -> {
             // System back should return to the home screen, like every other
             // full-screen view here.
             BackHandler {
@@ -522,7 +554,8 @@ fun TaskApp(
                 },
                 onDismiss = { showAddScreen = false }
             )
-        } else if (showSettingsDialog) {
+        }
+        AppScreen.Settings -> {
             // Handle back press for settings dialog
             BackHandler {
                 settingsViewModel.hideSettingsDialog()
@@ -557,7 +590,8 @@ fun TaskApp(
                 },
                 onToggleDndTotalSilence = { settingsViewModel.toggleDndTotalSilence() }
             )
-        } else if (showCalendarSelection) {
+        }
+        AppScreen.CalendarSelection -> {
             // Handle back press for calendar selection
             BackHandler {
                 settingsViewModel.hideCalendarSelection()
@@ -579,7 +613,8 @@ fun TaskApp(
                     calendarViewModel.deselectAllCalendars()
                 }
             )
-        } else if (showColorPaletteSelection) {
+        }
+        AppScreen.ColorPaletteSelection -> {
             // Handle back press for color palette selection
             BackHandler {
                 settingsViewModel.hideColorPaletteSelection()
@@ -596,7 +631,8 @@ fun TaskApp(
                     settingsViewModel.hideColorPaletteSelection()
                 }
             )
-        } else if (showStatisticsScreen) {
+        }
+        AppScreen.Statistics -> {
             // Handle back press for statistics screen
             BackHandler {
                 settingsViewModel.hideStatisticsScreen()
@@ -606,7 +642,8 @@ fun TaskApp(
             StatisticsScreen(
                 onBackClick = { settingsViewModel.hideStatisticsScreen() }
             )
-        } else if (showCalendarSettings) {
+        }
+        AppScreen.CalendarSettings -> {
             // Handle back press for calendar settings
             BackHandler {
                 settingsViewModel.hideCalendarSettings()
@@ -624,7 +661,8 @@ fun TaskApp(
                 },
                 onCalendarSelectionClick = { settingsViewModel.showCalendarSelection() }
             )
-        } else if (showAppearanceSettings) {
+        }
+        AppScreen.AppearanceSettings -> {
             // Handle back press for appearance settings
             BackHandler {
                 settingsViewModel.hideAppearanceSettings()
@@ -637,7 +675,8 @@ fun TaskApp(
                 onColorPaletteClick = { settingsViewModel.showColorPaletteSelection() },
                 onToggleFullscreen = { settingsViewModel.toggleFullscreenMode() }
             )
-        } else if (showFreeTimeSettings) {
+        }
+        AppScreen.FreeTimeSettings -> {
             // Handle back press for free time settings
             BackHandler {
                 settingsViewModel.hideFreeTimeSettings()
@@ -654,7 +693,8 @@ fun TaskApp(
                     settingsViewModel.showCalculationCalendarSelection()
                 }
             )
-        } else if (showFileSyncSettings) {
+        }
+        AppScreen.FileSyncSettings -> {
             // Handle back press for file sync settings
             BackHandler {
                 settingsViewModel.hideFileSyncSettings()
@@ -677,7 +717,8 @@ fun TaskApp(
                     taskViewModel.syncToFile()
                 }
             )
-        } else if (showPermissionsSettings) {
+        }
+        AppScreen.PermissionsSettings -> {
             // Handle back press for permissions settings
             BackHandler {
                 settingsViewModel.hidePermissionsSettings()
@@ -687,7 +728,8 @@ fun TaskApp(
             PermissionsSettingsScreen(
                 onBack = { settingsViewModel.hidePermissionsSettings() }
             )
-        } else if (showHiddenAppsSettings) {
+        }
+        AppScreen.HiddenAppsSettings -> {
             BackHandler {
                 settingsViewModel.hideHiddenAppsSettings()
             }
@@ -697,7 +739,8 @@ fun TaskApp(
                 onUnhide = { app -> launcherViewModel.setAppHidden(app, hidden = false) },
                 onBack = { settingsViewModel.hideHiddenAppsSettings() }
             )
-        } else if (showBackupSettings) {
+        }
+        AppScreen.BackupSettings -> {
             // Handle back press for backup settings
             BackHandler {
                 settingsViewModel.hideBackupSettings()
@@ -715,7 +758,8 @@ fun TaskApp(
                     importCsvLauncher.launch(arrayOf("text/csv", "text/comma-separated-values", "application/csv", "*/*"))
                 }
             )
-        } else if (showCalculationCalendarSelection) {
+        }
+        AppScreen.CalculationCalendarSelection -> {
             // Handle back press for calculation calendar selection
             BackHandler {
                 settingsViewModel.hideCalculationCalendarSelection()
@@ -750,7 +794,8 @@ fun TaskApp(
                     settingsViewModel.updateCalculationCalendarIds(emptySet())
                 }
             )
-        } else if (zenModeState.isActive) {
+        }
+        AppScreen.ZenMode -> {
             // Handle back press for zen mode - prevent exiting
             BackHandler {
                 // Do nothing - prevent user from exiting zen mode
@@ -765,7 +810,8 @@ fun TaskApp(
                 },
                 modifier = Modifier.fillMaxSize()
             )
-        } else if (showZenDurationDialog) {
+        }
+        AppScreen.ZenDurationDialog -> {
             // Show Zen Mode duration dialog
             ZenModeDurationDialog(
                 onDurationSelected = { durationMinutes ->
@@ -776,7 +822,8 @@ fun TaskApp(
                 },
                 selectedTask = selectedTask
             )
-        } else if (isAlignmentActive) {
+        }
+        AppScreen.Alignment -> {
             // Show alignment screen when active
             AlignmentScreen(
                 currentHorizon = currentAlignmentHorizon,
@@ -804,7 +851,8 @@ fun TaskApp(
                 },
                 modifier = Modifier.fillMaxSize()
             )
-        } else {
+        }
+        AppScreen.Home -> {
             // Home screen content
             Scaffold(
                 modifier = Modifier.graphicsLayer {
@@ -1124,6 +1172,8 @@ fun TaskApp(
                 }
             }
         }
+        }
+        }
 
         // App drawer — an overlay on the home screen rather than a replacement for it, so it
         // can sit partly open under the finger. Composed only while it is actually on screen.
@@ -1224,17 +1274,17 @@ fun MultiFunctionFAB(
     
     // Animation specs for smoother animations
     val enterTransition = remember {
-        fadeIn(animationSpec = tween(150)) + 
+        fadeIn(animationSpec = Motion.quick()) +
         expandVertically(
-            animationSpec = tween(200, easing = FastOutSlowInEasing),
+            animationSpec = Motion.standard(),
             expandFrom = Alignment.CenterVertically
         )
     }
     
     val exitTransition = remember {
-        fadeOut(animationSpec = tween(100)) + 
+        fadeOut(animationSpec = Motion.quick()) +
         shrinkVertically(
-            animationSpec = tween(200, easing = FastOutSlowInEasing),
+            animationSpec = Motion.standard(),
             shrinkTowards = Alignment.CenterVertically
         )
     }
@@ -1305,8 +1355,8 @@ fun MultiFunctionFAB(
             // Only show the peek button when FAB is not expanded
             AnimatedVisibility(
                 visible = !expanded,
-                enter = fadeIn(animationSpec = tween(150)),
-                exit = fadeOut(animationSpec = tween(100))
+                enter = fadeIn(animationSpec = Motion.quick()),
+                exit = fadeOut(animationSpec = Motion.quick())
             ) {
                 IconButton(
                     onClick = { }, 
@@ -1347,7 +1397,7 @@ fun MultiFunctionFAB(
                 // Animate the plus icon to rotate when expanded
                 val rotation by animateFloatAsState(
                     targetValue = if (expanded) 45f else 0f,
-                    animationSpec = tween(200, easing = FastOutSlowInEasing),
+                    animationSpec = Motion.standard(),
                     label = "FabRotation"
                 )
                 

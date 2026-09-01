@@ -7,8 +7,7 @@
 package com.hwanderer.entropysdefiance.ui.components
 
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.spring
+import com.hwanderer.entropysdefiance.ui.theme.Motion
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.awaitVerticalTouchSlopOrCancellation
@@ -142,10 +141,7 @@ class DrawerSwipeState(private val scope: CoroutineScope) {
         }
         animatable.animateTo(
             targetValue = target,
-            animationSpec = spring(
-                dampingRatio = Spring.DampingRatioNoBouncy,
-                stiffness = SETTLE_STIFFNESS
-            ),
+            animationSpec = Motion.Settle,
             initialVelocity = -velocityPxPerSec / dragTravelPx()
         )
     }
@@ -153,20 +149,14 @@ class DrawerSwipeState(private val scope: CoroutineScope) {
     fun open() {
         isDragging = false
         scope.launch {
-            animatable.animateTo(
-                1f,
-                spring(Spring.DampingRatioNoBouncy, Spring.StiffnessMediumLow)
-            )
+            animatable.animateTo(1f, Motion.Settle)
         }
     }
 
     fun close() {
         isDragging = false
         scope.launch {
-            animatable.animateTo(
-                0f,
-                spring(Spring.DampingRatioNoBouncy, Spring.StiffnessMediumLow)
-            )
+            animatable.animateTo(0f, Motion.Settle)
         }
     }
 
@@ -184,10 +174,6 @@ class DrawerSwipeState(private val scope: CoroutineScope) {
         // upward movement.
         const val COMMIT_FRACTION = 0.3f
 
-        // Stiffer than the Compose default `StiffnessMediumLow`. Now that a short drag commits,
-        // the animation usually has most of the distance still to cover, and at 400f that read
-        // as the drawer drifting into place rather than being pulled.
-        const val SETTLE_STIFFNESS = 900f
     }
 }
 
