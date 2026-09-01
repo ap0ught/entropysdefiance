@@ -100,6 +100,9 @@ fun AddTaskScreen(
                         )
                     }
                 },
+                // Material's default here is `statusBars`, which collapses to zero in
+                // fullscreen mode and puts the bar under the camera cutout.
+                windowInsets = safeTopInsets(),
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = Color.Transparent
                 )
@@ -129,7 +132,7 @@ fun AddTaskScreen(
                 modifier = Modifier.focusRequester(focusRequester),
                 textStyle = MaterialTheme.typography.headlineSmall.copy(
                     textAlign = TextAlign.Center,
-                    fontWeight = FontWeight.Light
+                    fontWeight = FontWeight.W100
                 ),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                 keyboardActions = KeyboardActions(onDone = { submitTask() })
@@ -167,8 +170,8 @@ fun AddTaskScreen(
                         text = selectedDeadline
                             ?.format(DateTimeFormatter.ofPattern("EEE, d MMM yyyy"))
                             ?: "Select deadline",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Light,
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.W100,
                         color = if (selectedDeadline != null) onBg else muted,
                         textAlign = TextAlign.Center,
                         modifier = Modifier
@@ -191,9 +194,9 @@ fun AddTaskScreen(
                     accent = accent,
                     textColor = onBg,
                     placeholderColor = muted,
-                    textStyle = MaterialTheme.typography.titleLarge.copy(
+                    textStyle = MaterialTheme.typography.headlineSmall.copy(
                         textAlign = TextAlign.Center,
-                        fontWeight = FontWeight.Light
+                        fontWeight = FontWeight.W100
                     ),
                     keyboardOptions = KeyboardOptions(
                         keyboardType = KeyboardType.Number,

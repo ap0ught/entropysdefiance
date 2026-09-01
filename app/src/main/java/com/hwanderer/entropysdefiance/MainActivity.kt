@@ -131,6 +131,7 @@ import com.hwanderer.entropysdefiance.ui.components.WelcomeScreen
 import com.hwanderer.entropysdefiance.utils.buildDefaultLauncherIntent
 import com.hwanderer.entropysdefiance.utils.isAppDefaultLauncher
 import com.hwanderer.entropysdefiance.ui.components.StorageSetupScreen
+import androidx.compose.ui.graphics.lerp
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalComposeUiApi::class)
 class MainActivity : ComponentActivity() {
@@ -512,7 +513,7 @@ fun TaskApp(
         if (!zenModeState.isActive) {
             Surface(
                 modifier = Modifier.fillMaxSize(),
-                color = Color.Black.copy(alpha = 0.6f)
+                color = Color.Black.copy(alpha = appSettings.wallpaperDim)
             ) {}
         }
         
@@ -678,7 +679,8 @@ fun TaskApp(
                 appSettings = appSettings,
                 onBack = { settingsViewModel.hideAppearanceSettings() },
                 onColorPaletteClick = { settingsViewModel.showColorPaletteSelection() },
-                onToggleFullscreen = { settingsViewModel.toggleFullscreenMode() }
+                onToggleFullscreen = { settingsViewModel.toggleFullscreenMode() },
+                onWallpaperDimChange = { settingsViewModel.updateWallpaperDim(it) }
             )
         }
         AppScreen.FreeTimeSettings -> {
@@ -962,7 +964,13 @@ fun TaskApp(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .height(2.dp) // Make it slimmer
-                                    .background(Color.White.copy(alpha = 0.15f), shape = MaterialTheme.shapes.small)
+                                    // Accent-tinted rather than flat white: this bar is the
+                                    // app's central metaphor — time spent against a horizon —
+                                    // and it should be rendered in the app's own colour.
+                                    .background(
+                                        MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+                                        shape = MaterialTheme.shapes.small
+                                    )
                             ) {
                                 // Animated so the bar sweeps between horizons rather than
                                 // snapping — the jump was the most obvious tell that peek was
@@ -990,10 +998,26 @@ fun TaskApp(
                         // Free time metric display (Option 2 - below progress bar)
                         val freeTimeMetric by calendarViewModel.freeTimeMetric.collectAsState()
                         freeTimeMetric?.let { metric ->
+                            // The figure is the point, so let colour carry it: accent while the
+                            // horizon is mostly unclaimed, fading toward the background as it
+                            // fills up. Measured as a fraction of the horizon rather than in
+                            // hours, so it means the same thing for Today as for This Life.
+                            val freeFraction = if (metric.totalHoursRemaining > 0.0) {
+                                (metric.freeHours24h / metric.totalHoursRemaining)
+                                    .coerceIn(0.0, 1.0)
+                                    .toFloat()
+                            } else {
+                                0f
+                            }
+                            val freeTimeColor = lerp(
+                                MaterialTheme.colorScheme.onBackground.copy(alpha = 0.35f),
+                                MaterialTheme.colorScheme.primary,
+                                freeFraction
+                            )
                             Text(
                                 text = "${metric.productiveHoursAvailable.toInt()}h available",
                                 style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f),
+                                color = freeTimeColor,
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .padding(horizontal = 32.dp, vertical = 4.dp),
@@ -1097,8 +1121,9 @@ fun TaskApp(
                             label = "horizonTasks"
                         ) { view ->
                             val horizonTaskCount = tasks.count { it.timeHorizon == view.horizon }
-                            // ~76dp per card plus padding, capped so the calendar keeps its room.
-                            val taskListHeight = (76.dp * horizonTaskCount + 48.dp)
+                            // 28dp line + 20dp padding + 14dp gap per row, plus the list's own
+                            // 32dp of vertical padding. Capped so the calendar keeps its room.
+                            val taskListHeight = (62.dp * horizonTaskCount + 32.dp)
                                 .coerceAtMost(maxTaskListHeight)
 
                             Box(

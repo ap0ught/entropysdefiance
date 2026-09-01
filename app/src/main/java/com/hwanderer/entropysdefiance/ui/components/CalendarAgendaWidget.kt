@@ -41,6 +41,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.ColorMatrix
+import androidx.compose.ui.graphics.lerp
 
 /**
  * Utility function to determine if a color is dark based on luminance
@@ -206,17 +207,23 @@ fun CalendarAgendaWidget(
                                 event = event,
                                 currentDate = currentDate,
                                 currentDateTime = currentDateTime,
-                                statusColor = when {
-                                    // For ongoing events, use the event's color but with higher opacity
-                                    currentDateTime.isAfter(event.startTime) && 
-                                    currentDateTime.isBefore(event.endTime) -> 
-                                        event.color?.let { Color(it) } ?: MaterialTheme.colorScheme.tertiary
-                                    // For events starting soon (in the next 6 hours), use the event's color 
-                                    event.startTime.isAfter(currentDateTime) && 
-                                    ChronoUnit.MINUTES.between(currentDateTime, event.startTime) <= 360 -> 
-                                        event.color?.let { Color(it) } ?: MaterialTheme.colorScheme.secondary
-                                    // For all other events, use the event's original color
-                                    else -> event.color?.let { Color(it) } ?: MaterialTheme.colorScheme.primary
+                                statusColor = run {
+                                    val accent = MaterialTheme.colorScheme.primary
+                                    val fallback = when {
+                                        // Ongoing
+                                        currentDateTime.isAfter(event.startTime) &&
+                                            currentDateTime.isBefore(event.endTime) ->
+                                            MaterialTheme.colorScheme.tertiary
+                                        // Starting within six hours
+                                        event.startTime.isAfter(currentDateTime) &&
+                                            ChronoUnit.MINUTES.between(
+                                                currentDateTime,
+                                                event.startTime
+                                            ) <= 360 -> MaterialTheme.colorScheme.secondary
+                                        else -> accent
+                                    }
+                                    event.color?.let { harmoniseWithAccent(Color(it), accent) }
+                                        ?: fallback
                                 },
                                 leftHanded = leftHanded
                             )
@@ -468,3 +475,17 @@ private fun CalendarEventItemContent(
         }
     }
 } 
+
+/**
+ * Pulls a calendar's own colour toward the app's accent.
+ *
+ * Event colours come straight from the calendar provider, and are typically the fully
+ * saturated reds, greens and blues assigned by default. Against a chosen accent they read as
+ * a pile of stickers rather than as one agenda. Blending toward the accent keeps enough hue
+ * to tell one calendar from another while letting the whole list belong to the same palette.
+ */
+private fun harmoniseWithAccent(source: Color, accent: Color): Color =
+    lerp(source, accent, ACCENT_HARMONY)
+
+/** How far an event's own colour is pulled toward the accent. */
+private const val ACCENT_HARMONY = 0.35f

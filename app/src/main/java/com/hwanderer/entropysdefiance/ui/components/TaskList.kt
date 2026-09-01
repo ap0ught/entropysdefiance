@@ -38,6 +38,20 @@ import kotlinx.coroutines.launch
 import kotlin.math.abs
 import androidx.compose.foundation.ExperimentalFoundationApi
 import com.hwanderer.entropysdefiance.ui.theme.Motion
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.material.icons.outlined.CheckCircle
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -55,8 +69,9 @@ fun TaskList(
 
     LazyColumn(
         modifier = modifier,
-        contentPadding = PaddingValues(24.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        // 24dp start matches the calendar agenda below, so the two lists share a left edge.
+        contentPadding = PaddingValues(horizontal = 24.dp, vertical = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         itemsIndexed(
             items = horizonTasks,
@@ -164,21 +179,20 @@ private fun TaskItem(
                     offsetX = 0f
                 }
             ),
-        color = MaterialTheme.colorScheme.background,
-        border = BorderStroke(
-            width = if (isLongPressed || isZenModeStarting) 2.dp else 1.dp,
-            color = if (isLongPressed || isZenModeStarting) 
-                MaterialTheme.colorScheme.primary 
-            else 
-                MaterialTheme.colorScheme.outline
-        ),
-        shape = MaterialTheme.shapes.small,
-        shadowElevation = elevation.dp
+        // No border, no shape, no elevation. The app drawer and the alignment screen both
+        // render a list of things as pure type; the home screen was the only surface wrapping
+        // them in cards, and a drop shadow over a translucent wallpaper reads as muddy anyway.
+        // Being picked up for Zen Mode is now said with the accent on the text itself.
+        color = Color.Transparent
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp)
+                .height(IntrinsicSize.Min)
+                // The 6dp matches the inner padding on an agenda row, so that both lists put
+                // their rule at 24 + 6 = 30dp from the screen edge. Without it the two rules
+                // sat 6dp apart, which reads as a wobble down the left edge of the screen.
+                .padding(vertical = 10.dp, horizontal = 6.dp)
                 .pointerInput(Unit) {
                     detectTapGestures(
                         onTap = {
@@ -208,6 +222,28 @@ private fun TaskItem(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
+            // The same 3dp rule the calendar agenda uses one section below. Without an
+            // anchor at the left edge a task is a word floating in the middle of the screen;
+            // with one, the two lists on this screen read as the same kind of thing. Accent
+            // when a deadline is attached — that is the row that carries time pressure.
+            Box(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .width(3.dp)
+                    .background(
+                        color = if (task.isDeadlineTask) {
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.85f)
+                        } else {
+                            MaterialTheme.colorScheme.onBackground.copy(alpha = 0.25f)
+                        },
+                        // Rounded caps, as the agenda's bar has. On a 3dp width the radius
+                        // clamps to half the width, so both read as the same drawn stroke.
+                        shape = MaterialTheme.shapes.small
+                    )
+            )
+
+            Spacer(modifier = Modifier.width(12.dp))
+
             // Left arrow indicator
             Icon(
                 Icons.AutoMirrored.Filled.ArrowBack,
@@ -217,15 +253,32 @@ private fun TaskItem(
             )
             
             // Task text
+            // A deadline is the one thing on a task that carries time pressure, so it is the
+            // one thing that earns the accent — which also distinguishes deadline tasks now
+            // that there is no card to vary.
             Text(
-                text = if (task.isDeadlineTask && task.deadline != null) {
-                    "${task.deadline.format(java.time.format.DateTimeFormatter.ofPattern("dd.MM.yyyy"))} | ${task.title}"
-                } else {
-                    task.title
+                text = buildAnnotatedString {
+                    if (task.isDeadlineTask && task.deadline != null) {
+                        withStyle(SpanStyle(color = MaterialTheme.colorScheme.primary)) {
+                            append(
+                                task.deadline.format(
+                                    java.time.format.DateTimeFormatter.ofPattern("dd.MM.")
+                                )
+                            )
+                        }
+                        append("  ")
+                    }
+                    append(task.title)
                 },
                 modifier = Modifier.weight(1f),
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onBackground,
+                style = MaterialTheme.typography.titleSmall,
+                color = if (isLongPressed || isZenModeStarting) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.onBackground
+                },
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
                 textDecoration = if (isCompleted) TextDecoration.LineThrough else null
             )
             
@@ -237,14 +290,22 @@ private fun TaskItem(
                 tint = MaterialTheme.colorScheme.primary
             )
             
-            // Completion icon
+            // An outline until it is used, and dimmer than the task name. Filled, it was the
+            // heaviest thing in the row — the eye went to the control rather than to the task,
+            // across the empty gap that made the list feel loose.
             Icon(
-                Icons.Default.CheckCircle,
+                imageVector = if (isCompleted) {
+                    Icons.Default.CheckCircle
+                } else {
+                    Icons.Outlined.CheckCircle
+                },
                 contentDescription = "Complete Task",
-                tint = if (isCompleted) 
-                    MaterialTheme.colorScheme.primary 
-                else 
-                    MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
+                modifier = Modifier.size(22.dp),
+                tint = if (isCompleted) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.onBackground.copy(alpha = 0.3f)
+                }
             )
         }
     }

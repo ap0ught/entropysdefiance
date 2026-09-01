@@ -26,6 +26,10 @@ data class AppSettings(
     // bar deliberately stays: hiding it would put the drawer's swipe-up in a fight with the
     // system's transient-bar gesture.
     val fullscreenMode: Boolean = false,
+    // How far the wallpaper is dimmed behind the launcher. Everything the app draws is thin
+    // light type over the user's own wallpaper, so this is the single control with the most
+    // influence over whether any of it is readable.
+    val wallpaperDim: Float = 0.6f,
 
     // Gesture settings
     val enableDoubleTapForDialer: Boolean = true,

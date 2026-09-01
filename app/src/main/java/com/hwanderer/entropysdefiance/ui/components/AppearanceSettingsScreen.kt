@@ -26,6 +26,7 @@ fun AppearanceSettingsScreen(
     onBack: () -> Unit,
     onColorPaletteClick: () -> Unit,
     onToggleFullscreen: () -> Unit,
+    onWallpaperDimChange: (Float) -> Unit,
     modifier: Modifier = Modifier
 ) {
     Surface(
@@ -52,6 +53,18 @@ fun AppearanceSettingsScreen(
                     title = "Color Theme",
                     description = "Current theme: ${appSettings.colorTheme}",
                     onClick = onColorPaletteClick
+                )
+
+                SettingsSliderItem(
+                    title = "Wallpaper Dim",
+                    description = "How far the wallpaper is darkened behind the launcher",
+                    value = appSettings.wallpaperDim,
+                    onValueChange = onWallpaperDimChange,
+                    valueRange = 0f..0.95f,
+                    // 5% steps: fine enough to find a comfortable point, coarse enough that
+                    // the slider settles rather than drifting.
+                    steps = 18,
+                    valueText = "${(appSettings.wallpaperDim * 100).toInt()}%"
                 )
 
                 SettingsSwitchItem(

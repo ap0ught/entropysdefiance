@@ -224,6 +224,15 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     }
 
     /**
+     * Update how far the wallpaper is dimmed behind the launcher
+     */
+    fun updateWallpaperDim(dim: Float) {
+        viewModelScope.launch {
+            repository.updateWallpaperDim(dim)
+        }
+    }
+
+    /**
      * Toggle whether Zen Mode switches on Do Not Disturb
      */
     fun toggleDndInZenMode() {

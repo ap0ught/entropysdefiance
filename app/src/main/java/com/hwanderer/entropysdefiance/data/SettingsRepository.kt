@@ -51,6 +51,7 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
         val COLOR_THEME = stringPreferencesKey("color_theme")
         val LEFT_HANDED = booleanPreferencesKey("left_handed")
         val FULLSCREEN_MODE = booleanPreferencesKey("fullscreen_mode")
+        val WALLPAPER_DIM = floatPreferencesKey("wallpaper_dim")
         val ENABLE_AUTOMATIC_BACKUP = booleanPreferencesKey("enable_automatic_backup")
         val BACKUP_INTERVAL_HOURS = intPreferencesKey("backup_interval_hours")
         
@@ -94,6 +95,7 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
             val colorTheme = preferences[PreferencesKeys.COLOR_THEME] ?: "System"
             val leftHanded = preferences[PreferencesKeys.LEFT_HANDED] ?: false
             val fullscreenMode = preferences[PreferencesKeys.FULLSCREEN_MODE] ?: false
+            val wallpaperDim = preferences[PreferencesKeys.WALLPAPER_DIM] ?: 0.6f
             val enableDndInZenMode = preferences[PreferencesKeys.ENABLE_DND_IN_ZEN_MODE] ?: false
             val dndTotalSilence = preferences[PreferencesKeys.DND_TOTAL_SILENCE] ?: false
             val enableAutomaticBackup = preferences[PreferencesKeys.ENABLE_AUTOMATIC_BACKUP] ?: false
@@ -123,6 +125,7 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
                 colorTheme = colorTheme,
                 leftHanded = leftHanded,
                 fullscreenMode = fullscreenMode,
+                wallpaperDim = wallpaperDim,
                 hiddenApps = hiddenApps,
                 appRenames = appRenames,
                 enableDndInZenMode = enableDndInZenMode,
@@ -231,6 +234,19 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error saving fullscreenMode: ${e.message}", e)
+        }
+    }
+
+    /**
+     * Update how far the wallpaper is dimmed behind the launcher
+     */
+    suspend fun updateWallpaperDim(dim: Float) {
+        try {
+            dataStore.edit { preferences ->
+                preferences[PreferencesKeys.WALLPAPER_DIM] = dim.coerceIn(0f, 0.95f)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error saving wallpaperDim: ${e.message}", e)
         }
     }
 
@@ -363,6 +379,7 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
                 preferences[PreferencesKeys.COLOR_THEME] = settings.colorTheme
                 preferences[PreferencesKeys.LEFT_HANDED] = settings.leftHanded
                 preferences[PreferencesKeys.FULLSCREEN_MODE] = settings.fullscreenMode
+                preferences[PreferencesKeys.WALLPAPER_DIM] = settings.wallpaperDim
                 preferences[PreferencesKeys.ENABLE_AUTOMATIC_BACKUP] = settings.enableAutomaticBackup
                 preferences[PreferencesKeys.BACKUP_INTERVAL_HOURS] = settings.backupIntervalHours
                 preferences[PreferencesKeys.SELECTED_CALENDAR_IDS] = calendarIdStrings
