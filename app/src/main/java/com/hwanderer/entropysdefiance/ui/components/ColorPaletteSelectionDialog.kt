@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.dp
 import com.hwanderer.entropysdefiance.ui.theme.SYSTEM_COLOR_THEME
 import com.hwanderer.entropysdefiance.ui.theme.availableColorPalettes
 import com.hwanderer.entropysdefiance.ui.theme.parseHexColor
+import com.hwanderer.entropysdefiance.ui.theme.resolveColorPalette
 
 @OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 @Composable
@@ -112,7 +113,7 @@ private fun SystemColorOption(
 ) {
     val context = LocalContext.current
     // Preview the live system accent (Android 12+ derives this from the wallpaper).
-    val systemAccent = remember { dynamicDarkColorScheme(context).primary }
+    val systemAccent = remember { resolveColorPalette(SYSTEM_COLOR_THEME, context).primary }
 
     Surface(
         modifier = Modifier
