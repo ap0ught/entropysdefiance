@@ -93,7 +93,7 @@ class TaskFileRepository(private val context: Context) {
         try {
             val file = getTaskFile(filePath)
 
-            if (!file.exists()) {
+            if (!file.exists() || file.length() == 0L) {
                 file.parentFile?.mkdirs()
                 val emptyJson = json.encodeToString(TasksFileJson(version = 1, tasks = emptyList()))
                 file.writeText(emptyJson)
@@ -126,7 +126,9 @@ class TaskFileRepository(private val context: Context) {
                 // If a newly created SAF document is 0 bytes, initialize it with valid JSON
                 try {
                     val emptyJson = json.encodeToString(TasksFileJson(version = 1, tasks = emptyList()))
-                    context.contentResolver.openOutputStream(uri, "w")?.use { os ->
+                    val outputStream = context.contentResolver.openOutputStream(uri, "w")
+                        ?: return@withContext TaskReadResult.Failure
+                    outputStream.use { os ->
                         os.write(emptyJson.toByteArray(Charsets.UTF_8))
                     }
                     return@withContext TaskReadResult.Success(emptyList())
