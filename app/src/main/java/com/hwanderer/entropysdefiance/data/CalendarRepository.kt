@@ -13,6 +13,7 @@ import android.net.Uri
 import android.provider.CalendarContract
 import android.provider.CalendarContract.Instances
 import android.provider.CalendarContract.Calendars
+import android.util.Log
 import com.hwanderer.entropysdefiance.model.CalendarEvent
 import com.hwanderer.entropysdefiance.model.DeviceCalendar
 import java.time.Instant
@@ -72,38 +73,55 @@ class CalendarRepository(private val context: Context) {
     }
     
     /**
+     * Check whether a calendar provider (e.g. AOSP CalendarProvider) exists on this device.
+     * Minimal/custom ROM images may ship without one, in which case querying
+     * content://com.android.calendar logs "Failed to find provider info" from the framework.
+     */
+    private fun isCalendarProviderAvailable(): Boolean =
+        context.packageManager.resolveContentProvider(CalendarContract.AUTHORITY, 0) != null
+
+    /**
      * Fetch available calendars from the device
      */
     suspend fun getAvailableCalendars(): List<DeviceCalendar> = withContext(Dispatchers.IO) {
+        if (!isCalendarProviderAvailable()) {
+            Log.i("CalendarRepository", "No calendar provider on device, returning no calendars")
+            return@withContext emptyList()
+        }
+
         val calendars = mutableListOf<DeviceCalendar>()
         
-        context.contentResolver.query(
-            Calendars.CONTENT_URI,
-            CALENDAR_PROJECTION,
-            null,
-            null,
-            Calendars.CALENDAR_DISPLAY_NAME + " ASC"
-        )?.use { cursor ->
-            while (cursor.moveToNext()) {
-                val id = cursor.getLong(CALENDAR_ID_INDEX)
-                val name = cursor.getString(CALENDAR_NAME_INDEX) ?: "Unnamed Calendar"
-                val color = cursor.getInt(CALENDAR_COLOR_INDEX)
-                val account = cursor.getString(CALENDAR_ACCOUNT_INDEX) ?: ""
-                val owner = cursor.getString(CALENDAR_OWNER_INDEX) ?: ""
-                val visible = cursor.getInt(CALENDAR_VISIBLE_INDEX) == 1
-                
-                calendars.add(
-                    DeviceCalendar(
-                        id = id,
-                        name = name,
-                        color = color,
-                        account = account,
-                        owner = owner,
-                        visible = visible,
-                        selected = visible // Default selection based on calendar visibility
+        try {
+            context.contentResolver.query(
+                Calendars.CONTENT_URI,
+                CALENDAR_PROJECTION,
+                null,
+                null,
+                Calendars.CALENDAR_DISPLAY_NAME + " ASC"
+            )?.use { cursor ->
+                while (cursor.moveToNext()) {
+                    val id = cursor.getLong(CALENDAR_ID_INDEX)
+                    val name = cursor.getString(CALENDAR_NAME_INDEX) ?: "Unnamed Calendar"
+                    val color = cursor.getInt(CALENDAR_COLOR_INDEX)
+                    val account = cursor.getString(CALENDAR_ACCOUNT_INDEX) ?: ""
+                    val owner = cursor.getString(CALENDAR_OWNER_INDEX) ?: ""
+                    val visible = cursor.getInt(CALENDAR_VISIBLE_INDEX) == 1
+                    
+                    calendars.add(
+                        DeviceCalendar(
+                            id = id,
+                            name = name,
+                            color = color,
+                            account = account,
+                            owner = owner,
+                            visible = visible,
+                            selected = visible // Default selection based on calendar visibility
+                        )
                     )
-                )
+                }
             }
+        } catch (e: Exception) {
+            Log.e("CalendarRepository", "Failed to query calendars", e)
         }
         
         return@withContext calendars
@@ -121,7 +139,12 @@ class CalendarRepository(private val context: Context) {
     ): List<CalendarEvent> = withContext(Dispatchers.IO) {
         val now = System.currentTimeMillis()
         val end = now + (daysInFuture * 24 * 60 * 60 * 1000) // milliseconds in days
-        
+
+        if (!isCalendarProviderAvailable()) {
+            Log.i("CalendarRepository", "No calendar provider on device, returning no events")
+            return@withContext emptyList()
+        }
+
         val builder: Uri.Builder = Instances.CONTENT_URI.buildUpon()
         ContentUris.appendId(builder, now)
         ContentUris.appendId(builder, end)
@@ -142,17 +165,21 @@ class CalendarRepository(private val context: Context) {
             statusFilter
         }
         
-        context.contentResolver.query(
-            builder.build(),
-            EVENT_PROJECTION,
-            selection,
-            null,
-            Instances.BEGIN + " ASC"
-        )?.use { cursor ->
-            while (cursor.moveToNext()) {
-                val event = cursorToCalendarEvent(cursor)
-                events.add(event)
+        try {
+            context.contentResolver.query(
+                builder.build(),
+                EVENT_PROJECTION,
+                selection,
+                null,
+                Instances.BEGIN + " ASC"
+            )?.use { cursor ->
+                while (cursor.moveToNext()) {
+                    val event = cursorToCalendarEvent(cursor)
+                    events.add(event)
+                }
             }
+        } catch (e: Exception) {
+            Log.e("CalendarRepository", "Failed to query calendar events", e)
         }
         
         return@withContext events

@@ -196,11 +196,15 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
             addDataScheme("content")
             addDataAuthority("com.android.calendar", null)
         }
-        getApplication<Application>().registerReceiver(
-            calendarChangeReceiver, 
-            filter,
-            Context.RECEIVER_NOT_EXPORTED
-        )
+        try {
+            getApplication<Application>().registerReceiver(
+                calendarChangeReceiver, 
+                filter,
+                Context.RECEIVER_NOT_EXPORTED
+            )
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to register calendar change receiver", e)
+        }
     }
     
     /**

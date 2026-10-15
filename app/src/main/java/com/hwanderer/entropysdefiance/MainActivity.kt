@@ -58,6 +58,7 @@ import com.hwanderer.entropysdefiance.ui.components.safeTopInsets
 import com.hwanderer.entropysdefiance.viewmodel.TaskViewModel
 import com.hwanderer.entropysdefiance.viewmodel.LauncherViewModel
 import com.hwanderer.entropysdefiance.viewmodel.SettingsViewModel
+import com.hwanderer.entropysdefiance.utils.launchSafe
 import com.hwanderer.entropysdefiance.data.CalendarEventProvider
 import com.hwanderer.entropysdefiance.model.CalendarEvent
 import androidx.compose.ui.input.pointer.pointerInteropFilter
@@ -384,6 +385,15 @@ fun TaskApp(
                         if (tasksFile == null) {
                             // Create new tasks.json file
                             tasksFile = docTree.createFile("application/json", "tasks.json")
+                            if (tasksFile != null) {
+                                try {
+                                    context.contentResolver.openOutputStream(tasksFile.uri)?.use { os ->
+                                        os.write("""{"version":1,"tasks":[]}""".toByteArray(Charsets.UTF_8))
+                                    }
+                                } catch (e: Exception) {
+                                    Log.e("MainActivity", "Error initializing tasks.json content", e)
+                                }
+                            }
                         }
                         
                         if (tasksFile != null) {
@@ -442,7 +452,7 @@ fun TaskApp(
                     Manifest.permission.READ_CALENDAR
                 ) != PackageManager.PERMISSION_GRANTED
             ) {
-                calendarPermissionLauncher.launch(Manifest.permission.READ_CALENDAR)
+                calendarPermissionLauncher.launchSafe(Manifest.permission.READ_CALENDAR)
             } else {
                 calendarViewModel.initialize()
             }
@@ -715,7 +725,11 @@ fun TaskApp(
                     taskViewModel.updateFilePath(path)
                 },
                 onSetupFileSync = {
-                    folderPickerLauncher.launch(null)
+                    folderPickerLauncher.launchSafe(
+                        input = null,
+                        context = context,
+                        errorMessage = "No file manager or folder picker app found on this device."
+                    )
                 },
                 onSyncFromFile = {
                     taskViewModel.syncFromFile()
@@ -779,11 +793,19 @@ fun TaskApp(
                 appSettings = appSettings,
                 onBack = { settingsViewModel.hideBackupSettings() },
                 onExportClick = {
-                    exportCsvLauncher.launch("tasks_backup.csv")
+                    exportCsvLauncher.launchSafe(
+                        input = "tasks_backup.csv",
+                        context = context,
+                        errorMessage = "No document app available on this device to handle file creation."
+                    )
                 },
                 onImportClick = {
                     // OpenDocument accepts an array of MIME types
-                    importCsvLauncher.launch(arrayOf("text/csv", "text/comma-separated-values", "application/csv", "*/*"))
+                    importCsvLauncher.launchSafe(
+                        input = arrayOf("text/csv", "text/comma-separated-values", "application/csv", "*/*"),
+                        context = context,
+                        errorMessage = "No file manager or document picker app available on this device."
+                    )
                 }
             )
         }
@@ -1318,14 +1340,33 @@ fun TaskApp(
                     tutorialViewModel.dismissTutorial()
                     // Offer to become the default launcher right after onboarding.
                     if (!isAppDefaultLauncher(context)) {
-                        defaultLauncherRequest.launch(buildDefaultLauncherIntent(context))
+                        defaultLauncherRequest.launchSafe(buildDefaultLauncherIntent(context))
                     }
                 }
             )
         } else if (settingsLoaded && appSettings.tutorialCompleted && appSettings.taskFilePath.isEmpty()) {
             StorageSetupScreen(
                 primaryColor = MaterialTheme.colorScheme.primary,
-                onChooseFolder = { folderPickerLauncher.launch(null) }
+                onChooseFolder = {
+                    folderPickerLauncher.launchSafe(
+                        input = null,
+                        context = context,
+                        errorMessage = "No folder picker available on this device. Defaulting to internal storage.",
+                        onActivityNotFound = {
+                            // Fallback: create default tasks.json in app's internal files directory so onboarding can complete
+                            val defaultFile = java.io.File(context.filesDir, "tasks.json")
+                            if (!defaultFile.exists()) {
+                                try {
+                                    defaultFile.parentFile?.mkdirs()
+                                    defaultFile.writeText("""{"version":1,"tasks":[]}""")
+                                } catch (e: Exception) {
+                                    Log.e("MainActivity", "Error initializing fallback tasks file: ${e.message}", e)
+                                }
+                            }
+                            taskViewModel.updateFilePath(defaultFile.absolutePath)
+                        }
+                    )
+                }
             )
         }
     }

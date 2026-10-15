@@ -25,10 +25,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.hwanderer.entropysdefiance.model.CalendarEvent
 import com.hwanderer.entropysdefiance.ui.components.CalendarAgendaWidget
 import com.hwanderer.entropysdefiance.ui.components.PermissionRequest
+import com.hwanderer.entropysdefiance.utils.launchSafe
 import com.hwanderer.entropysdefiance.viewmodel.CalendarViewModel
 import kotlinx.coroutines.launch
 
@@ -74,12 +76,17 @@ fun CalendarScreen(
         ) {
             when {
                 !hasPermission -> {
+                    val context = LocalContext.current
                     // Show permission request
                     PermissionRequest(
                         title = "Calendar Permission Required",
                         rationale = "We need access to your calendar to display upcoming events.",
                         onRequestPermission = {
-                            permissionLauncher.launch(Manifest.permission.READ_CALENDAR)
+                            permissionLauncher.launchSafe(
+                                input = Manifest.permission.READ_CALENDAR,
+                                context = context,
+                                errorMessage = "Could not request calendar permission."
+                            )
                         },
                         settingsIntent = viewModel.getAppSettingsIntent()
                     )

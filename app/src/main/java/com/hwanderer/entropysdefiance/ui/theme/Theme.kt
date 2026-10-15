@@ -7,6 +7,7 @@
 package com.hwanderer.entropysdefiance.ui.theme
 
 import android.content.Context
+import android.os.Build
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.dynamicDarkColorScheme
@@ -99,7 +100,11 @@ fun parseHexColor(hex: String): Color? = try {
  */
 fun resolveColorPalette(theme: String, context: Context): ColorPalette = when {
     theme == SYSTEM_COLOR_THEME ->
-        paletteFromSeed(dynamicDarkColorScheme(context).primary, SYSTEM_COLOR_THEME)
+        if (Build.VERSION.SDK_INT >= 31) {
+            paletteFromSeed(dynamicDarkColorScheme(context).primary, SYSTEM_COLOR_THEME)
+        } else {
+            GreenPalette
+        }
     theme.startsWith("#") ->
         parseHexColor(theme)?.let { paletteFromSeed(it, theme) } ?: GreenPalette
     else ->

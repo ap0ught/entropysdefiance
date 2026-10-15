@@ -80,7 +80,12 @@ fun PermissionRequest(
                 
                 Button(
                     onClick = { 
-                        startActivity(context, settingsIntent, null)
+                        try {
+                            startActivity(context, settingsIntent, null)
+                        } catch (e: Exception) {
+                            android.util.Log.e("PermissionRequest", "Failed to open settings: ${e.message}", e)
+                            android.widget.Toast.makeText(context, "Could not open settings on this device.", android.widget.Toast.LENGTH_SHORT).show()
+                        }
                     },
                     modifier = Modifier.fillMaxWidth()
                 ) {

@@ -10,7 +10,9 @@ import android.app.role.RoleManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.os.Build
 import android.provider.Settings
+import androidx.annotation.RequiresApi
 
 /**
  * True if this app is currently the system's default home (launcher). Resolving the
@@ -31,12 +33,22 @@ fun isAppDefaultLauncher(context: Context): Boolean {
  * OEMs/situations where the role isn't available or is already held.
  */
 fun buildDefaultLauncherIntent(context: Context): Intent {
-    val roleManager = context.getSystemService(Context.ROLE_SERVICE) as? RoleManager
-    if (roleManager != null &&
-        roleManager.isRoleAvailable(RoleManager.ROLE_HOME) &&
-        !roleManager.isRoleHeld(RoleManager.ROLE_HOME)
-    ) {
-        return roleManager.createRequestRoleIntent(RoleManager.ROLE_HOME)
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+        RoleManagerApi29.buildRoleIntent(context)?.let { return it }
     }
     return Intent(Settings.ACTION_HOME_SETTINGS)
+}
+
+@RequiresApi(Build.VERSION_CODES.Q)
+private object RoleManagerApi29 {
+    fun buildRoleIntent(context: Context): Intent? {
+        val roleManager = context.getSystemService(Context.ROLE_SERVICE) as? RoleManager
+        if (roleManager != null &&
+            roleManager.isRoleAvailable(RoleManager.ROLE_HOME) &&
+            !roleManager.isRoleHeld(RoleManager.ROLE_HOME)
+        ) {
+            return roleManager.createRequestRoleIntent(RoleManager.ROLE_HOME)
+        }
+        return null
+    }
 }

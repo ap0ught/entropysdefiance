@@ -15,6 +15,7 @@ import android.os.Build
 import android.provider.Settings
 import com.hwanderer.entropysdefiance.utils.buildDefaultLauncherIntent
 import com.hwanderer.entropysdefiance.utils.isAppDefaultLauncher
+import com.hwanderer.entropysdefiance.utils.launchSafe
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
@@ -140,7 +141,11 @@ fun PermissionsSettingsScreen(
                     isGranted = isDefaultLauncher,
                     buttonLabel = "Set as Default Launcher",
                     onRequestPermission = {
-                        defaultLauncherResult.launch(buildDefaultLauncherIntent(context))
+                        defaultLauncherResult.launchSafe(
+                            input = buildDefaultLauncherIntent(context),
+                            context = context,
+                            errorMessage = "Could not open default launcher settings on this device."
+                        )
                     }
                 )
 
@@ -150,7 +155,11 @@ fun PermissionsSettingsScreen(
                     description = "Read calendar events for free time calculation and agenda display",
                     isGranted = calendarPermissionGranted,
                     onRequestPermission = {
-                        calendarPermissionLauncher.launch(Manifest.permission.READ_CALENDAR)
+                        calendarPermissionLauncher.launchSafe(
+                            input = Manifest.permission.READ_CALENDAR,
+                            context = context,
+                            errorMessage = "Could not request calendar permission."
+                        )
                     }
                 )
 
@@ -162,7 +171,11 @@ fun PermissionsSettingsScreen(
                     isGranted = dndAccessGranted,
                     buttonLabel = "Grant Do Not Disturb Access",
                     onRequestPermission = {
-                        dndAccessResult.launch(zenModeManager.dndAccessSettingsIntent())
+                        dndAccessResult.launchSafe(
+                            input = zenModeManager.dndAccessSettingsIntent(),
+                            context = context,
+                            errorMessage = "Could not open Do Not Disturb settings on this device."
+                        )
                     }
                 )
             }

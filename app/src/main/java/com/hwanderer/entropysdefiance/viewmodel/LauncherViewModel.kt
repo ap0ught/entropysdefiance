@@ -118,7 +118,15 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
 
     private fun loadPinnedShortcuts(context: Context): List<AppInfo> {
         return try {
-            val launcherApps = context.getSystemService(Context.LAUNCHER_APPS_SERVICE) as LauncherApps
+            val launcherApps = context.getSystemService(Context.LAUNCHER_APPS_SERVICE) as? LauncherApps ?: return emptyList()
+            val hasPermission = try {
+                launcherApps.hasShortcutHostPermission()
+            } catch (e: Exception) {
+                false
+            }
+            if (!hasPermission) {
+                return emptyList()
+            }
             val query = LauncherApps.ShortcutQuery().apply {
                 setQueryFlags(LauncherApps.ShortcutQuery.FLAG_MATCH_PINNED)
             }
@@ -132,6 +140,9 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
                     shortcutId = shortcut.id
                 )
             } ?: emptyList()
+        } catch (e: SecurityException) {
+            android.util.Log.d("LauncherViewModel", "Cannot access shortcuts (not default launcher or permission denied): ${e.message}")
+            emptyList()
         } catch (e: Exception) {
             android.util.Log.e("LauncherViewModel", "Failed to load pinned shortcuts: ${e.message}", e)
             emptyList()
@@ -147,11 +158,22 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
 
         if (shortcutId != null) {
             // Launch pinned shortcut (PWA / website shortcut)
-            val launcherApps = context.getSystemService(Context.LAUNCHER_APPS_SERVICE) as LauncherApps
+            val launcherApps = context.getSystemService(Context.LAUNCHER_APPS_SERVICE) as? LauncherApps
+            val hasPermission = try {
+                launcherApps?.hasShortcutHostPermission() == true
+            } catch (e: Exception) {
+                false
+            }
+            if (!hasPermission) {
+                android.util.Log.w("LauncherViewModel", "Cannot launch shortcut: app lacks shortcut host permission")
+                return
+            }
             try {
-                launcherApps.startShortcut(packageName, shortcutId, null, null, Process.myUserHandle())
+                launcherApps?.startShortcut(packageName, shortcutId, null, null, Process.myUserHandle())
                 val key = "shortcut:$packageName:$shortcutId"
                 appUsagePrefs.edit().putInt(key, appUsagePrefs.getInt(key, 0) + 1).apply()
+            } catch (e: SecurityException) {
+                android.util.Log.w("LauncherViewModel", "SecurityException launching shortcut: ${e.message}")
             } catch (e: Exception) {
                 android.util.Log.e("LauncherViewModel", "Failed to launch shortcut: ${e.message}", e)
             }

@@ -59,7 +59,11 @@ class ZenModeManager(private val context: Context) {
                 putExtra(DevicePolicyManager.EXTRA_ADD_EXPLANATION, 
                     "This allows Zen Mode to lock your phone to help you focus on one task at a time.")
             }
-            launcher.launch(intent)
+            launcher.launchSafe(
+                input = intent,
+                context = activity,
+                errorMessage = "Device admin settings not supported on this device."
+            )
         }
     }
     

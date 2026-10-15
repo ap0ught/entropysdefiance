@@ -94,8 +94,10 @@ class TaskFileRepository(private val context: Context) {
             val file = getTaskFile(filePath)
 
             if (!file.exists()) {
-                Log.w(TAG, "Tasks file does not exist: ${file.absolutePath}")
-                return@withContext TaskReadResult.Failure
+                file.parentFile?.mkdirs()
+                val emptyJson = json.encodeToString(TasksFileJson(version = 1, tasks = emptyList()))
+                file.writeText(emptyJson)
+                Log.d(TAG, "Initialized new tasks file at ${file.absolutePath}")
             }
 
             parseTasks(file.readText(), file.absolutePath)
@@ -120,6 +122,18 @@ class TaskFileRepository(private val context: Context) {
             }
 
             val jsonString = inputStream.use { it.bufferedReader().readText() }
+            if (jsonString.isBlank()) {
+                // If a newly created SAF document is 0 bytes, initialize it with valid JSON
+                try {
+                    val emptyJson = json.encodeToString(TasksFileJson(version = 1, tasks = emptyList()))
+                    context.contentResolver.openOutputStream(uri, "w")?.use { os ->
+                        os.write(emptyJson.toByteArray(Charsets.UTF_8))
+                    }
+                    return@withContext TaskReadResult.Success(emptyList())
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error initializing blank URI file: ${e.message}", e)
+                }
+            }
             parseTasks(jsonString, uri.toString())
         } catch (e: Exception) {
             Log.e(TAG, "Error reading tasks from URI: ${e.message}", e)

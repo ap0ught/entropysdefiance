@@ -11,7 +11,7 @@ android {
 
     defaultConfig {
         applicationId = "com.hwanderer.entropysdefiance"
-        minSdk = 33
+        minSdk = 27
         targetSdk = 35
         versionCode = 8
         versionName = "3.4.0"

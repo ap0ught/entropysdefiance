@@ -14,12 +14,18 @@ import android.widget.Toast
 class ConfirmPinShortcutActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val launcherApps = getSystemService(LAUNCHER_APPS_SERVICE) as LauncherApps
-        val request = launcherApps.getPinItemRequest(intent)
-        if (request != null && request.requestType == LauncherApps.PinItemRequest.REQUEST_TYPE_SHORTCUT) {
-            if (request.accept()) {
-                Toast.makeText(this, "Shortcut added to app drawer", Toast.LENGTH_SHORT).show()
+        try {
+            val launcherApps = getSystemService(LAUNCHER_APPS_SERVICE) as? LauncherApps
+            val request = launcherApps?.getPinItemRequest(intent)
+            if (request != null && request.requestType == LauncherApps.PinItemRequest.REQUEST_TYPE_SHORTCUT) {
+                if (request.accept()) {
+                    Toast.makeText(this, "Shortcut added to app drawer", Toast.LENGTH_SHORT).show()
+                }
             }
+        } catch (e: SecurityException) {
+            android.util.Log.d("ConfirmPinShortcutActivity", "Cannot accept pin shortcut (not default launcher): ${e.message}")
+        } catch (e: Exception) {
+            android.util.Log.e("ConfirmPinShortcutActivity", "Error accepting pin shortcut request: ${e.message}", e)
         }
         finish()
     }
